@@ -435,7 +435,7 @@ async function loadPage(page) {
     if (currentFile) linkifyLineRefs(el);
     updateCodePane();
     document.getElementById('crumb').textContent = meta.title || page;
-    document.title = (meta.title || page) + ' — Wiki learn-claude-code';
+    document.title = (meta.title || page) + ' — ' + (MANIFEST.title || 'Wiki');
     document.getElementById('content-scroll').scrollTop = 0;
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.page === page));
   } catch (e) {
@@ -481,12 +481,17 @@ function showGraph() {
   const legend = document.getElementById('graph-legend');
   const phaseColors = {};
   GRAPH.nodes.forEach(n => phaseColors[n.phase] = n.color);
+  const edgeLabels = {
+    progression: ['━━', '#6c7086', 'progression'],
+    thematique: ['╌╌', '#f5c2e7', 'lien thématique'],
+    integre: ['┈┈', '#45475a', 'intégré dans le capstone'],
+    imports: ['┄┄', '#94e2d5', 'importe le socle']
+  };
+  const edgeTypes = [...new Set(GRAPH.edges.map(e => e.type))];
   legend.innerHTML = Object.entries(phaseColors).map(([p, c]) =>
     `<div><span class="phase-dot" style="background:${c}"></span>${p}</div>`).join('') +
-    `<div style="margin-top:6px"><span style="color:#6c7086">━━</span> progression</div>` +
-    `<div><span style="color:#f5c2e7">╌╌</span> lien thématique</div>` +
-    `<div><span style="color:#45475a">┈┈</span> intégré dans s20</div>` +
-    `<div><span style="color:#94e2d5">┄┄</span> importe shared.py</div>` +
+    edgeTypes.filter(t => edgeLabels[t]).map((t, i) =>
+      `<div${i === 0 ? ' style="margin-top:6px"' : ''}><span style="color:${edgeLabels[t][1]}">${edgeLabels[t][0]}</span> ${edgeLabels[t][2]}</div>`).join('') +
     `<div style="margin-top:6px;color:#9399b2">clic = ouvrir la page</div>`;
 }
 

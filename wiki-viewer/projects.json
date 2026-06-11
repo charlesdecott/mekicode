@@ -2,6 +2,8 @@
   "default": "learn",
   "projects": [
     { "id": "learn", "name": "learn-claude-code (inspiration)", "dir": "wiki" },
-    { "id": "src", "name": "src/ (mekicode)", "dir": "wiki-src" }
+    { "id": "ccfs", "name": "claude-code-from-scratch (inspiration)", "dir": "wiki-ccfs" },
+    { "id": "src", "name": "src/ (mekicode)", "dir": "wiki-src" },
+    { "id": "scratch", "name": "src_scratch/ (mekicode)", "dir": "wiki-src-scratch" }
   ]
 }

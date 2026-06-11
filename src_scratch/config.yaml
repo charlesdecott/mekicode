@@ -1,0 +1,70 @@
+# config.yaml — configuration du harness src_scratch
+# Lu par core.load_config() (chemin : ROOT/config.yaml — FIX(mekicode) : la source
+# cherchait son permissions.yaml hors du repo et tournait sans aucune règle).
+
+# Gouvernance trois tiers (s15) — motifs regex Python testés (insensible à la
+# casse) contre la chaîne d'arguments de l'outil.
+# Ordre d'évaluation : always_deny → always_allow → ask_user → allow par défaut.
+permissions:
+  always_deny:
+    - pattern: "rm -rf /"
+      reason: "Suppression récursive de la racine bloquée"
+    - pattern: "sudo"
+      reason: "Élévation de privilèges bloquée"
+    - pattern: "shutdown|reboot|halt"
+      reason: "Commandes d'alimentation système bloquées"
+    - pattern: "> /dev/"
+      reason: "Écriture sur les fichiers de périphérique bloquée"
+    - pattern: ":\\(\\)\\{ :|:& \\};:"
+      reason: "Fork bomb bloquée"
+    - pattern: "curl.*\\| *sh|wget.*\\| *sh"
+      reason: "Téléchargement pipé vers un shell bloqué"
+
+  always_allow:
+    # FIX(mekicode) : la source avait "^ls( |$|$)" — alternative $ dupliquée.
+    - pattern: "^ls( |$)"
+      reason: "Lister un répertoire est toujours sûr"
+    - pattern: "^cat "
+      reason: "Lire un fichier est toujours sûr"
+    - pattern: "^echo "
+      reason: "Echo est toujours sûr"
+    - pattern: "^pwd$"
+      reason: "Afficher le répertoire courant est toujours sûr"
+    - pattern: "^git (status|log|diff|show|branch|tag)"
+      reason: "Les commandes git en lecture seule sont toujours sûres"
+    - pattern: "^grep "
+      reason: "Grep est toujours sûr"
+    - pattern: "^find "
+      reason: "Find est toujours sûr"
+    - pattern: "^head |^tail |^wc "
+      reason: "L'inspection de texte est toujours sûre"
+
+  ask_user:
+    - pattern: "^rm "
+      reason: "La suppression de fichiers demande confirmation"
+    - pattern: "^pip install|^npm install|^yarn add"
+      reason: "L'installation de paquets demande confirmation"
+    - pattern: "^git (commit|push|merge|rebase|reset)"
+      reason: "Les opérations git en écriture demandent confirmation"
+    - pattern: "^mv "
+      reason: "Déplacer des fichiers demande confirmation"
+    - pattern: "^chmod|^chown"
+      reason: "Les changements de permissions demandent confirmation"
+    - pattern: "^kill |^pkill "
+      reason: "Tuer des processus demande confirmation"
+    - pattern: "\\.env"
+      reason: "L'accès aux fichiers .env demande confirmation"
+
+# Serveurs MCP (s21) — consommés par mcp_runtime.start_mcp().
+# Chaque serveur stdio : name, transport, command, args.
+mcp:
+  servers: []
+  # Exemples (décommenter et déplacer sous `servers:`) :
+  #   - name: filesystem
+  #     transport: stdio
+  #     command: npx
+  #     args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+  #   - name: git
+  #     transport: stdio
+  #     command: uvx
+  #     args: ["mcp-server-git"]

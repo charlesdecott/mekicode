@@ -1,0 +1,188 @@
+{
+  "title": "Wiki claude-code-from-scratch",
+  "home": "Accueil",
+  "phases": [
+    "Socle",
+    "Boucle d'agent",
+    "Connaissance & contexte",
+    "Async & multi-agents",
+    "Durcissement production",
+    "Runtime async",
+    "Entreprise"
+  ],
+  "pages": [
+    {
+      "page": "Accueil",
+      "title": "Accueil",
+      "phase": "Accueil"
+    },
+    {
+      "page": "core-py",
+      "title": "core.py · Le socle commun",
+      "phase": "Socle",
+      "lignes": 626,
+      "summary": "Socle commun : client, outils, dispatch, boucle stream"
+    },
+    {
+      "page": "s01-perception-action-loop",
+      "title": "s01 · La boucle perception-action",
+      "phase": "Boucle d'agent",
+      "lignes": 149,
+      "summary": "Le while True perception-action, primitif du repo"
+    },
+    {
+      "page": "s02-tool-use",
+      "title": "s02 · Tool use et dispatch",
+      "phase": "Boucle d'agent",
+      "lignes": 96,
+      "summary": "Six outils branchés sur stream_loop via le dispatch"
+    },
+    {
+      "page": "s03-todo-write",
+      "title": "s03 · TodoWrite",
+      "phase": "Boucle d'agent",
+      "lignes": 241,
+      "summary": "Plan JSON persistant : Think, Plan, Act"
+    },
+    {
+      "page": "s04-subagent",
+      "title": "s04 · Subagent",
+      "phase": "Boucle d'agent",
+      "lignes": 190,
+      "summary": "spawn_subagent : boucle isolée dans un handler"
+    },
+    {
+      "page": "s05-skill-loading",
+      "title": "s05 · Skill Loading",
+      "phase": "Connaissance & contexte",
+      "lignes": 234,
+      "summary": "Index léger + load_skill : savoir à la demande"
+    },
+    {
+      "page": "s06-context-compact",
+      "title": "s06 · Context Compact",
+      "phase": "Connaissance & contexte",
+      "lignes": 252,
+      "summary": "Résumé LLM + mémoire disque au débordement"
+    },
+    {
+      "page": "s07-task-system",
+      "title": "s07 · Système de tâches",
+      "phase": "Connaissance & contexte",
+      "lignes": 313,
+      "summary": "Graphe de tâches persistant avec dépendances"
+    },
+    {
+      "page": "s08-background-tasks",
+      "title": "s08 · Tâches en arrière-plan",
+      "phase": "Async & multi-agents",
+      "lignes": 236,
+      "summary": "Threads daemon + notifications au tour suivant"
+    },
+    {
+      "page": "s09-agent-teams",
+      "title": "s09 · Agent Teams",
+      "phase": "Async & multi-agents",
+      "lignes": 317,
+      "summary": "Équipiers persistants, mailboxes JSONL"
+    },
+    {
+      "page": "s10-team-protocols",
+      "title": "s10 · Team Protocols",
+      "phase": "Async & multi-agents",
+      "lignes": 316,
+      "summary": "FSM 4 états et verrous pour le dialogue"
+    },
+    {
+      "page": "s11-autonomous-agents",
+      "title": "s11 · Agents autonomes",
+      "phase": "Async & multi-agents",
+      "lignes": 355,
+      "summary": "Claim atomique sur un board JSON partagé"
+    },
+    {
+      "page": "s12-worktree-task-isolation",
+      "title": "s12 · Isolation par worktree",
+      "phase": "Async & multi-agents",
+      "lignes": 276,
+      "summary": "Un worktree git jetable par tâche"
+    },
+    {
+      "page": "s13-streaming",
+      "title": "s13 · Streaming",
+      "phase": "Durcissement production",
+      "lignes": 140,
+      "summary": "Tokens en temps réel via messages.stream"
+    },
+    {
+      "page": "s14-tools-extended",
+      "title": "s14 · Outils étendus",
+      "phase": "Durcissement production",
+      "lignes": 110,
+      "summary": "Arsenal complet : snapshots et revert"
+    },
+    {
+      "page": "s15-permissions",
+      "title": "s15 · Permissions YAML",
+      "phase": "Durcissement production",
+      "lignes": 169,
+      "summary": "Dispatch gardé par YAML deny/allow/ask"
+    },
+    {
+      "page": "s16-event-bus",
+      "title": "s16 · Event Bus & hooks",
+      "phase": "Durcissement production",
+      "lignes": 301,
+      "summary": "Bus pub/sub : 6 événements, hooks et veto"
+    },
+    {
+      "page": "s17-session-management",
+      "title": "s17 · Gestion de sessions",
+      "phase": "Durcissement production",
+      "lignes": 301,
+      "summary": "Sessions JSON : resume, fork, auto-save"
+    },
+    {
+      "page": "s18-parallel-tools",
+      "title": "s18 · Outils en parallèle",
+      "phase": "Runtime async",
+      "lignes": 266,
+      "summary": "asyncio.gather : tous les tool_use ensemble"
+    },
+    {
+      "page": "s19-interrupts",
+      "title": "s19 · Interruptions temps réel",
+      "phase": "Runtime async",
+      "lignes": 239,
+      "summary": "Ctrl+C devient message [INTERRUPT]"
+    },
+    {
+      "page": "s20-cache-optimization",
+      "title": "s20 · Optimisation du cache",
+      "phase": "Runtime async",
+      "lignes": 266,
+      "summary": "cache_control : préfixe caché, HIT/MISS"
+    },
+    {
+      "page": "s21-mcp-runtime",
+      "title": "s21 · Runtime MCP",
+      "phase": "Runtime async",
+      "lignes": 344,
+      "summary": "Serveurs MCP stdio routés mcp__srv__tool"
+    },
+    {
+      "page": "s22-production-mailbox",
+      "title": "s22 · Mailbox de production",
+      "phase": "Entreprise",
+      "lignes": 370,
+      "summary": "Redis pub/sub remplace les JSONL de s09"
+    },
+    {
+      "page": "s23-worktree-advanced",
+      "title": "s23 · Worktrees avancés",
+      "phase": "Entreprise",
+      "lignes": 467,
+      "summary": "Cycle de vie complet des worktrees"
+    }
+  ]
+}
