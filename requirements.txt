@@ -1,0 +1,5 @@
+# mekicode — agent harness
+# Installer : pip install -r requirements.txt
+
+anthropic>=0.40.0          # SDK Anthropic — client, streaming, tool use
+python-dotenv>=1.0.0       # chargement du .env
