@@ -19,7 +19,7 @@ handlers du pool sont appelés directement, comme le ferait agent_loop.
 """
 
 import json
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 from shared import (BUILTIN_TOOLS, MCPClient, assemble_system_prompt,
                     assemble_tool_pool, connect_mcp, mcp_clients,
                     normalize_mcp_name, update_context)

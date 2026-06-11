@@ -2,7 +2,7 @@
 title: "s04 · Les hooks"
 session: 04
 phase: "Fondamentaux"
-fichier: "src/s04.py"
+fichier: "src/sessions/s04.py"
 lignes: 112
 tags: [hooks, pre-tool-use, post-tool-use, stop]
 prev: "s03-permission"
@@ -96,7 +96,7 @@ déclenché entre la saisie et l'entrée du message dans l'historique — `share
 ## Lancer la démo
 
 ```
-python src/s04.py
+python src/sessions/s04.py
 ```
 
 Au lancement, le registre complet s'affiche (5 hooks de shared + 2 de la session). À chaque question : la trace `[HOOK] UserPromptSubmit` (déclenchée par le REPL), puis `[HOOK] <outil>` avant chaque exécution (`log_hook`), et en fin de tour les lignes `[HOOK] Stop: N tool result(s)` (shared) puis `[HOOK] bilan outils : bash x2, ...` (notre hook). Demander une tâche bloquée (« lance sudo ls ») montre le court-circuit : refusé par `permission_hook`, l'appel n'est ni loggé ni compté. `q` pour quitter.

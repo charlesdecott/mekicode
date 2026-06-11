@@ -2,7 +2,7 @@
 title: "s02 · Tool use et dispatch"
 session: 02
 phase: "Fondamentaux"
-fichier: "src/s02.py"
+fichier: "src/sessions/s02.py"
 lignes: 61
 tags: [tool-use, dispatch, pool-fige]
 prev: "s01-agent-loop"
@@ -80,7 +80,7 @@ Le REPL : prompt `s02 >> ` (ligne 40), bannière listant le pool figé (lignes 4
 ## Lancer la démo
 
 ```
-python src/s02.py
+python src/sessions/s02.py
 ```
 
 On observe : la bannière annonce le pool figé de 3 outils ; à chaque appel d'outil, la trace `[HOOK] <nom>` (le `log_hook` de shared) puis le nom en cyan et l'aperçu de sortie imprimés par `agent_loop`. Demander par exemple « liste les fichiers du dossier puis écris un résumé dans resume.txt » enchaîne bash → write_file dans le même tour. `q` pour quitter.

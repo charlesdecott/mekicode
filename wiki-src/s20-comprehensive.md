@@ -2,7 +2,7 @@
 title: "s20 · Agent complet"
 session: 20
 phase: "Intégration & synthèse"
-fichier: "src/s20.py"
+fichier: "src/sessions/s20.py"
 lignes: 96
 tags: [synthese, cli, repl, orchestration, cron-autorun]
 prev: "s19-mcp-plugin"
@@ -86,7 +86,7 @@ Tout le harness — ce fichier n'orchestre que des appels :
 ## Lancer la démo
 
 ```
-python src/s20.py
+python src/sessions/s20.py
 ```
 
 C'est la seule démo de s16–s20 qui appelle réellement le modèle : il faut `MODEL_ID` (et une clé API valide) dans `.env`. On obtient le REPL `>>` ; chaque saisie traverse hooks, compaction, mémoire, skills et le pool complet d'outils. À essayer : `crée une tâche puis spawne un teammate alice pour la faire` (l'inbox `[Inbox]` apparaît après le tour), `connecte le serveur MCP docs puis cherche "agent loop"`, ou `planifie un rappel cron dans 2 minutes` puis ne rien taper — le thread `cron_autorun_loop` lancera le tour tout seul, et `terminal_print` redessinera la ligne de saisie.

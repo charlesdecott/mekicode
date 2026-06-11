@@ -2,7 +2,7 @@
 title: "s10 · System Prompt"
 session: 10
 phase: "Contexte & mémoire"
-fichier: "src/s10.py"
+fichier: "src/sessions/s10.py"
 lignes: 111
 tags: [system-prompt, assemblage, sections, cache]
 prev: "s09-memory"
@@ -99,10 +99,10 @@ Tout est importé explicitement (`from shared import (...)`) — le fichier ne r
 ## Lancer la démo
 
 ```
-python src/s10.py
+python src/sessions/s10.py
 ```
 
-`:fige` deux fois de suite : `[assemblé] sections : identity, tools, workspace` puis `[cache hit]`. `:vivant` deux fois : deux prompts différents (l'horloge). En texte libre, poser une question, puis créer une mémoire (`python src/s09.py` + `:seed`, ou écrire `.memory/MEMORY.md` à la main) et reposer une question : `[assemblé] sections : identity, tools, workspace, memory` — la section mémoire est apparue parce que l'état réel a changé, pas parce qu'on a parlé de mémoire.
+`:fige` deux fois de suite : `[assemblé] sections : identity, tools, workspace` puis `[cache hit]`. `:vivant` deux fois : deux prompts différents (l'horloge). En texte libre, poser une question, puis créer une mémoire (`python src/sessions/s09.py` + `:seed`, ou écrire `.memory/MEMORY.md` à la main) et reposer une question : `[assemblé] sections : identity, tools, workspace, memory` — la section mémoire est apparue parce que l'état réel a changé, pas parce qu'on a parlé de mémoire.
 
 ## Liens
 

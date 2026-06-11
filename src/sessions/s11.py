@@ -13,9 +13,9 @@ L'original recopiait 366 lignes (outils, prompt, REPL) ; ici tout vient de
 shared.py et le fichier ne garde que le câblage : une mini-boucle à 3 outils
 où l'appel LLM nu passe par les trois chemins de récupération de s11.
 Commandes hors-ligne : `backoff` (table des délais) et `detect`
-(classification d'erreurs). Lancement : python src/s11.py
+(classification d'erreurs). Lancement : python src/sessions/s11.py
 """
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 from shared import (
     BASE_DELAY_MS, BUILTIN_HANDLERS, BUILTIN_TOOLS, DEFAULT_MAX_TOKENS,
     ESCALATED_MAX_TOKENS, MAX_RETRIES, PROMPT, RecoveryState, WORKDIR,

@@ -2,7 +2,7 @@
 title: "s08 · Context Compact"
 session: 08
 phase: "Contexte & mémoire"
-fichier: "src/s08.py"
+fichier: "src/sessions/s08.py"
 lignes: 129
 tags: [compaction, contexte, pipeline, seuils, resume-llm]
 prev: "s07-skill-loading"
@@ -94,7 +94,7 @@ Boucle interactive (`q` pour quitter) à cinq chemins :
 ## Lancer la démo
 
 ```
-python src/s08.py
+python src/sessions/s08.py
 ```
 
 `:sec` montre la cascade des tailles (et crée réellement un fichier sous `.task_outputs/tool-results/`). Puis en texte libre, faire lire deux ou trois fichiers : `:taille` montre l'historique gonfler, et dès 6 000 caractères le tour suivant affiche `[compact] transcript saved: ...` — l'historique est devenu un seul message `[Compacted]`. `:reactive` montre la variante d'urgence qui garde les derniers messages bruts.

@@ -2,7 +2,7 @@
 title: "s09 · Mémoire persistante"
 session: 09
 phase: "Contexte & mémoire"
-fichier: "src/s09.py"
+fichier: "src/sessions/s09.py"
 lignes: 113
 tags: [memoire, frontmatter, index, extraction, consolidation]
 prev: "s08-context-compact"
@@ -90,7 +90,7 @@ Tout est importé explicitement (`from shared import (...)`) — le fichier ne r
 ## Lancer la démo
 
 ```
-python src/s09.py
+python src/sessions/s09.py
 ```
 
 `:seed` puis `:index` montrent le magasin et son index. Poser une question contenant « français » ou « mekicode » : la ligne jaune `[mémoire] N fichier(s) injecté(s) dans le tour` confirme la sélection (LLM ou repli mots-clés). Dire « retiens que je préfère les tests avant le code » : après la réponse, `[Memory: extracted N new memories]` apparaît et `:fichiers` montre le nouveau fichier. Au-delà de 10 fichiers, la consolidation se déclenche en fin de tour.

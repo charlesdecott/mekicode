@@ -15,7 +15,7 @@ se déclenche vite, et une démo « à sec » (:sec, 0 appel API) qui rejoue les
 couches structurelles sur un historique synthétique en montrant la taille
 après chaque couche.
 """
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 import shared  # gardé : ce fichier rebinde les seuils shared.CONTEXT_LIMIT & co
 from shared import (BUILTIN_HANDLERS, BUILTIN_TOOLS, PROMPT,
                     TOOL_RESULTS_DIR, WORKDIR, agent_loop, compact_history,

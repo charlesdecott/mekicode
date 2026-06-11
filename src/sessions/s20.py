@@ -20,12 +20,12 @@ est le bloc __main__ original (lignes 2088–2123), volontairement non porté
 dans la bibliothèque : le REPL à double entrée reconstruit ici, plus le
 helper local inbox_label (défini inline dans le __main__ original).
 
-Lancement : python src/s20.py (exige MODEL_ID dans .env — c'est la seule
+Lancement : python src/sessions/s20.py (exige MODEL_ID dans .env — c'est la seule
 démo de s16–s20 qui appelle réellement le modèle).
 """
 
 import threading
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 import shared  # gardé : main() rebinde shared.CLI_ACTIVE
 from shared import (PROMPT, agent_lock, agent_loop, consume_lead_inbox,
                     cron_autorun_loop, print_turn_assistants, trigger_hooks,

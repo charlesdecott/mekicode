@@ -17,7 +17,7 @@ délta : une démo qui pilote le cycle de vie À LA MAIN, sans appel LLM — la
 phase WORK est simulée, mais idle_poll est le vrai code de shared (sommeils
 de 5 s inclus, comptez ~15 s d'exécution).
 """
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 from shared import (BUS, IDLE_TIMEOUT, claim_task, complete_task,
                     consume_lead_inbox, create_task, idle_poll,
                     pending_requests, run_request_shutdown,

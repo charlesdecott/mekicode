@@ -13,11 +13,11 @@ L'original recopiait 479 lignes ; ici tout vient de shared.py — agent_loop
 fait déjà le dispatch sync/async et les deux canaux de livraison. Ce fichier
 ajoute une démo hors-ligne (`demo`) qui pilote start_background_task avec un
 faux bloc tool_use, et `heuristic` qui montre la décision sync/async.
-Lancement : python src/s13.py
+Lancement : python src/sessions/s13.py
 """
 
 import time
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 from shared import (
     BUILTIN_HANDLERS, BUILTIN_TOOLS, PROMPT, WORKDIR, agent_loop,
     inject_background_notifications, is_slow_operation,

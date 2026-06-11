@@ -5,7 +5,14 @@
       "label": "shared.py",
       "phase": "Bibliothèque",
       "color": "#94e2d5",
-      "value": 50.65570056765576
+      "value": 40.38564101261734
+    },
+    {
+      "id": "complete-py",
+      "label": "complete.py",
+      "phase": "Bibliothèque",
+      "color": "#94e2d5",
+      "value": 11.180339887498949
     },
     {
       "id": "s01-agent-loop",
@@ -246,6 +253,11 @@
     },
     {
       "from": "s20-comprehensive",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "complete-py",
       "to": "shared-py",
       "type": "imports"
     },

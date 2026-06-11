@@ -15,9 +15,9 @@ L'original recopiait 929 lignes ; ici tout vient de shared.py et ce fichier
 ne garde que le câblage des outils du Lead + l'injection passive de l'inbox
 en fin de tour (le point clé de s15 : les messages des teammates ENTRENT
 dans l'historique du Lead). Démo hors-ligne : `bus`. Lancement :
-python src/s15.py
+python src/sessions/s15.py
 """
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 import shared  # gardé : main() rebinde shared.CLI_ACTIVE (doit passer par le module)
 from shared import (
     BUILTIN_HANDLERS, BUILTIN_TOOLS, BUS, MAILBOX_DIR, PROMPT, WORKDIR,

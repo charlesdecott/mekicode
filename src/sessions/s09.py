@@ -18,7 +18,7 @@ observer l'état (:seed, :index, :fichiers, :ctx) sans appel API.
 """
 
 import json
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 from shared import (BUILTIN_HANDLERS, BUILTIN_TOOLS, MEMORY_DIR, PROMPT,
                     agent_loop, consolidate_memories, extract_memories,
                     list_memory_files, load_memories, print_turn_assistants,

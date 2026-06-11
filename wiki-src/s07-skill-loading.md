@@ -2,7 +2,7 @@
 title: "s07 · Skill Loading"
 session: 07
 phase: "Fondamentaux"
-fichier: "src/s07.py"
+fichier: "src/sessions/s07.py"
 lignes: 114
 tags: [skills, chargement-a-la-demande, frontmatter, catalogue]
 prev: "s06-subagent"
@@ -90,7 +90,7 @@ Imports explicites (`from shared import (...)`), sauf `SKILLS_DIR` : le fichier 
 ## Lancer la démo
 
 ```
-python src/s07.py
+python src/sessions/s07.py
 ```
 
 Au lancement : le dossier `skills-demo/` est créé et le catalogue scanné s'affiche. `:load code-review` montre le niveau 2 sans appel API ; `:load inexistant` montre l'erreur-catalogue. En texte libre, demander « relis ce diff comme en revue de code » : le modèle voit le catalogue dans son system, appelle `load_skill("code-review")` et applique la checklist.

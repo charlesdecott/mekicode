@@ -2,7 +2,7 @@
 title: "s14 · Cron Scheduler"
 session: 14
 phase: "Tâches & temps"
-fichier: "src/s14.py"
+fichier: "src/sessions/s14.py"
 lignes: 125
 tags: [cron, scheduler, threads, queue, durabilite]
 prev: "s13-background-tasks"
@@ -17,7 +17,7 @@ next: "s15-agent-teams"
 
 Depuis [[s13-background-tasks]], l'agent sait travailler pendant qu'une commande lente tourne — mais chaque opération reste déclenchée par un humain. « Lance les tests tous les matins à 9h » exige un réveil-matin : le modèle producteur/file/consommateur du cron. Le *scheduler* (thread démon, tick 1 s, anti-double-tir par marqueur à la minute) fait tirer les jobs dont l'expression matche ; la file `cron_queue` découple le tir de la consommation ; et le consommateur — `agent_loop`, qui draine la file en tête de chaque tour — transforme le `prompt` du job en message user `[Scheduled]`. Le job ne contient pas une commande : il contient un **prompt**, et c'est le LLM qui décide quoi en faire.
 
-Point structurant : le scheduler n'est pas démarré par ce fichier. [[shared-py]] amorce à l'import (l. 1468–1469) le rechargement des jobs durables (`.scheduled_tasks.json`) puis le thread `cron_scheduler_loop` — comme dans le capstone s20. `s14.py` le **vérifie** au démarrage au lieu d'en lancer un deuxième. « Durable » signifie seulement que la définition du job survit au redémarrage : si le processus est éteint à l'heure dite, rien ne tire.
+Point structurant : le scheduler n'est pas démarré par ce fichier. [[shared-py]] amorce à l'import (l. 957–958) le rechargement des jobs durables (`.scheduled_tasks.json`) puis le thread `cron_scheduler_loop` — comme dans le capstone s20. `s14.py` le **vérifie** au démarrage au lieu d'en lancer un deuxième. « Durable » signifie seulement que la définition du job survit au redémarrage : si le processus est éteint à l'heure dite, rien ne tire.
 
 ## Ce que fait ce fichier
 
@@ -86,7 +86,7 @@ Tout est importé explicitement (`from shared import (...)`, lignes 23–27) :
 ## Lancer la démo
 
 ```
-python src/s14.py
+python src/sessions/s14.py
 ```
 
 Tout fonctionne sans clé API sauf les tours LLM : au lancement, `[ok]` confirme le thread de shared ; `valide` montre la validation ; `minute` programme un one-shot et on le regarde tirer (≤ 60 s) ; `jobs` liste l'état. Avec une clé, demander « rappelle-moi de faire une pause dans 2 minutes » : le modèle calcule l'expression, et le prompt `[Scheduled]` sera injecté au premier tour suivant le tir.

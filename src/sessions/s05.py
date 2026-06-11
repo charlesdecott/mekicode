@@ -24,11 +24,11 @@ Mapping vers l'original (inspiration/learn-claude-code/s05_todo_write/code.py) :
 - le rendu « ## Current Tasks » de l'original = afficher_todos() ci-dessous,
   déplacé hors du handler (l'affichage est un choix de session, pas d'outil).
 
-Lancer : python src/s05.py   (q pour quitter)
+Lancer : python src/sessions/s05.py   (q pour quitter)
 Essai : « renomme les fichiers .txt en .md puis vérifie le résultat » —
         le modèle doit poser un plan avant d'agir, puis le tenir à jour.
 """
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 import shared  # PROMPT rebindé ici ; CURRENT_TODOS rebindé par shared
 from shared import (BUILTIN_TOOLS, BUILTIN_HANDLERS, WORKDIR, trigger_hooks,
                     agent_loop, print_turn_assistants)

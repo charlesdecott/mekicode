@@ -2,7 +2,7 @@
 title: "s03 · Le système de permission"
 session: 03
 phase: "Fondamentaux"
-fichier: "src/s03.py"
+fichier: "src/sessions/s03.py"
 lignes: 99
 tags: [permission, deny-list, safe-path, securite]
 prev: "s02-tool-use"
@@ -86,7 +86,7 @@ Affiche la politique active — deny list (incluant le `format c:` ajouté), mot
 ## Lancer la démo
 
 ```
-python src/s03.py
+python src/sessions/s03.py
 ```
 
 Au lancement : la deny list et les motifs à confirmation s'affichent, puis la démonstration `safe_path` (chemin interne accepté, `../` rejeté). Ensuite, trois essais parlants : « lance sudo ls » → refus sec (`Permission denied: 'sudo' is on the deny list`) ; « supprime le dossier tmp » → pause `Allow? [y/N]` (Entrée = refus, *fail closed*) ; « écris dans ../dehors.txt » → `Permission denied: path escapes workspace`. Dans tous les cas le modèle reçoit le refus en `tool_result` et peut proposer une alternative. `q` pour quitter.

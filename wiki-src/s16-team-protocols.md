@@ -2,7 +2,7 @@
 title: "s16 · Protocoles d'équipe"
 session: 16
 phase: "Multi-agents"
-fichier: "src/s16.py"
+fichier: "src/sessions/s16.py"
 lignes: 118
 tags: [protocoles, request-id, machine-a-etats, shutdown, plan-approval]
 prev: "s15-agent-teams"
@@ -77,7 +77,7 @@ Enchaîne : drainage initial, deux exemples de `new_request_id()` (l. 107–108)
 ## Lancer la démo
 
 ```
-python src/s16.py
+python src/sessions/s16.py
 ```
 
 Sans appel LLM (l'import de shared exige quand même `MODEL_ID` dans `.env`). On observe : deux `req_NNNNNN` d'exemple, puis le handshake d'arrêt — requête `pending`, réponse de type incohérent ignorée, routage par `consume_lead_inbox` → `approved` — puis l'approbation de plan — suggestion en texte libre, `plan_approval_request` de bob, rejet avec feedback → `rejected` — et l'état final de la table `pending_requests`.

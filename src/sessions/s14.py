@@ -13,13 +13,13 @@ L'original recopiait 805 lignes (dont son propre queue processor) ; ici tout
 vient de shared.py — agent_loop draine déjà cron_queue en tête de tour. Ce
 fichier vérifie que le thread importé tourne, et ajoute deux démos hors-ligne :
 `valide` (la validation) et `minute` (un one-shot programmé à la prochaine
-minute, qu'on regarde tirer en direct). Lancement : python src/s14.py
+minute, qu'on regarde tirer en direct). Lancement : python src/sessions/s14.py
 """
 
 import threading
 import time
 from datetime import datetime, timedelta
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 from shared import (
     BUILTIN_HANDLERS, BUILTIN_TOOLS, PROMPT, WORKDIR, agent_loop,
     cancel_job, consume_cron_queue, cron_scheduler_loop,

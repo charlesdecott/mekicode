@@ -36,6 +36,7 @@ flowchart TB
 | Page | En une ligne |
 |---|---|
 | [[shared-py]] | Toute l'infrastructure réutilisable du harness, en sections |
+| [[complete-py]] | **Le point d'entrée** : toutes les features actives en même temps |
 
 ### 🔵 Fondamentaux
 | Page | Démo |
@@ -77,12 +78,13 @@ flowchart TB
 | [[s19-mcp-plugin]] | Outils dynamiques MCP |
 | [[s20-comprehensive]] | Le harness complet assemblé |
 
-## Lancer une démo
+## Lancer
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env   # puis renseigner ANTHROPIC_API_KEY
-python src/s01.py
+cp .env.example .env          # puis renseigner ANTHROPIC_API_KEY
+python src/complete.py        # le harness complet (toutes features)
+python src/sessions/s01.py    # ou une démo : un mécanisme à la fois
 ```
 
 ## Maintenir ce wiki

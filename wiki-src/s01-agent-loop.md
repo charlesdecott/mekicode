@@ -2,7 +2,7 @@
 title: "s01 · La boucle d'agent minimale"
 session: 01
 phase: "Fondamentaux"
-fichier: "src/s01.py"
+fichier: "src/sessions/s01.py"
 lignes: 87
 tags: [agent-loop, stop-reason, tool-use]
 prev: ""
@@ -82,7 +82,7 @@ La garde `if __name__ == "__main__":` (lignes 85–86) lance `main()`.
 ## Lancer la démo
 
 ```
-python src/s01.py
+python src/sessions/s01.py
 ```
 
 On observe : un prompt `s01 >> `, une réponse texte par question (un seul aller-retour LLM puisque aucun outil n'est déclaré), l'historique conservé entre les questions. `q` pour quitter. Nécessite `MODEL_ID` (et la clé API) dans `.env`.

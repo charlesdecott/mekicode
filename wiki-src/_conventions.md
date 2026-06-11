@@ -9,26 +9,27 @@ Wiki markdown français, compatible Obsidian, documentant **notre code** dans `s
 | Page | Source | Phase |
 |---|---|---|
 | shared-py | src/shared.py | Bibliothèque |
-| s01-agent-loop | src/s01.py | Fondamentaux |
-| s02-tool-use | src/s02.py | Fondamentaux |
-| s03-permission | src/s03.py | Fondamentaux |
-| s04-hooks | src/s04.py | Fondamentaux |
-| s05-todo-write | src/s05.py | Fondamentaux |
-| s06-subagent | src/s06.py | Fondamentaux |
-| s07-skill-loading | src/s07.py | Fondamentaux |
-| s08-context-compact | src/s08.py | Contexte & mémoire |
-| s09-memory | src/s09.py | Contexte & mémoire |
-| s10-system-prompt | src/s10.py | Contexte & mémoire |
-| s11-error-recovery | src/s11.py | Contexte & mémoire |
-| s12-task-system | src/s12.py | Tâches & temps |
-| s13-background-tasks | src/s13.py | Tâches & temps |
-| s14-cron-scheduler | src/s14.py | Tâches & temps |
-| s15-agent-teams | src/s15.py | Multi-agents |
-| s16-team-protocols | src/s16.py | Multi-agents |
-| s17-autonomous-agents | src/s17.py | Multi-agents |
-| s18-worktree-isolation | src/s18.py | Intégration & synthèse |
-| s19-mcp-plugin | src/s19.py | Intégration & synthèse |
-| s20-comprehensive | src/s20.py | Intégration & synthèse |
+| complete-py | src/complete.py | Bibliothèque |
+| s01-agent-loop | src/sessions/s01.py | Fondamentaux |
+| s02-tool-use | src/sessions/s02.py | Fondamentaux |
+| s03-permission | src/sessions/s03.py | Fondamentaux |
+| s04-hooks | src/sessions/s04.py | Fondamentaux |
+| s05-todo-write | src/sessions/s05.py | Fondamentaux |
+| s06-subagent | src/sessions/s06.py | Fondamentaux |
+| s07-skill-loading | src/sessions/s07.py | Fondamentaux |
+| s08-context-compact | src/sessions/s08.py | Contexte & mémoire |
+| s09-memory | src/sessions/s09.py | Contexte & mémoire |
+| s10-system-prompt | src/sessions/s10.py | Contexte & mémoire |
+| s11-error-recovery | src/sessions/s11.py | Contexte & mémoire |
+| s12-task-system | src/sessions/s12.py | Tâches & temps |
+| s13-background-tasks | src/sessions/s13.py | Tâches & temps |
+| s14-cron-scheduler | src/sessions/s14.py | Tâches & temps |
+| s15-agent-teams | src/sessions/s15.py | Multi-agents |
+| s16-team-protocols | src/sessions/s16.py | Multi-agents |
+| s17-autonomous-agents | src/sessions/s17.py | Multi-agents |
+| s18-worktree-isolation | src/sessions/s18.py | Intégration & synthèse |
+| s19-mcp-plugin | src/sessions/s19.py | Intégration & synthèse |
+| s20-comprehensive | src/sessions/s20.py | Intégration & synthèse |
 
 Page d'accueil : `Accueil`. Page de la bibliothèque : `shared-py`.
 

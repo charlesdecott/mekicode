@@ -2,7 +2,7 @@
 title: "s17 · Agents autonomes"
 session: 17
 phase: "Multi-agents"
-fichier: "src/s17.py"
+fichier: "src/sessions/s17.py"
 lignes: 92
 tags: [autonomie, idle-poll, auto-claim, task-board]
 prev: "s16-team-protocols"
@@ -73,7 +73,7 @@ La garde l. 60–62 protège la démo si des tâches pendantes d'autres sessions
 ## Lancer la démo
 
 ```
-python src/s17.py
+python src/sessions/s17.py
 ```
 
 Sans appel LLM, mais **comptez ~15 s** : les deux `idle_poll` dorment 5 s avant leur premier scan. On observe : t2 bloquée puis débloquée par la complétion de t1, l'auto-claim en IDLE (`<auto-claimed>Task ...`), la priorité de l'inbox sur le tableau (verdict `"shutdown"`), et la requête de protocole passée `approved` côté lead.

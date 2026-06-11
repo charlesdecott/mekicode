@@ -2,7 +2,7 @@
 title: "s15 · Agent Teams"
 session: 15
 phase: "Multi-agents"
-fichier: "src/s15.py"
+fichier: "src/sessions/s15.py"
 lignes: 103
 tags: [multi-agents, message-bus, mailbox, jsonl, threads]
 prev: "s14-cron-scheduler"
@@ -83,7 +83,7 @@ Importé explicitement (`from shared import (...)`, lignes 22–25), sauf `CLI_A
 ## Lancer la démo
 
 ```
-python src/s15.py
+python src/sessions/s15.py
 ```
 
 `bus` et `who` fonctionnent sans clé API : `bus` montre l'append JSONL sur disque puis la double lecture (pleine, puis vide). Avec une clé, demander par exemple « spawn alice, une développeuse backend, pour créer schema.sql » : le spawn est non bloquant, la trace `[bus]` apparaît quand alice écrit, et au tour suivant le message `[Inbox]` injecté permet au Lead de réagir.

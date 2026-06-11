@@ -19,7 +19,14 @@
       "page": "shared-py",
       "title": "shared.py · La bibliothèque commune",
       "phase": "Bibliothèque",
-      "lignes": 2566,
+      "lignes": 1631,
+      "summary": ""
+    },
+    {
+      "page": "complete-py",
+      "title": "complete.py · Le point d'entrée du harness",
+      "phase": "Bibliothèque",
+      "lignes": 125,
       "summary": ""
     },
     {

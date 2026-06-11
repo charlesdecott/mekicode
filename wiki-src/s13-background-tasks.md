@@ -2,7 +2,7 @@
 title: "s13 · Tâches en arrière-plan"
 session: 13
 phase: "Tâches & temps"
-fichier: "src/s13.py"
+fichier: "src/sessions/s13.py"
 lignes: 119
 tags: [background, threads, notifications, async, tool-use]
 prev: "s12-task-system"
@@ -89,7 +89,7 @@ Tout est importé explicitement (`from shared import (...)`, lignes 21–25) :
 ## Lancer la démo
 
 ```
-python src/s13.py
+python src/sessions/s13.py
 ```
 
 `demo` et `heuristic` fonctionnent sans clé API. `demo` montre en direct : `[background] bg_0001: ...` (le worker part), le placeholder immédiat, puis ~2 s plus tard la `<task_notification>` injectée comme message user. Avec une clé, demander par exemple « lance `pip install requests` puis lis README.md pendant que ça tourne » : le placeholder et la notification s'enchaînent dans le même tour.

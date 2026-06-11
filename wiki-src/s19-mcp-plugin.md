@@ -2,7 +2,7 @@
 title: "s19 · Plugin MCP"
 session: 19
 phase: "Intégration & synthèse"
-fichier: "src/s19.py"
+fichier: "src/sessions/s19.py"
 lignes: 100
 tags: [mcp, plugins, tool-pool, namespace]
 prev: "s18-worktree-isolation"
@@ -75,7 +75,7 @@ La démo en sept temps numérotés comme à l'écran :
 ## Lancer la démo
 
 ```
-python src/s19.py
+python src/sessions/s19.py
 ```
 
 Sans appel LLM (l'import de shared exige `MODEL_ID` dans `.env`). On observe : le pool qui passe de 27 à 31 puis 32 outils, les messages d'idempotence et de serveur inconnu, la définition traduite de `mcp__docs__search`, quatre invocations sans cross-talk, l'assainissement `météo! → m_t_o_`, et la ligne `Connected MCP servers:` du system prompt.

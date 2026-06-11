@@ -19,7 +19,7 @@ passage de ce system FIGÉ à agent_loop (system=...), figé pour tout le tour.
 """
 
 import json
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 from shared import (BUILTIN_HANDLERS, BUILTIN_TOOLS, PROMPT,
                     PROMPT_SECTIONS, agent_loop, assemble_system_prompt,
                     print_turn_assistants, update_context)

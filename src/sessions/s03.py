@@ -18,11 +18,11 @@ Mapping vers l'original (inspiration/learn-claude-code/s03_permission/code.py) :
 - l'insertion `if not check_permission(block)` dans la boucle de l'original =
   le trigger_hooks("PreToolUse", block) déjà présent dans shared.agent_loop.
 
-Lancer : python src/s03.py   (q pour quitter)
+Lancer : python src/sessions/s03.py   (q pour quitter)
 Essais : « supprime le dossier tmp » (confirmation), « lance sudo ls » (refus),
          « écris dans ../dehors.txt » (safe_path).
 """
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 import shared  # rebind de shared.PROMPT : l'affectation doit viser le module
 from shared import (BUILTIN_TOOLS, BUILTIN_HANDLERS, WORKDIR, DENY_LIST,
                     DESTRUCTIVE, register_hook, safe_path, agent_loop,

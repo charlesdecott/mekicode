@@ -2,7 +2,7 @@
 title: "s06 · Subagent"
 session: 06
 phase: "Fondamentaux"
-fichier: "src/s06.py"
+fichier: "src/sessions/s06.py"
 lignes: 67
 tags: [subagent, task-tool, isolation-de-contexte, delegation]
 prev: "s05-todo-write"
@@ -88,7 +88,7 @@ Tout est importé explicitement (`from shared import (...)`) — le fichier ne r
 ## Lancer la démo
 
 ```
-python src/s06.py
+python src/sessions/s06.py
 ```
 
 Avec `:sub liste les fichiers de src/ et résume leur rôle`, on voit le sous-agent enchaîner ses outils puis un unique bloc `[résumé du sous-agent]` — rien d'autre ne survit. En texte libre, demander une tâche en deux volets indépendants incite le parent à appeler `task` (visible en `> task` cyan) ; le parent reste suspendu pendant la délégation (synchrone).

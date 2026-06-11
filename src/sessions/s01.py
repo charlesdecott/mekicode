@@ -16,9 +16,9 @@ Mapping vers l'original (inspiration/learn-claude-code/s01_agent_loop/code.py) :
 - l'outil bash de l'original est volontairement absent : zéro outil, pour
   isoler le squelette conversationnel (l'outillage arrive en s02).
 
-Lancer : python src/s01.py   (q pour quitter)
+Lancer : python src/sessions/s01.py   (q pour quitter)
 """
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 import shared  # rebind de shared.PROMPT : l'affectation doit viser le module
 from shared import (WORKDIR, client, MODEL, extract_text)
 

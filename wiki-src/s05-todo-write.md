@@ -2,7 +2,7 @@
 title: "s05 · TodoWrite, l'outil de planification"
 session: 05
 phase: "Fondamentaux"
-fichier: "src/s05.py"
+fichier: "src/sessions/s05.py"
 lignes: 91
 tags: [todo-write, planification, nag-reminder]
 prev: "s04-hooks"
@@ -89,7 +89,7 @@ REPL standard : bannière avec le pool (lignes 68–70), `trigger_hooks("UserPro
 ## Lancer la démo
 
 ```
-python src/s05.py
+python src/sessions/s05.py
 ```
 
 Demander une tâche multi-étapes — par exemple « renomme les fichiers .txt en .md puis vérifie le résultat ». On observe : le modèle appelle `todo_write` d'abord (trace `[todo] updated N item(s)` de shared), le bloc `## Plan courant` s'affiche après chaque tour avec les statuts qui avancent (` ` → `>` → `x`), et si le modèle enchaîne 3 appels d'outils sans toucher au plan, le `<reminder>` injecté par `agent_loop` le rappelle à l'ordre. `q` pour quitter.

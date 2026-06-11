@@ -2,7 +2,7 @@
 title: "s18 · Isolation par worktree"
 session: 18
 phase: "Intégration & synthèse"
-fichier: "src/s18.py"
+fichier: "src/sessions/s18.py"
 lignes: 122
 tags: [git-worktree, isolation, event-log, non-destructif]
 prev: "s17-autonomous-agents"
@@ -77,7 +77,7 @@ Puis `_cleanup()` (l. 117) efface le dépôt jetable.
 ## Lancer la démo
 
 ```
-python src/s18.py
+python src/sessions/s18.py
 ```
 
 Sans appel LLM (l'import de shared exige `MODEL_ID` dans `.env`) ; nécessite `git` dans le PATH pour le scénario complet. On observe : le chemin du dépôt jetable, les quatre validations de noms, deux créations de worktrees (avec liaison de tâche), le refus de suppression sur worktree sale, le `keep`, les deux suppressions, puis le journal `events.jsonl` complet — et le nettoyage du répertoire temporaire.

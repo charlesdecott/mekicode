@@ -15,9 +15,9 @@ Mapping vers l'original (inspiration/learn-claude-code/s02_tool_use/code.py) :
   tools/handlers/system : pool figé (pas de ré-assemblage MCP) et system
   prompt figé (pas de system vivant).
 
-Lancer : python src/s02.py   (q pour quitter)
+Lancer : python src/sessions/s02.py   (q pour quitter)
 """
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 import shared  # rebind de shared.PROMPT : l'affectation doit viser le module
 from shared import (BUILTIN_TOOLS, BUILTIN_HANDLERS, WORKDIR, agent_loop,
                     print_turn_assistants)

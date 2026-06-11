@@ -14,7 +14,7 @@ hooks, agent_loop) vit dans shared.py. Ce fichier ne fait que câbler le
 sous-ensemble d'outils du parent (5 outils de base + task) sur agent_loop
 paramétrée, et offrir un raccourci `:sub` pour observer le sous-agent seul.
 """
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 from shared import (BUILTIN_HANDLERS, BUILTIN_TOOLS, PROMPT, WORKDIR,
                     agent_loop, print_turn_assistants, spawn_subagent)
 

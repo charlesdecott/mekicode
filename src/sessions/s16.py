@@ -18,7 +18,7 @@ une démo scriptée SANS appel LLM — le côté teammate est simulé par des
 écritures directes sur le MessageBus, exactement ce que ferait
 handle_inbox_message dans spawn_teammate_thread.
 """
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 from shared import (BUS, _teammate_submit_plan, consume_lead_inbox,
                     match_response, new_request_id, pending_requests,
                     run_request_plan, run_request_shutdown, run_review_plan)

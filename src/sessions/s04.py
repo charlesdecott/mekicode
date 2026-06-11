@@ -23,9 +23,9 @@ Mapping vers l'original (inspiration/learn-claude-code/s04_hooks/code.py) :
 - les hooks custom ci-dessous remplacent la paire « observation + bilan »
   pour montrer qu'une session peut s'abonner sans toucher à la bibliothèque.
 
-Lancer : python src/s04.py   (q pour quitter)
+Lancer : python src/sessions/s04.py   (q pour quitter)
 """
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 import shared  # rebind de shared.PROMPT : l'affectation doit viser le module
 from shared import (BUILTIN_TOOLS, BUILTIN_HANDLERS, WORKDIR, HOOKS,
                     register_hook, trigger_hooks, agent_loop,

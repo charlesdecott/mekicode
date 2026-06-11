@@ -2,7 +2,7 @@
 title: "s12 · Système de tâches"
 session: 12
 phase: "Tâches & temps"
-fichier: "src/s12.py"
+fichier: "src/sessions/s12.py"
 lignes: 83
 tags: [taches, dag, persistance, dependances, claim]
 prev: "s11-error-recovery"
@@ -74,7 +74,7 @@ Tout est importé explicitement (`from shared import (...)`, lignes 15–19) :
 ## Lancer la démo
 
 ```
-python src/s12.py
+python src/sessions/s12.py
 ```
 
 `demo` et `ls` fonctionnent sans clé API. `demo` déroule le cycle complet create → claim refusé → claim/complete amont → déblocage → claim/complete aval ; `ls` relu après redémarrage prouve la persistance. Avec une clé, demander par exemple « crée 3 tâches : schéma, API (dépend du schéma), tests (dépendent de l'API), puis traite-les dans l'ordre ».

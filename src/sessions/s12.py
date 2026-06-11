@@ -9,9 +9,9 @@ pending -> in_progress -> completed en signalant les tâches débloquées.
 L'original recopiait 377 lignes (outils fichiers, prompt, boucle, REPL) ;
 ici tout vient de shared.py et le fichier ne garde que le câblage des
 5 outils tâches + 3 outils fichiers dans agent_loop, plus une démo
-hors-ligne du graphe de dépendances (`demo`). Lancement : python src/s12.py
+hors-ligne du graphe de dépendances (`demo`). Lancement : python src/sessions/s12.py
 """
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 from shared import (
     BUILTIN_HANDLERS, BUILTIN_TOOLS, PROMPT, WORKDIR, agent_loop,
     claim_task, complete_task, create_task, print_turn_assistants,

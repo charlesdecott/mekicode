@@ -25,7 +25,7 @@ import os
 import shutil
 import subprocess
 import tempfile
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 
 def _setup_demo_repo():
     """Crée un dépôt git jetable (avec un commit initial : `git worktree add

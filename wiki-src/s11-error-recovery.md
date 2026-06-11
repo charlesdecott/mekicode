@@ -2,7 +2,7 @@
 title: "s11 · Récupération d'erreurs"
 session: 11
 phase: "Contexte & mémoire"
-fichier: "src/s11.py"
+fichier: "src/sessions/s11.py"
 lignes: 135
 tags: [erreurs, retry, backoff, fallback-model, resilience]
 prev: "s10-system-prompt"
@@ -86,7 +86,7 @@ Tout est importé explicitement (`from shared import (...)`, lignes 19–24) :
 ## Lancer la démo
 
 ```
-python src/s11.py
+python src/sessions/s11.py
 ```
 
 `backoff` et `detect` fonctionnent sans clé API (table des délais, classification d'erreurs). Avec une clé (`MODEL_ID` dans `.env`), tout autre texte lance un tour LLM résilient : on observe les retries `[429]`/`[529]` en jaune et la bascule de modèle en rouge si l'API tousse.

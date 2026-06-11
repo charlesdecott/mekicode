@@ -14,7 +14,7 @@ shared.SKILLS_DIR dessus puis rescanne : scan_skills() lit la globale du
 module, la réaffecter suffit. La recherche de load_skill se fait dans le
 registre (dict.get), jamais sur le disque : pas de path traversal possible.
 """
-
+import _bootstrap  # noqa: F401 — rend shared.py importable depuis sessions/
 import shared  # gardé : ensure_demo_skills() rebinde shared.SKILLS_DIR
 from shared import (BUILTIN_HANDLERS, BUILTIN_TOOLS, PROMPT, WORKDIR,
                     agent_loop, list_skills, load_skill,
