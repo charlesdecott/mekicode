@@ -1,0 +1,316 @@
+{
+  "nodes": [
+    {
+      "id": "s01-agent-loop",
+      "label": "s01\nLa boucle d'agent",
+      "phase": "Fondamentaux",
+      "color": "#7c9cff",
+      "value": 11.74734012447073
+    },
+    {
+      "id": "s02-tool-use",
+      "label": "s02\nTool use et dispatch",
+      "phase": "Fondamentaux",
+      "color": "#7c9cff",
+      "value": 13.820274961085254
+    },
+    {
+      "id": "s03-permission",
+      "label": "s03\nLe système de permission",
+      "phase": "Fondamentaux",
+      "color": "#7c9cff",
+      "value": 15.874507866387544
+    },
+    {
+      "id": "s04-hooks",
+      "label": "s04\nLes hooks",
+      "phase": "Fondamentaux",
+      "color": "#7c9cff",
+      "value": 17.146428199482248
+    },
+    {
+      "id": "s05-todo-write",
+      "label": "s05\nTodoWrite, l'outil de planification",
+      "phase": "Fondamentaux",
+      "color": "#7c9cff",
+      "value": 17.46424919657298
+    },
+    {
+      "id": "s06-subagent",
+      "label": "s06\nSubagent",
+      "phase": "Fondamentaux",
+      "color": "#7c9cff",
+      "value": 19.595917942265423
+    },
+    {
+      "id": "s07-skill-loading",
+      "label": "s07\nSkill Loading",
+      "phase": "Fondamentaux",
+      "color": "#7c9cff",
+      "value": 20.663978319771825
+    },
+    {
+      "id": "s08-context-compact",
+      "label": "s08\nContext Compact",
+      "phase": "Contexte & mémoire",
+      "color": "#5fd0a5",
+      "value": 22.9128784747792
+    },
+    {
+      "id": "s09-memory",
+      "label": "s09\nMémoire persistante",
+      "phase": "Contexte & mémoire",
+      "color": "#5fd0a5",
+      "value": 25.612496949731394
+    },
+    {
+      "id": "s10-system-prompt",
+      "label": "s10\nSystem Prompt",
+      "phase": "Contexte & mémoire",
+      "color": "#5fd0a5",
+      "value": 14.798648586948742
+    },
+    {
+      "id": "s11-error-recovery",
+      "label": "s11\nRécupération d'erreurs",
+      "phase": "Contexte & mémoire",
+      "color": "#5fd0a5",
+      "value": 19.131126469708992
+    },
+    {
+      "id": "s12-task-system",
+      "label": "s12\nSystème de tâches",
+      "phase": "Tâches & temps",
+      "color": "#ffc857",
+      "value": 19.4164878389476
+    },
+    {
+      "id": "s13-background-tasks",
+      "label": "s13\nTâches en arrière-plan",
+      "phase": "Tâches & temps",
+      "color": "#ffc857",
+      "value": 21.88606862823929
+    },
+    {
+      "id": "s14-cron-scheduler",
+      "label": "s14\nCron Scheduler",
+      "phase": "Tâches & temps",
+      "color": "#ffc857",
+      "value": 28.372521918222215
+    },
+    {
+      "id": "s15-agent-teams",
+      "label": "s15\nAgent Teams",
+      "phase": "Multi-agents",
+      "color": "#ff8a7a",
+      "value": 30.479501308256342
+    },
+    {
+      "id": "s16-team-protocols",
+      "label": "s16\nTeam Protocols",
+      "phase": "Multi-agents",
+      "color": "#ff8a7a",
+      "value": 29.68164415931166
+    },
+    {
+      "id": "s17-autonomous-agents",
+      "label": "s17\nAgents autonomes",
+      "phase": "Multi-agents",
+      "color": "#ff8a7a",
+      "value": 28.513154858766505
+    },
+    {
+      "id": "s18-worktree-isolation",
+      "label": "s18\nIsolation par worktree",
+      "phase": "Intégration & synthèse",
+      "color": "#c79bff",
+      "value": 31.575306807693888
+    },
+    {
+      "id": "s19-mcp-plugin",
+      "label": "s19\nPlugin MCP",
+      "phase": "Intégration & synthèse",
+      "color": "#c79bff",
+      "value": 32.01562118716424
+    },
+    {
+      "id": "s20-comprehensive",
+      "label": "s20\nAgent complet",
+      "phase": "Intégration & synthèse",
+      "color": "#c79bff",
+      "value": 46.08687448721165
+    }
+  ],
+  "edges": [
+    {
+      "from": "s01-agent-loop",
+      "to": "s02-tool-use",
+      "type": "progression"
+    },
+    {
+      "from": "s02-tool-use",
+      "to": "s03-permission",
+      "type": "progression"
+    },
+    {
+      "from": "s03-permission",
+      "to": "s04-hooks",
+      "type": "progression"
+    },
+    {
+      "from": "s04-hooks",
+      "to": "s05-todo-write",
+      "type": "progression"
+    },
+    {
+      "from": "s05-todo-write",
+      "to": "s06-subagent",
+      "type": "progression"
+    },
+    {
+      "from": "s06-subagent",
+      "to": "s07-skill-loading",
+      "type": "progression"
+    },
+    {
+      "from": "s07-skill-loading",
+      "to": "s08-context-compact",
+      "type": "progression"
+    },
+    {
+      "from": "s08-context-compact",
+      "to": "s09-memory",
+      "type": "progression"
+    },
+    {
+      "from": "s09-memory",
+      "to": "s10-system-prompt",
+      "type": "progression"
+    },
+    {
+      "from": "s10-system-prompt",
+      "to": "s11-error-recovery",
+      "type": "progression"
+    },
+    {
+      "from": "s11-error-recovery",
+      "to": "s12-task-system",
+      "type": "progression"
+    },
+    {
+      "from": "s12-task-system",
+      "to": "s13-background-tasks",
+      "type": "progression"
+    },
+    {
+      "from": "s13-background-tasks",
+      "to": "s14-cron-scheduler",
+      "type": "progression"
+    },
+    {
+      "from": "s14-cron-scheduler",
+      "to": "s15-agent-teams",
+      "type": "progression"
+    },
+    {
+      "from": "s15-agent-teams",
+      "to": "s16-team-protocols",
+      "type": "progression"
+    },
+    {
+      "from": "s16-team-protocols",
+      "to": "s17-autonomous-agents",
+      "type": "progression"
+    },
+    {
+      "from": "s17-autonomous-agents",
+      "to": "s18-worktree-isolation",
+      "type": "progression"
+    },
+    {
+      "from": "s18-worktree-isolation",
+      "to": "s19-mcp-plugin",
+      "type": "progression"
+    },
+    {
+      "from": "s19-mcp-plugin",
+      "to": "s20-comprehensive",
+      "type": "progression"
+    },
+    {
+      "from": "s05-todo-write",
+      "to": "s12-task-system",
+      "type": "thematique"
+    },
+    {
+      "from": "s06-subagent",
+      "to": "s15-agent-teams",
+      "type": "thematique"
+    },
+    {
+      "from": "s06-subagent",
+      "to": "s18-worktree-isolation",
+      "type": "thematique"
+    },
+    {
+      "from": "s08-context-compact",
+      "to": "s11-error-recovery",
+      "type": "thematique"
+    },
+    {
+      "from": "s12-task-system",
+      "to": "s17-autonomous-agents",
+      "type": "thematique"
+    },
+    {
+      "from": "s07-skill-loading",
+      "to": "s19-mcp-plugin",
+      "type": "thematique"
+    },
+    {
+      "from": "s05-todo-write",
+      "to": "s20-comprehensive",
+      "type": "integre"
+    },
+    {
+      "from": "s07-skill-loading",
+      "to": "s20-comprehensive",
+      "type": "integre"
+    },
+    {
+      "from": "s08-context-compact",
+      "to": "s20-comprehensive",
+      "type": "integre"
+    },
+    {
+      "from": "s12-task-system",
+      "to": "s20-comprehensive",
+      "type": "integre"
+    },
+    {
+      "from": "s14-cron-scheduler",
+      "to": "s20-comprehensive",
+      "type": "integre"
+    },
+    {
+      "from": "s15-agent-teams",
+      "to": "s20-comprehensive",
+      "type": "integre"
+    },
+    {
+      "from": "s17-autonomous-agents",
+      "to": "s20-comprehensive",
+      "type": "integre"
+    },
+    {
+      "from": "s18-worktree-isolation",
+      "to": "s20-comprehensive",
+      "type": "integre"
+    },
+    {
+      "from": "s19-mcp-plugin",
+      "to": "s20-comprehensive",
+      "type": "integre"
+    }
+  ]
+}

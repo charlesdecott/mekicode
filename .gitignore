@@ -1,0 +1,11 @@
+# Repos d'inspiration (non versionnés)
+inspiration/
+
+# Dépendances et artefacts
+wiki-viewer/node_modules/
+__pycache__/
+*.pyc
+
+# Secrets et espace de travail de l'agent
+.env
+workspace/

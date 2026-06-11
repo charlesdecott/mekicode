@@ -1,0 +1,348 @@
+{
+  "nodes": [
+    {
+      "id": "shared-py",
+      "label": "shared.py",
+      "phase": "Bibliothèque",
+      "color": "#94e2d5",
+      "value": 50.65570056765576
+    },
+    {
+      "id": "s01-agent-loop",
+      "label": "s01\nLa boucle d'agent minimale",
+      "phase": "Fondamentaux",
+      "color": "#7c9cff",
+      "value": 9.327379053088816
+    },
+    {
+      "id": "s02-tool-use",
+      "label": "s02\nTool use et dispatch",
+      "phase": "Fondamentaux",
+      "color": "#7c9cff",
+      "value": 7.810249675906654
+    },
+    {
+      "id": "s03-permission",
+      "label": "s03\nLe système de permission",
+      "phase": "Fondamentaux",
+      "color": "#7c9cff",
+      "value": 9.9498743710662
+    },
+    {
+      "id": "s04-hooks",
+      "label": "s04\nLes hooks",
+      "phase": "Fondamentaux",
+      "color": "#7c9cff",
+      "value": 10.583005244258363
+    },
+    {
+      "id": "s05-todo-write",
+      "label": "s05\nTodoWrite, l'outil de planification",
+      "phase": "Fondamentaux",
+      "color": "#7c9cff",
+      "value": 9.539392014169456
+    },
+    {
+      "id": "s06-subagent",
+      "label": "s06\nSubagent",
+      "phase": "Fondamentaux",
+      "color": "#7c9cff",
+      "value": 8.18535277187245
+    },
+    {
+      "id": "s07-skill-loading",
+      "label": "s07\nSkill Loading",
+      "phase": "Fondamentaux",
+      "color": "#7c9cff",
+      "value": 10.677078252031311
+    },
+    {
+      "id": "s08-context-compact",
+      "label": "s08\nContext Compact",
+      "phase": "Contexte & mémoire",
+      "color": "#5fd0a5",
+      "value": 11.357816691600547
+    },
+    {
+      "id": "s09-memory",
+      "label": "s09\nMémoire persistante",
+      "phase": "Contexte & mémoire",
+      "color": "#5fd0a5",
+      "value": 10.63014581273465
+    },
+    {
+      "id": "s10-system-prompt",
+      "label": "s10\nSystem Prompt",
+      "phase": "Contexte & mémoire",
+      "color": "#5fd0a5",
+      "value": 10.535653752852738
+    },
+    {
+      "id": "s11-error-recovery",
+      "label": "s11\nRécupération d'erreurs",
+      "phase": "Contexte & mémoire",
+      "color": "#5fd0a5",
+      "value": 11.61895003862225
+    },
+    {
+      "id": "s12-task-system",
+      "label": "s12\nSystème de tâches",
+      "phase": "Tâches & temps",
+      "color": "#ffc857",
+      "value": 9.1104335791443
+    },
+    {
+      "id": "s13-background-tasks",
+      "label": "s13\nTâches en arrière-plan",
+      "phase": "Tâches & temps",
+      "color": "#ffc857",
+      "value": 10.908712114635714
+    },
+    {
+      "id": "s14-cron-scheduler",
+      "label": "s14\nCron Scheduler",
+      "phase": "Tâches & temps",
+      "color": "#ffc857",
+      "value": 11.180339887498949
+    },
+    {
+      "id": "s15-agent-teams",
+      "label": "s15\nAgent Teams",
+      "phase": "Multi-agents",
+      "color": "#ff8a7a",
+      "value": 10.14889156509222
+    },
+    {
+      "id": "s16-team-protocols",
+      "label": "s16\nProtocoles d'équipe",
+      "phase": "Multi-agents",
+      "color": "#ff8a7a",
+      "value": 10.862780491200215
+    },
+    {
+      "id": "s17-autonomous-agents",
+      "label": "s17\nAgents autonomes",
+      "phase": "Multi-agents",
+      "color": "#ff8a7a",
+      "value": 9.591663046625438
+    },
+    {
+      "id": "s18-worktree-isolation",
+      "label": "s18\nIsolation par worktree",
+      "phase": "Intégration & synthèse",
+      "color": "#c79bff",
+      "value": 11.045361017187261
+    },
+    {
+      "id": "s19-mcp-plugin",
+      "label": "s19\nPlugin MCP",
+      "phase": "Intégration & synthèse",
+      "color": "#c79bff",
+      "value": 10
+    },
+    {
+      "id": "s20-comprehensive",
+      "label": "s20\nAgent complet",
+      "phase": "Intégration & synthèse",
+      "color": "#c79bff",
+      "value": 9.797958971132712
+    }
+  ],
+  "edges": [
+    {
+      "from": "s01-agent-loop",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s02-tool-use",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s03-permission",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s04-hooks",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s05-todo-write",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s06-subagent",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s07-skill-loading",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s08-context-compact",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s09-memory",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s10-system-prompt",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s11-error-recovery",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s12-task-system",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s13-background-tasks",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s14-cron-scheduler",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s15-agent-teams",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s16-team-protocols",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s17-autonomous-agents",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s18-worktree-isolation",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s19-mcp-plugin",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s20-comprehensive",
+      "to": "shared-py",
+      "type": "imports"
+    },
+    {
+      "from": "s01-agent-loop",
+      "to": "s02-tool-use",
+      "type": "progression"
+    },
+    {
+      "from": "s02-tool-use",
+      "to": "s03-permission",
+      "type": "progression"
+    },
+    {
+      "from": "s03-permission",
+      "to": "s04-hooks",
+      "type": "progression"
+    },
+    {
+      "from": "s04-hooks",
+      "to": "s05-todo-write",
+      "type": "progression"
+    },
+    {
+      "from": "s05-todo-write",
+      "to": "s06-subagent",
+      "type": "progression"
+    },
+    {
+      "from": "s06-subagent",
+      "to": "s07-skill-loading",
+      "type": "progression"
+    },
+    {
+      "from": "s07-skill-loading",
+      "to": "s08-context-compact",
+      "type": "progression"
+    },
+    {
+      "from": "s08-context-compact",
+      "to": "s09-memory",
+      "type": "progression"
+    },
+    {
+      "from": "s09-memory",
+      "to": "s10-system-prompt",
+      "type": "progression"
+    },
+    {
+      "from": "s10-system-prompt",
+      "to": "s11-error-recovery",
+      "type": "progression"
+    },
+    {
+      "from": "s11-error-recovery",
+      "to": "s12-task-system",
+      "type": "progression"
+    },
+    {
+      "from": "s12-task-system",
+      "to": "s13-background-tasks",
+      "type": "progression"
+    },
+    {
+      "from": "s13-background-tasks",
+      "to": "s14-cron-scheduler",
+      "type": "progression"
+    },
+    {
+      "from": "s14-cron-scheduler",
+      "to": "s15-agent-teams",
+      "type": "progression"
+    },
+    {
+      "from": "s15-agent-teams",
+      "to": "s16-team-protocols",
+      "type": "progression"
+    },
+    {
+      "from": "s16-team-protocols",
+      "to": "s17-autonomous-agents",
+      "type": "progression"
+    },
+    {
+      "from": "s17-autonomous-agents",
+      "to": "s18-worktree-isolation",
+      "type": "progression"
+    },
+    {
+      "from": "s18-worktree-isolation",
+      "to": "s19-mcp-plugin",
+      "type": "progression"
+    },
+    {
+      "from": "s19-mcp-plugin",
+      "to": "s20-comprehensive",
+      "type": "progression"
+    }
+  ]
+}

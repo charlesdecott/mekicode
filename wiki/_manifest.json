@@ -1,0 +1,158 @@
+{
+  "title": "Wiki learn-claude-code",
+  "home": "Accueil",
+  "phases": [
+    "Fondamentaux",
+    "Contexte & mémoire",
+    "Tâches & temps",
+    "Multi-agents",
+    "Intégration & synthèse"
+  ],
+  "pages": [
+    {
+      "page": "Accueil",
+      "title": "Accueil",
+      "phase": "Accueil"
+    },
+    {
+      "page": "s01-agent-loop",
+      "title": "s01 · La boucle d'agent",
+      "phase": "Fondamentaux",
+      "lignes": 138,
+      "summary": "La boucle while + stop_reason"
+    },
+    {
+      "page": "s02-tool-use",
+      "title": "s02 · Tool use et dispatch",
+      "phase": "Fondamentaux",
+      "lignes": 191,
+      "summary": "Dispatch table : le modèle appelle des outils"
+    },
+    {
+      "page": "s03-permission",
+      "title": "s03 · Le système de permission",
+      "phase": "Fondamentaux",
+      "lignes": 252,
+      "summary": "Trois barrières déclaratives"
+    },
+    {
+      "page": "s04-hooks",
+      "title": "s04 · Les hooks",
+      "phase": "Fondamentaux",
+      "lignes": 294,
+      "summary": "Hooks PreToolUse/PostToolUse"
+    },
+    {
+      "page": "s05-todo-write",
+      "title": "s05 · TodoWrite, l'outil de planification",
+      "phase": "Fondamentaux",
+      "lignes": 305,
+      "summary": "Planifier avant d agir"
+    },
+    {
+      "page": "s06-subagent",
+      "title": "s06 · Subagent",
+      "phase": "Fondamentaux",
+      "lignes": 384,
+      "summary": "Contexte frais isolé"
+    },
+    {
+      "page": "s07-skill-loading",
+      "title": "s07 · Skill Loading",
+      "phase": "Fondamentaux",
+      "lignes": 427,
+      "summary": "SKILL.md à la demande"
+    },
+    {
+      "page": "s08-context-compact",
+      "title": "s08 · Context Compact",
+      "phase": "Contexte & mémoire",
+      "lignes": 525,
+      "summary": "Compaction L1-L4"
+    },
+    {
+      "page": "s09-memory",
+      "title": "s09 · Mémoire persistante",
+      "phase": "Contexte & mémoire",
+      "lignes": 656,
+      "summary": "MEMORY.md persistant"
+    },
+    {
+      "page": "s10-system-prompt",
+      "title": "s10 · System Prompt",
+      "phase": "Contexte & mémoire",
+      "lignes": 219,
+      "summary": "Prompt assemblé par sections"
+    },
+    {
+      "page": "s11-error-recovery",
+      "title": "s11 · Récupération d'erreurs",
+      "phase": "Contexte & mémoire",
+      "lignes": 366,
+      "summary": "L oignon de retry"
+    },
+    {
+      "page": "s12-task-system",
+      "title": "s12 · Système de tâches",
+      "phase": "Tâches & temps",
+      "lignes": 377,
+      "summary": "Tâches fichiers claim/complete"
+    },
+    {
+      "page": "s13-background-tasks",
+      "title": "s13 · Tâches en arrière-plan",
+      "phase": "Tâches & temps",
+      "lignes": 479,
+      "summary": "Bash en arrière-plan"
+    },
+    {
+      "page": "s14-cron-scheduler",
+      "title": "s14 · Cron Scheduler",
+      "phase": "Tâches & temps",
+      "lignes": 805,
+      "summary": "Jobs cron durables"
+    },
+    {
+      "page": "s15-agent-teams",
+      "title": "s15 · Agent Teams",
+      "phase": "Multi-agents",
+      "lignes": 929,
+      "summary": "Teammates + mailbox JSONL"
+    },
+    {
+      "page": "s16-team-protocols",
+      "title": "s16 · Team Protocols",
+      "phase": "Multi-agents",
+      "lignes": 881,
+      "summary": "Machine à états d équipe"
+    },
+    {
+      "page": "s17-autonomous-agents",
+      "title": "s17 · Agents autonomes",
+      "phase": "Multi-agents",
+      "lignes": 813,
+      "summary": "WORK vers IDLE vers SHUTDOWN"
+    },
+    {
+      "page": "s18-worktree-isolation",
+      "title": "s18 · Isolation par worktree",
+      "phase": "Intégration & synthèse",
+      "lignes": 997,
+      "summary": "Un worktree git par tâche"
+    },
+    {
+      "page": "s19-mcp-plugin",
+      "title": "s19 · Plugin MCP",
+      "phase": "Intégration & synthèse",
+      "lignes": 1025,
+      "summary": "Pool d outils MCP dynamique"
+    },
+    {
+      "page": "s20-comprehensive",
+      "title": "s20 · Agent complet",
+      "phase": "Intégration & synthèse",
+      "lignes": 2124,
+      "summary": "Le capstone : tout assemblé"
+    }
+  ]
+}

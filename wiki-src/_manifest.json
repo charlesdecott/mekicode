@@ -1,0 +1,166 @@
+{
+  "title": "Wiki src/ (mekicode)",
+  "home": "Accueil",
+  "phases": [
+    "Bibliothèque",
+    "Fondamentaux",
+    "Contexte & mémoire",
+    "Tâches & temps",
+    "Multi-agents",
+    "Intégration & synthèse"
+  ],
+  "pages": [
+    {
+      "page": "Accueil",
+      "title": "Accueil",
+      "phase": "Accueil"
+    },
+    {
+      "page": "shared-py",
+      "title": "shared.py · La bibliothèque commune",
+      "phase": "Bibliothèque",
+      "lignes": 2566,
+      "summary": ""
+    },
+    {
+      "page": "s01-agent-loop",
+      "title": "s01 · La boucle d'agent minimale",
+      "phase": "Fondamentaux",
+      "lignes": 87,
+      "summary": ""
+    },
+    {
+      "page": "s02-tool-use",
+      "title": "s02 · Tool use et dispatch",
+      "phase": "Fondamentaux",
+      "lignes": 61,
+      "summary": ""
+    },
+    {
+      "page": "s03-permission",
+      "title": "s03 · Le système de permission",
+      "phase": "Fondamentaux",
+      "lignes": 99,
+      "summary": ""
+    },
+    {
+      "page": "s04-hooks",
+      "title": "s04 · Les hooks",
+      "phase": "Fondamentaux",
+      "lignes": 112,
+      "summary": ""
+    },
+    {
+      "page": "s05-todo-write",
+      "title": "s05 · TodoWrite, l'outil de planification",
+      "phase": "Fondamentaux",
+      "lignes": 91,
+      "summary": ""
+    },
+    {
+      "page": "s06-subagent",
+      "title": "s06 · Subagent",
+      "phase": "Fondamentaux",
+      "lignes": 67,
+      "summary": ""
+    },
+    {
+      "page": "s07-skill-loading",
+      "title": "s07 · Skill Loading",
+      "phase": "Fondamentaux",
+      "lignes": 114,
+      "summary": ""
+    },
+    {
+      "page": "s08-context-compact",
+      "title": "s08 · Context Compact",
+      "phase": "Contexte & mémoire",
+      "lignes": 129,
+      "summary": ""
+    },
+    {
+      "page": "s09-memory",
+      "title": "s09 · Mémoire persistante",
+      "phase": "Contexte & mémoire",
+      "lignes": 113,
+      "summary": ""
+    },
+    {
+      "page": "s10-system-prompt",
+      "title": "s10 · System Prompt",
+      "phase": "Contexte & mémoire",
+      "lignes": 111,
+      "summary": ""
+    },
+    {
+      "page": "s11-error-recovery",
+      "title": "s11 · Récupération d'erreurs",
+      "phase": "Contexte & mémoire",
+      "lignes": 135,
+      "summary": ""
+    },
+    {
+      "page": "s12-task-system",
+      "title": "s12 · Système de tâches",
+      "phase": "Tâches & temps",
+      "lignes": 83,
+      "summary": ""
+    },
+    {
+      "page": "s13-background-tasks",
+      "title": "s13 · Tâches en arrière-plan",
+      "phase": "Tâches & temps",
+      "lignes": 119,
+      "summary": ""
+    },
+    {
+      "page": "s14-cron-scheduler",
+      "title": "s14 · Cron Scheduler",
+      "phase": "Tâches & temps",
+      "lignes": 125,
+      "summary": ""
+    },
+    {
+      "page": "s15-agent-teams",
+      "title": "s15 · Agent Teams",
+      "phase": "Multi-agents",
+      "lignes": 103,
+      "summary": ""
+    },
+    {
+      "page": "s16-team-protocols",
+      "title": "s16 · Protocoles d'équipe",
+      "phase": "Multi-agents",
+      "lignes": 118,
+      "summary": ""
+    },
+    {
+      "page": "s17-autonomous-agents",
+      "title": "s17 · Agents autonomes",
+      "phase": "Multi-agents",
+      "lignes": 92,
+      "summary": ""
+    },
+    {
+      "page": "s18-worktree-isolation",
+      "title": "s18 · Isolation par worktree",
+      "phase": "Intégration & synthèse",
+      "lignes": 122,
+      "summary": ""
+    },
+    {
+      "page": "s19-mcp-plugin",
+      "title": "s19 · Plugin MCP",
+      "phase": "Intégration & synthèse",
+      "lignes": 100,
+      "summary": ""
+    },
+    {
+      "page": "s20-comprehensive",
+      "title": "s20 · Agent complet",
+      "phase": "Intégration & synthèse",
+      "lignes": 96,
+      "summary": ""
+    }
+  ]
+}
