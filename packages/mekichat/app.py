@@ -93,6 +93,23 @@ def index() -> None:
         current = _get_store().create(model=DEFAULT_MODEL, system=SYSTEM)
         _refresh()
 
+    def delete_session(session_id: str) -> None:
+        nonlocal current
+        if state["busy"]:
+            return
+        store = _get_store()
+        store.delete(session_id)
+        if current.id == session_id:               # session courante supprimée → basculer
+            metas = store.list()
+            current = store.load(metas[0].id) if metas else store.create(model=DEFAULT_MODEL, system=SYSTEM)
+        _refresh()
+
+    def _scroll_bottom() -> None:
+        try:
+            ui.run_javascript("const t=document.querySelector('.thread'); if(t) t.scrollTop=t.scrollHeight;")
+        except Exception:
+            pass
+
     def _clear_thinking() -> None:
         el = thinking_ref["el"]
         if el is not None:
@@ -153,6 +170,7 @@ def index() -> None:
             inner = thread_ref["inner"]
             with inner:
                 views.render_message({"role": "user", "content": text})
+            _scroll_bottom()
             try:
                 llm = _get_llm()
             except Exception as e:  # pas de clé / config invalide
@@ -168,6 +186,7 @@ def index() -> None:
                     break
                 try:
                     _render_event(ev, handles)
+                    _scroll_bottom()
                 except RuntimeError as exc:  # onglet/client fermé pendant le run : on cesse de rendre
                     if "deleted" not in str(exc):
                         raise
@@ -213,6 +232,7 @@ def index() -> None:
                     views.render_session_item(
                         meta, active=(meta.id == current.id),
                         on_click=lambda _, sid=meta.id: open_session(sid),
+                        on_delete=lambda _, sid=meta.id: delete_session(sid),
                     )
             with ui.element("div").classes("sidebar-foot"):
                 ui.element("span").classes("led")
@@ -250,10 +270,23 @@ def index() -> None:
                             box.set_value("")
                             await send(value)
 
+                        async def _on_enter(e) -> None:
+                            # Maj+Entrée → nouvelle ligne (laisser le défaut) ; Entrée seule → envoyer.
+                            # shiftKey vient de l'événement ; la valeur depuis box.value (synchronisée
+                            # via l'event input, qui précède le keydown dans le websocket ordonné).
+                            if isinstance(e.args, dict) and e.args.get("shiftKey"):
+                                return
+                            value = box.value or ""
+                            box.set_value("")
+                            await send(value)
+
                         ui.button("▸", on_click=_do_send).props("flat").classes("send")
+                        box.on("keydown.enter", _on_enter, args=["shiftKey"])
+        _scroll_bottom()
 
     _refresh()
     ui.timer(1.0, _tick)
+    ui.timer(0.2, _scroll_bottom, once=True)   # scroll initial une fois le client connecté
 
 
 def _chip(key: str, value: str, extra: str):

@@ -35,13 +35,14 @@ def render_message(msg: dict) -> None:
                     ui.label(content)
 
 
-def render_session_item(meta, *, active: bool, on_click) -> None:
-    """Affiche un item de la barre latérale (titre + id + nb msg)."""
+def render_session_item(meta, *, active: bool, on_click, on_delete) -> None:
+    """Affiche un item de la barre latérale (titre + id + nb msg + bouton supprimer)."""
     classes = "session active" if active else "session"
     with ui.element("div").classes(classes).on("click", on_click):
         with ui.element("div").classes("s-title"):
             ui.label(">_").classes("mk")
-            ui.label(meta.title)
+            ui.label(meta.title).classes("s-name")
+            ui.label("✕").classes("s-del").on("click.stop", on_delete)  # .stop : ne pas ouvrir la session
         ui.label(f"{meta.id} · {meta.n_messages} msg").classes("s-meta")
 
 

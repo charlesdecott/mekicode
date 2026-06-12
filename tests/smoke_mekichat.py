@@ -86,6 +86,16 @@ def test_unicode_round_trip():
         assert loaded.messages[-1]["content"] == "café ☕ déjà — émojis 🤖"
 
 
+def test_delete():
+    with tempfile.TemporaryDirectory() as d:
+        store = S.SessionStore(d)
+        a = store.create(model="m")
+        b = store.create(model="m")
+        store.delete(a.id)
+        assert [m.id for m in store.list()] == [b.id]   # a supprimée, b reste
+        store.delete("inexistante")                     # pas d'erreur si absente
+
+
 def main():
     test_create_and_load()
     test_title_set_from_first_user_message()
@@ -94,6 +104,7 @@ def main():
     test_list_ignores_bad_files()
     test_list_ignores_missing_id_files()
     test_unicode_round_trip()
+    test_delete()
     print("OK - smoke mekichat passe")
 
 

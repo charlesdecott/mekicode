@@ -82,6 +82,10 @@ class SessionStore:
         data = json.loads(self._path(session_id).read_text(encoding="utf-8"))
         return Session(**data)
 
+    def delete(self, session_id: str) -> None:
+        """Supprime le fichier de la session (sans erreur si déjà absent)."""
+        self._path(session_id).unlink(missing_ok=True)
+
     def list(self) -> list[SessionMeta]:
         metas: list[SessionMeta] = []
         for p in self.dir.glob("*.json"):
