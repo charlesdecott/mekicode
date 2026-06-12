@@ -7,12 +7,13 @@ dans [`docs/`](docs/README.md).
 
 ## Où on en est
 
-`mekicode` est construit en **trois bases de code parallèles**, du plus pédagogique au plus
-réutilisable :
+`mekicode` s'est construit en plusieurs bases de code parallèles. `src/` (refonte de
+learn-claude-code) a depuis été **retirée** ; il reste deux bases actives, du plus pédagogique au
+plus réutilisable :
 
 | Base | Rôle | Inspiration | Backend LLM | Statut |
 |------|------|-------------|-------------|--------|
-| `src/` | démos d'étude, une par mécanisme | learn-claude-code | Anthropic | features s01–s20 + mémoire |
+| ~~`src/`~~ | refonte d'étude (démos par mécanisme) | learn-claude-code | — | **retirée** (au profit de `src_scratch/` + `packages/`) |
 | `src_scratch/` | refonte dédupliquée complète | claude-code-from-scratch | Anthropic | **s01–s23 (100 %)** |
 | `packages/` | **cible « produit »** : paquets autonomes réutilisables | (repart de s01) | OpenRouter (+ ollama/litellm) | **en cours** |
 

@@ -4,30 +4,26 @@ Projet : construire notre propre agent harness en Python, en s'inspirant des 3 r
 clonés dans `inspiration/` (gitignoré). Tout le contenu (docs, wiki, commentaires) est en **français**.
 
 ## Vision
-Trois bases de code parallèles, du plus pédagogique au plus réutilisable :
-- `src/` + `src_scratch/` — refontes d'étude des repos d'inspiration (démos par mécanisme,
+Deux bases de code parallèles, du plus pédagogique au plus réutilisable :
+- `src_scratch/` — refonte d'étude complète de claude-code-from-scratch (démos par mécanisme,
   features s01–s23), backend **Anthropic**.
 - `packages/` — la cible « produit » : des paquets **autonomes et réutilisables** (provider LLM
   généraliste + mini-harness), backend **OpenRouter** (compatible ollama/litellm), pensés pour être
   importés depuis n'importe quel projet.
 
-`src/` et `src_scratch/` sont documentés par un wiki understand-anything sous `.understand-anything/`
+> `src/` (ancienne refonte de learn-claude-code) a été **retirée** au profit de `src_scratch/` et
+> `packages/` ; son wiki d'archive reste sous `.understand-anything/wiki-src/`.
+
+`src_scratch/` est documenté par un wiki understand-anything sous `.understand-anything/`
 (graphes de connaissance en français) ; `packages/` est documenté à la main dans **[`docs/`](docs/README.md)**.
 L'état d'avancement et la feuille de route sont dans **[`ROADMAP.md`](ROADMAP.md)**.
 `inspiration/` garde les repos sources d'étude.
 
 ## Structure
-- `src/shared.py` — bibliothèque commune du harness (code dédupliqué de learn-claude-code)
-- `src/complete.py` — LE point d'entrée : toutes les features actives (CLI s20 + mémoire s09)
-- `src/sessions/s01.py` … `s20.py` — démos exécutables, une par mécanisme (délta de chaque
-  session ; `_bootstrap.py` rend src/ importable en lancement direct)
-- `.understand-anything/verify-shared.py` + `smoke-sessions.py` — portail de non-régression
-  de shared.py (noms/signatures/import réel) : à lancer après tout changement de src/
 - `src_scratch/` — refonte dédupliquée de claude-code-from-scratch : 11 modules + config.yaml
   (~2 000 lignes, toutes les features s01–s23, bugs source corrigés `FIX(mekicode)`) ;
   entrée : `python src_scratch/main.py` ; non-régression : `python .refactor-tmp/smoke_all.py`
-- `packages/` — paquets autonomes réutilisables, importables par chemin (3ᵉ base, à côté de `src/`
-  et `src_scratch/`) :
+- `packages/` — paquets autonomes réutilisables, importables par chemin (à côté de `src_scratch/`) :
   - `packages/mekillm/` — provider LLM généraliste : wrapper du SDK `openai` → OpenRouter
     (bascule ollama/litellm via le seul `.env`), avec observabilité intégrée (logging + JSONL +
     hooks). Importable n'importe où (`mekillm.LLM`, `mekillm.complete`, `mekillm.observe`).
@@ -42,22 +38,20 @@ L'état d'avancement et la feuille de route sont dans **[`ROADMAP.md`](ROADMAP.m
   (regroupés ici pour alléger la racine) :
   - `.understand-anything/wiki/` — wiki du projet d'inspiration learn-claude-code (vault Obsidian, ne pas modifier sauf demande)
   - `.understand-anything/wiki-ccfs/` — wiki du repo d'inspiration claude-code-from-scratch
-  - `.understand-anything/wiki-src/` — wiki de NOTRE code src/ (conventions : `.understand-anything/wiki-src/_conventions.md`)
+  - `.understand-anything/wiki-src/` — wiki d'**archive** de l'ancien code `src/` (retiré ; conservé pour référence)
   - `.understand-anything/wiki-src-scratch/` — wiki de NOTRE code src_scratch/ (conventions : `.understand-anything/wiki-src-scratch/_conventions.md`)
   - `.understand-anything/wiki-viewer/` — viewer navigateur multi-projets
   - `.understand-anything/lancer-wiki-viewer.ps1` — script de lancement : `.understand-anything/lancer-wiki-viewer.ps1 [port]` (défaut 8088)
 - `inspiration/` — repos d'étude + leurs graphes understand-anything (`.understand-anything/` propre à chaque repo)
 
 ## Règles
-1. **Après TOUTE modification de `src/` OU `src_scratch/`, exécuter la skill `wiki-update`** pour
-   resynchroniser le wiki correspondant — `src/` → `.understand-anything/wiki-src/`, `src_scratch/` → `.understand-anything/wiki-src-scratch/`
-   (pages, numéros de lignes, _manifest.json, _graph.json). Les wikis documentent le code avec des
-   numéros de lignes exacts — ils se périment à chaque édition. (`packages/` est documenté à la main
-   dans `docs/wiki-packages/`, hors pipeline understand-anything : tenir cette doc à jour
-   manuellement après tout changement de `packages/`.)
+1. **Après TOUTE modification de `src_scratch/`, exécuter la skill `wiki-update`** pour
+   resynchroniser `.understand-anything/wiki-src-scratch/` (pages, numéros de lignes, _manifest.json,
+   _graph.json). Les wikis documentent le code avec des numéros de lignes exacts — ils se périment à
+   chaque édition. (`packages/` est documenté à la main dans `docs/wiki-packages/`, hors pipeline
+   understand-anything : tenir cette doc à jour manuellement après tout changement de `packages/`.)
 2. **Jamais le nom de Claude dans les commits** : pas de `Co-Authored-By: Claude...`, pas de
    « Generated with Claude Code » (exigence explicite de l'utilisateur).
-3. Les fichiers `src/sNN.py` restent des démos fines : la logique réutilisable va dans `shared.py`.
-4. Vérifier `python -m py_compile` sur tout fichier Python modifié avant de conclure.
-5. **Les tests (smoke, non-régression) vivent dans `tests/` à la racine** — pas dans les dossiers de
+3. Vérifier `python -m py_compile` sur tout fichier Python modifié avant de conclure.
+4. **Les tests (smoke, non-régression) vivent dans `tests/` à la racine** — pas dans les dossiers de
    code. De même, `.env`, `.env.example` et `.gitignore` restent à la racine.
