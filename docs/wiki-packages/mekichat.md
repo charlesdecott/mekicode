@@ -51,8 +51,9 @@ coins biseautés (`clip-path`), glitch, scanlines, ticker HUD. Stylise les ligne
 
 ## `views.py` — helpers de rendu
 
-- `render_message(msg)` : une **ligne de message** façon Discord (avatar + en-tête + corps) ;
-  les rôles `system` / `tool` ne sont pas affichés directement.
+- `render_message(msg)` : une **ligne de message** façon Discord. Les réponses **assistant** sont
+  rendues en **markdown** (`ui.markdown` : titres dégressifs h1-h3, listes, code, retours-ligne) ;
+  les messages **user** en texte brut (retours-ligne préservés, pas de markdown).
 - `render_session_item(meta, *, active, on_click)` : un **item de la barre latérale**.
 - `render_tool(command, output, status)` : un **bloc `[bash]`** (commande + sortie + statut) ;
   renvoie `(label_statut, label_sortie)` pour remplissage différé.
@@ -99,8 +100,8 @@ clé valide, l'envoi affiche une bulle d'erreur « LLM indisponible » (dégrada
 Phase suivante :
 - **Phase 3** — streaming token par token (`LLM.stream`, `AssistantDelta`, caret).
 
-> Limite cosmétique connue (phase 2) : les réponses sont rendues en **texte brut** (`ui.label`), donc
-> le markdown (`**gras**`, `` `code` ``) s'affiche littéralement — à traiter ultérieurement.
+> Rendu **markdown** des réponses de l'agent (titres de tailles dégressives, listes, blocs de code,
+> retours-ligne). Les messages utilisateur restent en texte brut.
 
 ## Relations entrantes / sortantes
 

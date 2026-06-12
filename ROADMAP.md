@@ -98,7 +98,6 @@ on reconstruit proprement à partir du socle, on ne recopie pas `src_scratch/`.
 
 ### Court terme (porter les prochaines sessions dans `packages/`)
 - [ ] mekichat phase 3 — streaming token par token (`LLM.stream` + affichage progressif NiceGUI).
-- [ ] mekichat — rendu markdown des réponses (aujourd'hui texte brut via `ui.label`).
 - [ ] s14 — outils étendus (read / write / grep / glob / revert) au format OpenAI.
 - [ ] s15 — gouvernance des permissions (3 tiers) autour de `dispatch_tools`.
 - [ ] s13 — streaming dans `mekillm.complete` (token par token).
