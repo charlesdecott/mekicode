@@ -38,6 +38,7 @@ static/
     `system`, sauvegarde et renvoie la session.
   - `save(session) -> None` : écrit `.sessions/<id>.json`.
   - `load(session_id) -> Session` : relit le fichier JSON correspondant.
+  - `delete(session_id) -> None` : supprime le fichier de la session (sans erreur si absent).
   - `list() -> list[SessionMeta]` : métadonnées, **plus récentes d'abord** ; ignore les fichiers
     corrompus / structurellement incomplets.
 
@@ -81,6 +82,8 @@ coins biseautés (`clip-path`), glitch, scanlines, ticker HUD. Stylise les ligne
 - `state["busy"]` empêche envois/bascules concurrents ; le rendu cesse proprement si l'onglet se
   ferme en plein run (garde « client supprimé »).
 - Store et LLM en singletons **paresseux** (`_get_store` / `_get_llm`).
+- **UX** : **Entrée** envoie (Maj+Entrée = nouvelle ligne) ; le fil **scrolle auto** en bas à chaque
+  message/token ; chaque session a un **×** (au survol) pour la supprimer dans la barre latérale.
 - Démarre le serveur : `ui.run(... port=8080)` → **http://localhost:8080**.
 
 ## Lancer
