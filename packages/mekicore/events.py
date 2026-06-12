@@ -9,6 +9,12 @@ from dataclasses import dataclass
 
 
 @dataclass
+class ThinkingStarted:
+    """Un tour commence : appel LLM en cours (avant complete())."""
+    pass
+
+
+@dataclass
 class AssistantDone:
     """Texte complet d'un tour assistant."""
     text: str
@@ -16,6 +22,7 @@ class AssistantDone:
 
 @dataclass
 class ToolStarted:
+    """Un outil va être exécuté."""
     id: str
     name: str
     args: dict
@@ -23,6 +30,7 @@ class ToolStarted:
 
 @dataclass
 class ToolFinished:
+    """Un outil a renvoyé sa sortie."""
     id: str
     name: str
     output: str
@@ -30,9 +38,11 @@ class ToolFinished:
 
 @dataclass
 class RunFinished:
+    """La boucle est terminée (plus d'appel d'outil)."""
     pass
 
 
 @dataclass
 class RunError:
+    """L'appel LLM a échoué ; la boucle s'arrête."""
     message: str

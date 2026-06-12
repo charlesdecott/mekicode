@@ -145,10 +145,13 @@ def test_run_agent_events():
 
     msgs = [{"role": "user", "content": "go"}]
     evs = list(base.run_agent(msgs, StubLLM(), tools.TOOLS, tools.DISPATCH))
-    assert [type(e).__name__ for e in evs] == ["ToolStarted", "ToolFinished", "AssistantDone", "RunFinished"]
-    assert evs[0].name == "bash" and evs[0].args == {"command": "echo hi"}
-    assert "hi" in evs[1].output
-    assert evs[2].text == "fini"
+    assert [type(e).__name__ for e in evs] == [
+        "ThinkingStarted", "ToolStarted", "ToolFinished",
+        "ThinkingStarted", "AssistantDone", "RunFinished",
+    ]
+    assert evs[1].name == "bash" and evs[1].args == {"command": "echo hi"}
+    assert "hi" in evs[2].output
+    assert evs[4].text == "fini"
     assert any(m.get("role") == "tool" and "hi" in m["content"] for m in msgs)
     assert msgs[-1]["content"] == "fini"
 
@@ -160,8 +163,47 @@ def test_run_agent_error():
 
     msgs = [{"role": "user", "content": "go"}]
     evs = list(base.run_agent(msgs, BoomLLM(), tools.TOOLS, tools.DISPATCH))
-    assert [type(e).__name__ for e in evs] == ["RunError"]
-    assert "boom" in evs[0].message
+    assert [type(e).__name__ for e in evs] == ["ThinkingStarted", "RunError"]
+    assert "boom" in evs[1].message
+
+
+def test_run_agent_unknown_tool():
+    seq = [
+        LLMResponse(text="", tool_calls=[ToolCall("c1", "nope", {})],
+                    finish_reason="tool_calls", usage=Usage(),
+                    message={"role": "assistant", "content": ""}),
+        LLMResponse(text="ok", tool_calls=[], finish_reason="stop", usage=Usage(),
+                    message={"role": "assistant", "content": "ok"}),
+    ]
+
+    class StubLLM:
+        def __init__(self):
+            self.i = 0
+
+        def complete(self, messages, tools=None):
+            r = seq[self.i]
+            self.i += 1
+            return r
+
+    msgs = [{"role": "user", "content": "go"}]
+    evs = list(base.run_agent(msgs, StubLLM(), tools.TOOLS, tools.DISPATCH))
+    finished = [e for e in evs if type(e).__name__ == "ToolFinished"]
+    assert finished and "Unknown tool" in finished[0].output
+    assert any(m.get("role") == "tool" and "Unknown tool" in m["content"] for m in msgs)
+
+
+def test_run_agent_empty_tool_calls():
+    bad = LLMResponse(text="", tool_calls=[], finish_reason="tool_calls", usage=Usage(),
+                      message={"role": "assistant", "content": ""})
+
+    class StubLLM:
+        def complete(self, messages, tools=None):
+            return bad
+
+    msgs = [{"role": "user", "content": "go"}]
+    evs = list(base.run_agent(msgs, StubLLM(), tools.TOOLS, tools.DISPATCH))
+    assert [type(e).__name__ for e in evs] == ["ThinkingStarted", "RunError"]
+    assert "tool_calls vide" in evs[1].message
 
 
 def main():
@@ -180,6 +222,8 @@ def main():
     test_agent_loop_with_stub()
     test_run_agent_events()
     test_run_agent_error()
+    test_run_agent_unknown_tool()
+    test_run_agent_empty_tool_calls()
     print("OK - tous les smoke tests passent")
 
 

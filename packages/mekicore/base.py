@@ -8,11 +8,12 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from events import AssistantDone, RunError, RunFinished, ToolFinished, ToolStarted
+from events import AssistantDone, RunError, RunFinished, ThinkingStarted, ToolFinished, ToolStarted
 
 
 def dispatch_tools(tool_calls, dispatch) -> list:
     """Exécute chaque ToolCall et renvoie les messages role:'tool' correspondants."""
+    # Conservé pour l'API directe / le test ; run_agent a sa propre boucle pour émettre les événements.
     results = []
     for tc in tool_calls:
         handler = dispatch.get(tc.name)
@@ -38,6 +39,7 @@ def run_agent(messages, llm, tools, dispatch):
     RunFinished à la fin, RunError si l'appel LLM lève.
     """
     while True:
+        yield ThinkingStarted()
         try:
             resp = llm.complete(messages, tools=tools)
         except Exception as e:
@@ -48,6 +50,9 @@ def run_agent(messages, llm, tools, dispatch):
             yield AssistantDone(resp.text)
         if resp.finish_reason != "tool_calls":
             yield RunFinished()
+            return
+        if not resp.tool_calls:           # réponse provider malformée : éviter la boucle infinie
+            yield RunError("finish_reason='tool_calls' mais tool_calls vide")
             return
         for tc in resp.tool_calls:
             yield ToolStarted(tc.id, tc.name, tc.arguments)
@@ -65,7 +70,9 @@ def agent_loop(messages, llm, tools, dispatch) -> None:
     """REPL console : consomme run_agent et rend les événements en print (compat s01)."""
     model = getattr(llm, "model", "?")
     for ev in run_agent(messages, llm, tools, dispatch):
-        if isinstance(ev, AssistantDone):
+        if isinstance(ev, ThinkingStarted):
+            print("\n\033[36m> Thinking...\033[0m")
+        elif isinstance(ev, AssistantDone):
             print(f"\033[90m[{datetime.now().strftime('%H:%M:%S')} · {model}]\033[0m {ev.text}")
         elif isinstance(ev, ToolStarted):
             first = str(next(iter(ev.args.values()), ""))[:80] if ev.args else ""
