@@ -94,3 +94,27 @@ def render_thread(messages: list) -> None:
                 except (json.JSONDecodeError, AttributeError):
                     cmd = str(fn.get("arguments", ""))
                 render_tool(cmd, output=outputs.get(tc.get("id"), ""), status="DONE")
+
+
+def render_stream_bubble():
+    """Bulle assistant en cours de streaming. Renvoie (conteneur_body, label_texte) :
+    on met à jour le label à chaque token, puis on finalise via finalize_stream()."""
+    with ui.element("div").classes("msg bot"):
+        with ui.element("div").classes("avatar bot"):
+            ui.label("M")
+        with ui.element("div"):
+            with ui.element("div").classes("head"):
+                ui.label("mekicore").classes("who")
+                ui.label("//AGENT").classes("tag")
+            body = ui.element("div").classes("body streaming")
+            with body:
+                lbl = ui.label("")
+    return body, lbl
+
+
+def finalize_stream(body, text: str) -> None:
+    """Remplace le texte brut streamé par le rendu markdown final (retire le caret)."""
+    body.classes(remove="streaming")
+    body.clear()
+    with body:
+        ui.markdown(text, extras=["fenced-code-blocks", "tables", "break-on-newline"])

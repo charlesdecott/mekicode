@@ -76,6 +76,7 @@ def index() -> None:
     clock_ref: dict[str, object] = {"label": None}
     thread_ref: dict[str, object] = {"inner": None}
     thinking_ref: dict[str, object] = {"el": None}
+    stream_ref: dict[str, object] = {"body": None, "lbl": None, "text": ""}
     state = {"busy": False}
 
     def open_session(session_id: str) -> None:
@@ -111,8 +112,17 @@ def index() -> None:
             return
         _clear_thinking()
         with inner:
-            if isinstance(ev, events.AssistantDone):
-                if ev.text:
+            if isinstance(ev, events.AssistantDelta):
+                if stream_ref["body"] is None:
+                    body, lbl = views.render_stream_bubble()
+                    stream_ref["body"], stream_ref["lbl"], stream_ref["text"] = body, lbl, ""
+                stream_ref["text"] = stream_ref["text"] + ev.text
+                stream_ref["lbl"].set_text(stream_ref["text"])
+            elif isinstance(ev, events.AssistantDone):
+                if stream_ref["body"] is not None:
+                    views.finalize_stream(stream_ref["body"], ev.text)
+                    stream_ref["body"] = None
+                elif ev.text:
                     views.render_message({"role": "assistant", "content": ev.text})
             elif isinstance(ev, events.ToolStarted):
                 cmd = str(ev.args.get("command", "")) if isinstance(ev.args, dict) else ""
@@ -125,6 +135,9 @@ def index() -> None:
                 else:
                     views.render_tool("", output=ev.output, status="DONE")
             elif isinstance(ev, events.RunError):
+                if stream_ref["body"] is not None:   # fige la bulle partielle (retire le caret)
+                    views.finalize_stream(stream_ref["body"], stream_ref["text"])
+                    stream_ref["body"] = None
                 _render_error(ev.message)
 
     async def send(text: str) -> None:
@@ -132,6 +145,7 @@ def index() -> None:
         if not text or state["busy"]:
             return
         state["busy"] = True
+        stream_ref["body"] = None
         try:
             store = _get_store()
             current.add("user", text)
@@ -145,7 +159,7 @@ def index() -> None:
                 with inner:
                     _render_error(f"LLM indisponible : {e}")
                 return
-            gen = run_agent(current.messages, llm, TOOLS, DISPATCH)
+            gen = run_agent(current.messages, llm, TOOLS, DISPATCH, stream=True)
             handles: dict = {}
             disconnected = False
             while True:
@@ -206,6 +220,7 @@ def index() -> None:
 
     def _refresh() -> None:
         thinking_ref["el"] = None
+        stream_ref["body"] = None
         _refresh_sidebar()
         main.clear()
         with main:
