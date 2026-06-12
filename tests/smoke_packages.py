@@ -121,6 +121,49 @@ def test_agent_loop_with_stub():
     assert any(m.get("role") == "tool" for m in messages)
 
 
+def test_run_agent_events():
+    seq = [
+        LLMResponse(
+            text="", tool_calls=[ToolCall("c1", "bash", {"command": "echo hi"})],
+            finish_reason="tool_calls", usage=Usage(),
+            message={"role": "assistant", "content": ""},
+        ),
+        LLMResponse(
+            text="fini", tool_calls=[], finish_reason="stop", usage=Usage(),
+            message={"role": "assistant", "content": "fini"},
+        ),
+    ]
+
+    class StubLLM:
+        def __init__(self):
+            self.i = 0
+
+        def complete(self, messages, tools=None):
+            r = seq[self.i]
+            self.i += 1
+            return r
+
+    msgs = [{"role": "user", "content": "go"}]
+    evs = list(base.run_agent(msgs, StubLLM(), tools.TOOLS, tools.DISPATCH))
+    assert [type(e).__name__ for e in evs] == ["ToolStarted", "ToolFinished", "AssistantDone", "RunFinished"]
+    assert evs[0].name == "bash" and evs[0].args == {"command": "echo hi"}
+    assert "hi" in evs[1].output
+    assert evs[2].text == "fini"
+    assert any(m.get("role") == "tool" and "hi" in m["content"] for m in msgs)
+    assert msgs[-1]["content"] == "fini"
+
+
+def test_run_agent_error():
+    class BoomLLM:
+        def complete(self, messages, tools=None):
+            raise RuntimeError("boom")
+
+    msgs = [{"role": "user", "content": "go"}]
+    evs = list(base.run_agent(msgs, BoomLLM(), tools.TOOLS, tools.DISPATCH))
+    assert [type(e).__name__ for e in evs] == ["RunError"]
+    assert "boom" in evs[0].message
+
+
 def main():
     log_path = Path(tempfile.gettempdir()) / "mekillm_smoke.jsonl"
     if log_path.exists():
@@ -135,6 +178,8 @@ def main():
     test_dispatch_tools()
     test_dispatch_unknown_tool()
     test_agent_loop_with_stub()
+    test_run_agent_events()
+    test_run_agent_error()
     print("OK - tous les smoke tests passent")
 
 
