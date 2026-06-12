@@ -67,6 +67,15 @@ def test_list_ignores_bad_files():
         assert len(store.list()) == 1   # le fichier corrompu est ignoré, pas de crash
 
 
+def test_list_ignores_missing_id_files():
+    with tempfile.TemporaryDirectory() as d:
+        store = S.SessionStore(d)
+        store.create(model="m")
+        # JSON valide mais sans clé "id" → doit être ignoré, pas de crash
+        (Path(d) / "noid.json").write_text('{"title": "x", "messages": []}', encoding="utf-8")
+        assert len(store.list()) == 1
+
+
 def test_unicode_round_trip():
     with tempfile.TemporaryDirectory() as d:
         store = S.SessionStore(d)
@@ -83,6 +92,7 @@ def main():
     test_round_trip_messages()
     test_list_sorted_recent_first()
     test_list_ignores_bad_files()
+    test_list_ignores_missing_id_files()
     test_unicode_round_trip()
     print("OK - smoke mekichat passe")
 

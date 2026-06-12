@@ -87,11 +87,11 @@ class SessionStore:
         for p in self.dir.glob("*.json"):
             try:
                 d = json.loads(p.read_text(encoding="utf-8"))
+                metas.append(SessionMeta(
+                    id=d["id"], title=d.get("title", _DEFAULT_TITLE), model=d.get("model", "?"),
+                    created_at=d.get("created_at", ""), n_messages=len(d.get("messages", [])),
+                ))
             except (json.JSONDecodeError, OSError, KeyError):
-                continue   # fichier corrompu/illisible : on l'ignore
-            metas.append(SessionMeta(
-                id=d["id"], title=d.get("title", _DEFAULT_TITLE), model=d.get("model", "?"),
-                created_at=d.get("created_at", ""), n_messages=len(d.get("messages", [])),
-            ))
+                continue   # fichier corrompu / structurellement incomplet : on l'ignore
         metas.sort(key=lambda m: m.created_at, reverse=True)
         return metas
