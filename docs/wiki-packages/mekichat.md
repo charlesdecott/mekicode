@@ -9,28 +9,37 @@ Pensé comme la couche présentation de [mekicore](mekicore.md), dont il sera le
 ## Vue des fichiers et de leurs relations
 
 ```
-app.py      ── page NiceGUI "/" ──▶ importe views.py (render_message, build_ui)
-   │            bootstrap sys.path, charge .env
-   │            lit/écrit les sessions via ─┐
-   ▼                                        │
-sessions.py ── load_session(), save_session(), new_session_id()
-   │            JSON sous .sessions/<id>.json (à la racine du projet)
+app.py      ── page NiceGUI "/" (index) ; closure _refresh() (re)construit l'UI
+   │            bootstrap sys.path → import sessions, views
+   │            store paresseux _get_store() ──▶ SessionStore
+   │            rend chaque message/item via ──▶ views.render_message / render_session_item
+   ▼
+sessions.py ── Session, SessionMeta (dataclasses) + SessionStore (CRUD)
+   │            JSON sous .sessions/<id>.json (à la racine du projet) ; pur Python, pas de NiceGUI
+   │
+views.py    ── render_message(msg)                 ligne de message façon Discord
+   │            render_session_item(meta, …)        item de la barre latérale
    │
 static/
    └── mekichat.css  ── thème cyberpunk Phosphore (variables CSS, bulles, barre de saisie)
-views.py    ── render_message(role, text)  helper de rendu NiceGUI par rôle
-               build_ui(session_id)        construit la page (historique + saisie)
 ```
 
-## `sessions.py` — persistance JSON
+## `sessions.py` — persistance JSON (pur Python, sans NiceGUI)
 
-- `new_session_id() -> str` : génère un identifiant horodaté (`session-YYYYMMDD-HHMMSS`).
-- `load_session(session_id, sessions_dir) -> list[dict]` : lit `.sessions/<id>.json` ;
-  renvoie `[]` si le fichier n'existe pas encore.
-- `save_session(session_id, messages, sessions_dir) -> None` : écrit (ou écrase) le fichier
-  JSON correspondant ; crée le répertoire si nécessaire.
-- Les sessions sont des listes de dicts `{"role": "user"|"assistant", "content": "..."}`,
-  format compatible OpenAI — prêtes à être passées à `mekillm.LLM.complete()` (phase 2).
+- `Session` (dataclass) : `id`, `title`, `model`, `created_at`, `messages` (liste de dicts).
+  - `add(role, content, **extra) -> dict` : ajoute le message (dict `{"role", "content", **extra}`,
+    format compatible OpenAI) ; au **premier message `user`**, renseigne `title` à partir de sa
+    première ligne, tronquée à 48 caractères.
+- `SessionMeta` (dataclass) : `id`, `title`, `model`, `created_at`, `n_messages` — vue légère
+  pour la barre latérale (sans charger tout l'historique).
+- `SessionStore(directory=None)` : CRUD, un fichier `<id>.json` par session. Le dossier est
+  résolu depuis l'argument, sinon `MEKICHAT_SESSIONS_DIR`, sinon `.sessions/` à la racine du projet.
+  - `create(model, system=None) -> Session` : génère un id court, sème éventuellement un message
+    `system`, sauvegarde et renvoie la session.
+  - `save(session) -> None` : écrit `.sessions/<id>.json`.
+  - `load(session_id) -> Session` : relit le fichier JSON correspondant.
+  - `list() -> list[SessionMeta]` : métadonnées, **plus récentes d'abord** ; ignore les fichiers
+    corrompus / structurellement incomplets.
 
 ## `static/mekichat.css` — thème Phosphore
 
@@ -38,19 +47,21 @@ Variables CSS centralisées (`--phosphore-*`) : fond sombre, accent vert phospho
 typographie monospace. Stylise les bulles de messages (`.msg-user` / `.msg-assistant`),
 la barre de saisie, le conteneur de l'historique.
 
-## `views.py` — helpers de rendu
+## `views.py` — helpers de rendu (deux fonctions)
 
-- `render_message(role, text)` : émet un élément NiceGUI (`ui.chat_message` ou équivalent)
-  avec la classe CSS appropriée selon le rôle.
-- `build_ui(session_id)` : construit la page complète (historique chargé depuis `sessions.py`,
-  barre de saisie, bouton envoi).
+- `render_message(msg)` : affiche une **ligne de message** façon Discord (avatar + en-tête +
+  corps), d'après `msg["role"]` ; les rôles `system` / `tool` ne sont pas affichés en phase 1.
+- `render_session_item(meta, *, active, on_click)` : affiche un **item de la barre latérale**
+  (titre + id + nombre de messages), marqué `active` pour la session courante.
 
 ## `app.py` — page NiceGUI
 
-- Bootstrap `sys.path` (identique à mekicore) pour résoudre `import mekichat.*` sans packaging.
-- Charge `.env` via `python-dotenv` (même fichier racine que mekicore/mekillm).
-- Déclare la route `"/"` NiceGUI, instancie une session, délègue à `build_ui`.
-- Démarre le serveur : `ui.run(port=8080)` → **http://localhost:8080**.
+- Bootstrap `sys.path` (comme mekicore) pour résoudre `import sessions, views` en lancement direct.
+- `@ui.page("/")` → `index()` : la page. L'UI (barre latérale, en-tête, fil, composer) est
+  (re)construite par la closure interne `_refresh()` à chaque action (ouvrir, créer, envoyer).
+- Le store est obtenu via `_get_store()` (singleton **paresseux** : évite de créer `.sessions/`
+  au simple import du module).
+- Démarre le serveur : `ui.run(... port=8080)` → **http://localhost:8080**.
 
 ## Lancer
 
