@@ -15,6 +15,12 @@ class ThinkingStarted:
 
 
 @dataclass
+class AssistantDelta:
+    """Fragment de texte assistant (streaming)."""
+    text: str
+
+
+@dataclass
 class AssistantDone:
     """Texte complet d'un tour assistant."""
     text: str

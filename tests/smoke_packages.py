@@ -282,6 +282,28 @@ def test_consume_stream_text_then_tool():
     assert resp.tool_calls[0].arguments == {"command": "ls"}
 
 
+def test_run_agent_streaming():
+    class StubLLM:
+        model = "stub"
+
+        def stream(self, messages, tools=None):
+            for t in ["Sa", "lut"]:
+                yield t
+            return LLMResponse(
+                text="Salut", tool_calls=[], finish_reason="stop", usage=Usage(),
+                message={"role": "assistant", "content": "Salut"},
+            )
+
+    msgs = [{"role": "user", "content": "hi"}]
+    evs = list(base.run_agent(msgs, StubLLM(), tools.TOOLS, tools.DISPATCH, stream=True))
+    assert [type(e).__name__ for e in evs] == [
+        "ThinkingStarted", "AssistantDelta", "AssistantDelta", "AssistantDone", "RunFinished",
+    ]
+    assert evs[1].text == "Sa" and evs[2].text == "lut"
+    assert evs[3].text == "Salut"
+    assert msgs[-1]["content"] == "Salut"
+
+
 def main():
     log_path = Path(tempfile.gettempdir()) / "mekillm_smoke.jsonl"
     if log_path.exists():
@@ -304,6 +326,7 @@ def main():
     test_consume_stream_tool_call()
     test_consume_stream_empty()
     test_consume_stream_text_then_tool()
+    test_run_agent_streaming()
     print("OK - tous les smoke tests passent")
 
 

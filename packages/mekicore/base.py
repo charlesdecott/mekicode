@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from events import AssistantDone, RunError, RunFinished, ThinkingStarted, ToolFinished, ToolStarted
+from events import AssistantDelta, AssistantDone, RunError, RunFinished, ThinkingStarted, ToolFinished, ToolStarted
 
 
 def dispatch_tools(tool_calls, dispatch) -> list:
@@ -31,17 +31,27 @@ def dispatch_tools(tool_calls, dispatch) -> list:
     return results
 
 
-def run_agent(messages, llm, tools, dispatch):
-    """Boucle « penser-agir » émettant des événements (non-streaming).
+def run_agent(messages, llm, tools, dispatch, *, stream=False):
+    """Boucle « penser-agir » émettant des événements.
 
-    Mute `messages` en place (append du message assistant puis des messages role:'tool').
-    Générateur : ToolStarted/ToolFinished par outil, AssistantDone par texte de tour,
-    RunFinished à la fin, RunError si l'appel LLM lève.
+    Mute `messages` en place. Si `stream=True`, le texte assistant arrive en `AssistantDelta`
+    (puis un `AssistantDone` final) via `llm.stream()` ; sinon un seul `AssistantDone` via
+    `llm.complete()`. Les outils fonctionnent dans les deux cas.
     """
     while True:
         yield ThinkingStarted()
         try:
-            resp = llm.complete(messages, tools=tools)
+            if stream:
+                gen = llm.stream(messages, tools=tools)
+                while True:
+                    try:
+                        token = next(gen)
+                    except StopIteration as stop:
+                        resp = stop.value
+                        break
+                    yield AssistantDelta(token)
+            else:
+                resp = llm.complete(messages, tools=tools)
         except Exception as e:
             yield RunError(str(e))
             return
