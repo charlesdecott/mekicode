@@ -135,8 +135,29 @@
   .tag{font-family:var(--mono);font-size:9.5px;color:var(--faint);border:1px solid var(--line-dim);padding:1px 6px;letter-spacing:.1em}
   .time{font-family:var(--mono);font-size:11px;color:var(--faint);margin-left:auto}
   .body{font-size:14.5px;line-height:1.65;color:#c2d6de}
-  .body p+p{margin-top:9px} .body b{color:#fff}
+  .body.plain{white-space:pre-wrap;word-break:break-word}
   code.inline{font-family:var(--mono);font-size:12.5px;color:var(--p1);background:var(--raise);border:1px solid var(--line);padding:1px 6px}
+  /* ── rendu markdown des réponses (titres dégressifs, listes, code, citations) ── */
+  .body h1,.body h2,.body h3,.body h4,.body h5,.body h6{font-family:var(--ui);line-height:1.25;color:#fff}
+  .body h1{font-size:1.7em;font-weight:800;margin:.5em 0 .3em;letter-spacing:-.01em}
+  .body h2{font-size:1.4em;font-weight:700;margin:.5em 0 .3em}
+  .body h3{font-size:1.2em;font-weight:700;margin:.45em 0 .25em;color:#eaf2f5}
+  .body h4{font-size:1.05em;font-weight:600;margin:.4em 0 .2em;color:#eaf2f5}
+  .body h5,.body h6{font-size:.95em;font-weight:600;margin:.4em 0 .2em;color:var(--muted)}
+  .body p{margin:.4em 0}
+  .body ul,.body ol{margin:.4em 0;padding-left:1.45em}
+  .body li{margin:.15em 0}
+  .body strong,.body b{color:#fff;font-weight:700}
+  .body em{color:#eaf2f5;font-style:italic}
+  .body a{color:var(--p1);text-decoration:underline}
+  .body code{font-family:var(--mono);font-size:.88em;color:var(--p1);background:var(--raise);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+  .body pre{margin:.5em 0;padding:11px 13px;background:rgba(0,0,0,.4);border:1px solid var(--line);border-left:2px solid var(--p1);clip-path:var(--clip-sm);overflow:auto}
+  .body pre code{padding:0;border:none;background:none;color:var(--text);font-size:12.5px;line-height:1.55}
+  .body blockquote{margin:.5em 0;padding:.15em .8em;border-left:2px solid var(--p2);color:var(--muted)}
+  .body table{border-collapse:collapse;margin:.5em 0}
+  .body th,.body td{border:1px solid var(--line);padding:4px 9px;font-size:.95em}
+  .body hr{border:none;border-top:1px solid var(--line);margin:.7em 0}
+  .body :first-child{margin-top:0} .body :last-child{margin-bottom:0}
   .caret{display:inline-block;width:9px;height:1.05em;transform:translateY(2px);margin-left:3px;background:var(--p1);box-shadow:var(--p1-glow);animation:cblink 1s steps(1) infinite}
   @keyframes cblink{50%{opacity:0}}
 

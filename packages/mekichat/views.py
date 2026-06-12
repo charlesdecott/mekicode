@@ -23,8 +23,16 @@ def render_message(msg: dict) -> None:
             with ui.element("div").classes("head"):
                 ui.label(_WHO[role]).classes("who")
                 ui.label(_TAG[role]).classes("tag")
-            with ui.element("div").classes("body"):
-                ui.label(msg.get("content", ""))
+            content = msg.get("content", "")
+            if role == "assistant":
+                # réponses de l'agent : rendu markdown (titres, listes, code, retours-ligne)
+                with ui.element("div").classes("body"):
+                    ui.markdown(content, extras=["fenced-code-blocks", "tables", "break-on-newline"])
+            else:
+                # messages utilisateur : texte brut, retours-ligne préservés (pas de markdown
+                # pour ne pas mâcher les commandes/globs avec * ou _)
+                with ui.element("div").classes("body plain"):
+                    ui.label(content)
 
 
 def render_session_item(meta, *, active: bool, on_click) -> None:
