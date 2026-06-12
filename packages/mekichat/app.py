@@ -24,11 +24,20 @@ FONTS = (
 PALETTES = [("phosphor", "PHOSPHORE"), ("blade", "BLADE RUNNER"),
             ("orange", "ORANGE/TEAL"), ("acid", "ACIDE")]
 
-store = sessions_mod.SessionStore()
+_store: sessions_mod.SessionStore | None = None
+
+
+def _get_store() -> sessions_mod.SessionStore:
+    """Singleton paresseux : évite de créer .sessions/ au simple import du module."""
+    global _store
+    if _store is None:
+        _store = sessions_mod.SessionStore()
+    return _store
 
 
 def _ensure_current() -> sessions_mod.Session:
     """Charge la session la plus récente, ou en crée une."""
+    store = _get_store()
     metas = store.list()
     return store.load(metas[0].id) if metas else store.create(model=DEFAULT_MODEL)
 
@@ -53,11 +62,13 @@ def index() -> None:
 
     def open_session(session_id: str) -> None:
         nonlocal current
+        store = _get_store()
         current = store.load(session_id)
         _refresh()
 
     def new_session() -> None:
         nonlocal current
+        store = _get_store()
         current = store.create(model=DEFAULT_MODEL)
         _refresh()
 
@@ -65,6 +76,7 @@ def index() -> None:
         text = text.strip()
         if not text:
             return
+        store = _get_store()
         current.add("user", text)         # phase 1 : pas de réponse LLM
         store.save(current)
         _refresh()
@@ -90,6 +102,7 @@ def index() -> None:
 
     def _refresh() -> None:
         """Reconstruit barre latérale + zone principale pour la session courante."""
+        store = _get_store()
         sidebar.clear()
         main.clear()
         with sidebar:
