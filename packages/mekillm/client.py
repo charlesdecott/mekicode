@@ -97,7 +97,7 @@ def _consume_stream(chunks):
     """Réassemble un flux de chunks SDK en LLMResponse. Générateur : yield chaque token de
     texte, **return** le LLMResponse final (texte + tool_calls reconstruits + finish_reason)."""
     text_parts: list[str] = []
-    tool_acc: dict = {}  # index -> {"id", "name", "args"}
+    tool_acc: dict = {}  # index -> dict(id, name, args)
     finish_reason = ""
     usage = Usage()
     for chunk in chunks:
@@ -112,12 +112,19 @@ def _consume_stream(chunks):
         if not choices:
             continue
         choice = choices[0]
-        delta = choice.delta
+        if getattr(choice, "finish_reason", None):
+            finish_reason = choice.finish_reason
+        delta = getattr(choice, "delta", None)
+        if delta is None:                       # certains backends : chunk sans delta (finish-only)
+            continue
         if getattr(delta, "content", None):
             text_parts.append(delta.content)
             yield delta.content
         for tc in (getattr(delta, "tool_calls", None) or []):
-            acc = tool_acc.setdefault(tc.index, {"id": "", "name": "", "args": ""})
+            idx = getattr(tc, "index", None)
+            if idx is None:                      # backend qui omet l'index : tout dans le bucket 0
+                idx = 0
+            acc = tool_acc.setdefault(idx, {"id": "", "name": "", "args": ""})
             if getattr(tc, "id", None):
                 acc["id"] = tc.id
             fn = getattr(tc, "function", None)
@@ -126,8 +133,6 @@ def _consume_stream(chunks):
                     acc["name"] = fn.name
                 if getattr(fn, "arguments", None):
                     acc["args"] += fn.arguments
-        if getattr(choice, "finish_reason", None):
-            finish_reason = choice.finish_reason
 
     text = "".join(text_parts)
     tool_calls = []

@@ -257,6 +257,31 @@ def test_consume_stream_tool_call():
     assert resp.message["tool_calls"][0]["function"]["arguments"] == '{"command": "ls"}'
 
 
+def test_consume_stream_empty():
+    from mekillm.client import _consume_stream
+    tokens = list(_drain(_consume_stream(iter([]))))
+    resp = _drain.value
+    assert tokens == []
+    assert resp.text == "" and resp.tool_calls == [] and resp.finish_reason == ""
+    assert resp.message == {"role": "assistant", "content": ""}
+
+
+def test_consume_stream_text_then_tool():
+    from mekillm.client import _consume_stream
+    chunks = [
+        NS(choices=[NS(delta=NS(content="ok ", tool_calls=None), finish_reason=None)], usage=None),
+        NS(choices=[NS(delta=NS(content=None, tool_calls=[
+            NS(index=0, id="c1", function=NS(name="bash", arguments='{"command": "ls"}'))]), finish_reason=None)], usage=None),
+        NS(choices=[NS(delta=NS(content=None, tool_calls=None), finish_reason="tool_calls")], usage=None),
+    ]
+    tokens = list(_drain(_consume_stream(iter(chunks))))
+    resp = _drain.value
+    assert tokens == ["ok "]
+    assert resp.text == "ok "
+    assert resp.finish_reason == "tool_calls"
+    assert resp.tool_calls[0].arguments == {"command": "ls"}
+
+
 def main():
     log_path = Path(tempfile.gettempdir()) / "mekillm_smoke.jsonl"
     if log_path.exists():
@@ -277,6 +302,8 @@ def main():
     test_run_agent_empty_tool_calls()
     test_consume_stream_text()
     test_consume_stream_tool_call()
+    test_consume_stream_empty()
+    test_consume_stream_text_then_tool()
     print("OK - tous les smoke tests passent")
 
 
