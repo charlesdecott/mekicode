@@ -28,9 +28,14 @@ L'état d'avancement et la feuille de route sont dans **[`ROADMAP.md`](ROADMAP.m
     (bascule ollama/litellm via le seul `.env`), avec observabilité intégrée (logging + JSONL +
     hooks). Importable n'importe où (`mekillm.LLM`, `mekillm.complete`, `mekillm.observe`).
   - `packages/mekicore/` — mini-harness = le s01 de claude-code-from-scratch adapté, branché sur
-    mekillm (format OpenAI tool-calling, outil `bash`). Entrée : `python packages/mekicore/main.py`.
-- `tests/` — tests du projet, à la racine. Non-régression de `packages/` (réseau-free, sans clé
-  API) : `python tests/smoke_packages.py`
+    mekillm (format OpenAI tool-calling, outil `bash`, boucle à événements `run_agent` + streaming).
+    Entrée : `python packages/mekicore/main.py`.
+  - `packages/mekichat/` — front web NiceGUI (mode conversation type Discord, thème cyberpunk
+    Phosphore) : chat branché sur l'agent, outil `bash`, streaming, markdown, sessions persistées.
+    Importe mekicore/mekillm en in-process. Entrée : `python packages/mekichat/app.py` (ou
+    `.\start-chat.ps1`) → http://localhost:8080.
+- `tests/` — tests du projet, à la racine. Non-régression de `packages/` (réseau-free, sans clé API) :
+  `python tests/smoke_packages.py` (mekillm + mekicore) et `python tests/smoke_mekichat.py` (mekichat).
 - `ROADMAP.md` (racine) — état d'avancement + features claude-code-from-scratch implémentées / restantes.
 - `docs/` — **documentation du projet** ; sommaire dans `docs/README.md`. Contient le wiki rédigé à la
   main de `packages/` (`docs/wiki-packages/`) et les specs/plans (`docs/superpowers/`).

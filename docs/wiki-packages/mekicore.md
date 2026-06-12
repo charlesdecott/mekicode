@@ -12,11 +12,13 @@ main.py  ── bootstrap sys.path ──▶ import mekillm
    │       instancie mekillm.LLM(), boucle REPL
    │       passe TOOLS + DISPATCH (de tools.py) à ─┐
    ▼                                               │
-base.py  ── agent_loop(messages, llm, tools, dispatch)
-   │           │  llm.complete(...) ─▶ (mekillm)
-   │           ▼  dispatch_tools(resp.tool_calls, dispatch)
-   ▼                     │  appelle ─▶ handler du DISPATCH
-tools.py ── DISPATCH["bash"] ─▶ run_bash() ; TOOLS = schéma function-calling OpenAI
+base.py  ── run_agent(messages, llm, tools, dispatch, stream=False)  ── générateur d'événements
+   │           │  llm.complete(...) ou llm.stream(...) ─▶ (mekillm)
+   │           ▼  émet les dataclasses d'events.py (AssistantDelta/Done, Tool*, …)
+   │        agent_loop(...)  ── réexprimé sur run_agent (REPL : rend les événements en print)
+   ▼
+events.py ── événements consommés par le REPL ou le front mekichat
+tools.py  ── DISPATCH["bash"] ─▶ run_bash() ; TOOLS = schéma function-calling OpenAI
 ```
 
 ## `tools.py` — l'outil et son schéma
@@ -30,21 +32,33 @@ tools.py ── DISPATCH["bash"] ─▶ run_bash() ; TOOLS = schéma function-ca
 
 `TOOLS` (ce que le modèle voit) et `DISPATCH` (ce qu'on exécute) sont les deux faces d'un même outil.
 
-## `base.py` — la boucle et le dispatch
-- `dispatch_tools(tool_calls, dispatch) -> list` (l.11) : pour chaque `ToolCall`,
-  - récupère le handler dans `dispatch` (outil inconnu ⇒ message d'erreur, pas de crash) ;
-  - exécute `handler(tc.arguments)` (exception attrapée ⇒ message d'erreur) ;
-  - affiche l'appel et un extrait de sortie en console ;
-  - renvoie un message `{"role":"tool","tool_call_id": tc.id, "content": str(output)}` par appel
-    (le `tool_call_id` corrèle résultat ↔ appel côté modèle).
-- `agent_loop(messages, llm, tools, dispatch) -> None` (l.30) : la boucle `while True` (modifie
-  `messages` en place) —
-  1. `resp = llm.complete(messages, tools=tools)` ;
-  2. `messages.append(resp.message)` (le message assistant brut OpenAI) ;
-  3. si `resp.text` : affiche **`[heure · modèle] <texte>`** (l.42-43 ; modèle lu sur `resp.raw.model`,
-     repli sur `llm.model`) ;
-  4. `if resp.finish_reason != "tool_calls": return` (réponse finale) ;
-  5. sinon `messages += dispatch_tools(resp.tool_calls, dispatch)` et on reboucle.
+## `events.py` — événements de la boucle agent
+Dataclasses émises par `run_agent`, consommées par le REPL (`agent_loop`) ou le front
+[mekichat](mekichat.md) :
+- `ThinkingStarted` : un tour commence (appel LLM en cours).
+- `AssistantDelta(text)` : fragment de texte assistant (**streaming**).
+- `AssistantDone(text)` : texte complet d'un tour.
+- `ToolStarted(id, name, args)` / `ToolFinished(id, name, output)` : un outil démarre / a répondu.
+- `RunFinished` : la boucle est terminée. · `RunError(message)` : l'appel LLM a échoué (arrêt propre).
+
+## `base.py` — les boucles et le dispatch
+- `dispatch_tools(tool_calls, dispatch) -> list` : pour chaque `ToolCall`, récupère le handler
+  (outil inconnu ⇒ message d'erreur, pas de crash), exécute `handler(tc.arguments)` (exception
+  attrapée ⇒ message d'erreur), affiche en console, et renvoie un message
+  `{"role":"tool","tool_call_id": tc.id, "content": str(output)}` par appel. **Conservé** pour
+  l'API directe / le test ; `run_agent` a sa propre boucle (pour émettre les événements).
+- **`run_agent(messages, llm, tools, dispatch, *, stream=False)`** : la boucle « penser-agir » **à
+  événements** (générateur ; modifie `messages` en place). À chaque tour :
+  1. émet `ThinkingStarted` ;
+  2. obtient la réponse — `llm.complete(...)` (un seul `AssistantDone`) ou, si `stream=True`,
+     `llm.stream(...)` (un `AssistantDelta` par token puis un `AssistantDone`) ; exception ⇒ `RunError` ;
+  3. `messages.append(resp.message)` ;
+  4. si `finish_reason != "tool_calls"` ⇒ `RunFinished`, fin (garde : `tool_calls` vide ⇒ `RunError`) ;
+  5. sinon, par outil : `ToolStarted` → exécute le handler → append du message `role:"tool"` →
+     `ToolFinished`, puis on reboucle.
+- `agent_loop(messages, llm, tools, dispatch) -> None` : le **REPL console**, désormais **réexprimé
+  sur `run_agent`** (non-streaming) — il consomme les événements et les rend en `print`
+  (`> Thinking...`, en-tête `[heure · modèle]`, `[outil]`, erreurs). Comportement de boucle inchangé.
 
 Détail du cycle multi-tours : voir [architecture.md](architecture.md).
 
@@ -64,5 +78,7 @@ python packages/mekicore/main.py     # ou ./start.sh  /  .\start.ps1 (depuis la 
 Nécessite une clé dans le `.env` racine (voir `.env.example` : `OPENROUTER_API_KEY`, `MEKILLM_MODEL`).
 
 ## Relations entrantes / sortantes
-- Dépend de [mekillm](mekillm.md) (`LLM`, et indirectement les `ToolCall` qu'il consomme).
-- Non-régression réseau-free : `tests/smoke_packages.py`.
+- Dépend de [mekillm](mekillm.md) (`LLM.complete`/`stream`, types `LLMResponse`/`ToolCall`).
+- `run_agent` + `events.py` sont consommés par le front [mekichat](mekichat.md) (rendu en direct des
+  bulles, blocs `[bash]`, streaming).
+- Non-régression réseau-free : `tests/smoke_packages.py` (`run_agent`, événements, streaming).

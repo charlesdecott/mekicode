@@ -1,20 +1,23 @@
 # Architecture de `packages/`
 
-## Deux paquets, une dépendance
+## Trois paquets, une dépendance
 
 ```
 packages/
 ├── mekillm/   ← provider LLM généraliste, réutilisable, ne connaît PAS mekicore
-└── mekicore/  ← mini-harness ; dépend de mekillm (import par chemin)
+├── mekicore/  ← mini-harness (boucle agent à événements + outil bash) ; dépend de mekillm
+└── mekichat/  ← front web NiceGUI (mode Discord) ; importe mekicore + mekillm en in-process
 ```
 
 - **mekillm** est autonome : il ne sait rien d'un agent ni d'outils. Il prend des `messages`
   (format OpenAI) et rend une réponse normalisée. Il pourrait être importé par n'importe quel projet.
-- **mekicore** est le consommateur : une boucle perception-action (le s01 de claude-code-from-scratch
-  adapté) qui appelle mekillm et exécute des outils.
+- **mekicore** est le consommateur : une boucle perception-action **à événements** (`run_agent`,
+  le s01 adapté) qui appelle mekillm et exécute des outils ; `agent_loop` (REPL) est réexprimé dessus.
+- **mekichat** est le **front web** (NiceGUI, mode Discord) : il importe mekicore + mekillm
+  **en in-process** et rend la conversation (streaming, blocs `[bash]`, markdown, sessions persistées).
 
-La dépendance est **à sens unique** : `mekicore → mekillm`. mekicore ne touche qu'à l'**interface
-publique** de mekillm (`LLM`, `LLMResponse`, `ToolCall`) — jamais à ses internes.
+La dépendance est **à sens unique** : `mekichat → mekicore → mekillm`. Chaque couche ne touche qu'à
+l'**interface publique** de la précédente — jamais à ses internes.
 
 ### Comment l'import fonctionne (import par chemin)
 `mekicore/main.py` ajoute `packages/` au `sys.path` avant d'importer mekillm :
@@ -74,6 +77,14 @@ du SDK openai et mekicore réinjecte directement les messages OpenAI dans l'hist
 4. On reboucle : le modèle voit les résultats d'outils et continue, jusqu'à une réponse sans outil
    (`finish_reason != "tool_calls"`), qui termine le tour.
 
+### Boucle à événements et front web
+Le cycle ci-dessus existe en deux formes dans `base.py` : `agent_loop` (REPL console) est **réexprimé**
+sur **`run_agent`**, un générateur qui **émet des événements** (`events.py` : `AssistantDelta`/`Done`,
+`ToolStarted`/`Finished`, `ThinkingStarted`, `RunFinished`, `RunError`) au lieu d'imprimer. Le front
+[mekichat](mekichat.md) consomme ce même `run_agent` — en **`stream=True`** (`llm.stream` →
+`AssistantDelta` token par token) — pour rendre la conversation **en direct** dans le navigateur
+(bulles markdown, blocs `[bash]`, caret de streaming), avec persistance des sessions.
+
 ## Données runtime
 - mekillm écrit un **JSONL d'appels** dans `.logs/mekillm.jsonl` **à la racine du projet** (jamais
   dans `packages/`), surchargeable par `MEKILLM_LOG_FILE`. `packages/` ne contient que du code.
@@ -81,5 +92,6 @@ du SDK openai et mekicore réinjecte directement les messages OpenAI dans l'hist
 - Config secrète : `.env` à la racine (lu par `load_dotenv` au moment de l'import de mekillm).
 
 ## Voir aussi
-- [mekillm.md](mekillm.md) — détail du provider.
-- [mekicore.md](mekicore.md) — détail du harness.
+- [mekillm.md](mekillm.md) — détail du provider (`complete` / `stream`).
+- [mekicore.md](mekicore.md) — détail du harness (`run_agent`, `events.py`).
+- [mekichat.md](mekichat.md) — détail du front web NiceGUI.
