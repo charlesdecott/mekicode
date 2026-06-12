@@ -1,0 +1,141 @@
+"""_smoke.py — non-régression réseau-free de packages/ (mekillm + mekicore).
+
+Aucune dépendance réseau ni clé API : on stubbe la réponse SDK et le provider.
+Lancer : python packages/_smoke.py
+"""
+import os
+import sys
+import tempfile
+from pathlib import Path
+from types import SimpleNamespace as NS
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))                  # packages/         → import mekillm
+sys.path.insert(0, str(ROOT / "mekicore"))     # packages/mekicore → import base, tools
+
+import mekillm  # noqa: E402
+from mekillm import Usage  # noqa: E402
+from mekillm import observability as observe  # noqa: E402
+from mekillm.client import LLMResponse, ToolCall, _normalize  # noqa: E402
+
+import base  # noqa: E402
+import tools  # noqa: E402
+
+
+def test_normalize_text():
+    resp = NS(
+        choices=[NS(message=NS(content="hi", tool_calls=None), finish_reason="stop")],
+        usage=NS(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+    )
+    out = _normalize(resp)
+    assert out.text == "hi"
+    assert out.tool_calls == []
+    assert out.finish_reason == "stop"
+    assert out.usage.total_tokens == 15
+    assert out.message == {"role": "assistant", "content": "hi"}
+
+
+def test_normalize_tool_call():
+    tc = NS(id="call_1", function=NS(name="bash", arguments='{"command": "ls"}'))
+    resp = NS(
+        choices=[NS(message=NS(content=None, tool_calls=[tc]), finish_reason="tool_calls")],
+        usage=None,
+    )
+    out = _normalize(resp)
+    assert out.tool_calls[0].name == "bash"
+    assert out.tool_calls[0].arguments == {"command": "ls"}
+    assert out.finish_reason == "tool_calls"
+    assert out.usage.total_tokens == 0
+    assert out.message["tool_calls"][0]["function"]["name"] == "bash"
+
+
+def test_normalize_bad_json_args():
+    tc = NS(id="c", function=NS(name="bash", arguments="{not json"))
+    resp = NS(
+        choices=[NS(message=NS(content=None, tool_calls=[tc]), finish_reason="tool_calls")],
+        usage=None,
+    )
+    out = _normalize(resp)
+    assert out.tool_calls[0].arguments == {}  # JSON invalide → dict vide, pas de crash
+
+
+def test_observability_hook_and_jsonl(log_path):
+    seen = []
+    observe.add_hook(seen.append)
+    rec = observe.CallRecord(
+        ts="t", provider="p", model="m", latency_ms=1,
+        prompt_tokens=1, completion_tokens=2, total_tokens=3,
+        finish_reason="stop", status="ok",
+    )
+    observe.emit(rec)
+    assert seen and seen[0].model == "m"
+    assert log_path.exists()
+    assert '"model": "m"' in log_path.read_text(encoding="utf-8")
+
+
+def test_run_bash():
+    assert "hello" in tools.run_bash("echo hello")
+    assert tools.run_bash("sudo rm") == "Error: dangerous command blocked"
+
+
+def test_dispatch_tools():
+    tc = ToolCall(id="c1", name="bash", arguments={"command": "echo hi"})
+    msgs = base.dispatch_tools([tc], tools.DISPATCH)
+    assert msgs[0]["role"] == "tool"
+    assert msgs[0]["tool_call_id"] == "c1"
+    assert "hi" in msgs[0]["content"]
+
+
+def test_dispatch_unknown_tool():
+    tc = ToolCall(id="c2", name="nope", arguments={})
+    msgs = base.dispatch_tools([tc], tools.DISPATCH)
+    assert "Unknown tool" in msgs[0]["content"]
+
+
+def test_agent_loop_with_stub():
+    seq = [
+        LLMResponse(
+            text="", tool_calls=[ToolCall("c1", "bash", {"command": "echo hi"})],
+            finish_reason="tool_calls", usage=Usage(),
+            message={"role": "assistant", "content": ""},
+        ),
+        LLMResponse(
+            text="done", tool_calls=[], finish_reason="stop", usage=Usage(),
+            message={"role": "assistant", "content": "done"},
+        ),
+    ]
+
+    class StubLLM:
+        def __init__(self):
+            self.i = 0
+
+        def complete(self, messages, tools=None):
+            r = seq[self.i]
+            self.i += 1
+            return r
+
+    messages = [{"role": "user", "content": "go"}]
+    base.agent_loop(messages, StubLLM(), tools.TOOLS, tools.DISPATCH)
+    assert messages[-1]["content"] == "done"
+    assert any(m.get("role") == "tool" for m in messages)
+
+
+def main():
+    log_path = Path(tempfile.gettempdir()) / "mekillm_smoke.jsonl"
+    if log_path.exists():
+        log_path.unlink()
+    os.environ["MEKILLM_LOG_FILE"] = str(log_path)
+
+    test_normalize_text()
+    test_normalize_tool_call()
+    test_normalize_bad_json_args()
+    test_observability_hook_and_jsonl(log_path)
+    test_run_bash()
+    test_dispatch_tools()
+    test_dispatch_unknown_tool()
+    test_agent_loop_with_stub()
+    print("OK — tous les smoke tests passent")
+
+
+if __name__ == "__main__":
+    main()
