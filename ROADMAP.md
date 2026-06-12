@@ -29,7 +29,7 @@ existe déjà, validé, dans `src_scratch/`).
 | Session | Feature | `src_scratch/` | `packages/` |
 |---------|---------|:---:|:---:|
 | s01 | boucle perception-action + outil bash | ✅ | ✅ |
-| s02 | tool use (appel d'outils structuré) | ✅ | 🟡 amorcé (1 outil `bash` en tool-calling OpenAI) |
+| s02 | tool use (appel d'outils structuré) | ✅ | ✅ (outil `bash` exécuté via `run_agent`, blocs `[bash]` dans le front) |
 | s03 | todo write (todo-list interne) | ✅ | ⬜ |
 | s04 | subagent (délégation à des sous-agents) | ✅ | ⬜ |
 | s05 | skill loading (chargement de `SKILL.md`) | ✅ | ⬜ |
@@ -54,7 +54,7 @@ existe déjà, validé, dans `src_scratch/`).
 
 Légende : ✅ implémenté · 🟡 partiel · ⬜ à faire.
 
-**Avancement `packages/` vs s01–s23 : ≈ 1,5 / 23 ≈ 7 %** (s01 complet + s02 amorcé). C'est volontaire :
+**Avancement `packages/` vs s01–s23 : ≈ 2 / 23 ≈ 9 %** (s01 + s02 complets). C'est volontaire :
 on reconstruit proprement à partir du socle, on ne recopie pas `src_scratch/`.
 
 ## Ce qui est implémenté dans `packages/`
@@ -68,17 +68,21 @@ on reconstruit proprement à partir du socle, on ne recopie pas `src_scratch/`.
 - Importable n'importe où : `mekillm.LLM`, `mekillm.complete`, `mekillm.observe`.
 
 ### `packages/mekicore/` — mini-harness (s01 adapté)
-- Boucle perception-action `agent_loop` au format OpenAI (`tool_calls` ↔ messages `role:"tool"`).
+- Boucle perception-action au format OpenAI (`tool_calls` ↔ messages `role:"tool"`).
+- `run_agent` : variante **à événements** (`events.py` : `ThinkingStarted`, `AssistantDone`,
+  `ToolStarted`/`ToolFinished`, `RunFinished`, `RunError`) consommée par le front ; `agent_loop`
+  (REPL console) est réexprimé dessus.
 - Outil `bash` avec garde-fous, schéma function-calling, table de dispatch.
 - REPL (`main.py`) ; en console : en-tête **heure + modèle** avant chaque réponse.
 
-### `packages/mekichat/` — front web NiceGUI (phase 1 livrée)
+### `packages/mekichat/` — front web NiceGUI (phases 1-2 livrées)
 - Interface web in-process, mode conversation type Discord (thème cyberpunk **Phosphore**).
-- `sessions.py` : persistance JSON des sessions sous `.sessions/` (racine) ; format OpenAI-compatible,
-  prêt pour le branchement LLM.
-- `app.py` : page NiceGUI sur **http://localhost:8080** ; lanceur `.\start-chat.ps1`.
-- **Phase 1 livrée** : sessions persistées + UI statique.
-  Phases 2 (chat branché sur mekillm + outils) et 3 (streaming token par token) à venir.
+- `sessions.py` : persistance JSON des sessions sous `.sessions/` (racine), format OpenAI.
+- `views.py` : rendu des bulles, des blocs `[bash]`, de l'historique, de l'indicateur « PROCESSING… ».
+- `app.py` : page NiceGUI (**http://localhost:8080**, lanceur `.\start-chat.ps1`) ; l'envoi pilote
+  `base.run_agent` via `run.io_bound` et rend bulles + blocs `[bash]` en direct.
+- **Phase 1** (sessions + UI statique) et **phase 2** (chat + outil `bash`, non-streaming) **livrées** ;
+  phase 3 (streaming token par token) à venir.
 
 ### Confort projet
 - Lanceurs `start.ps1` / `start.sh` (mekicore) et `start-chat.ps1` (mekichat) à la racine.
@@ -93,8 +97,8 @@ on reconstruit proprement à partir du socle, on ne recopie pas `src_scratch/`.
 ## Reste à faire
 
 ### Court terme (porter les prochaines sessions dans `packages/`)
-- [ ] mekichat phase 2 — câbler mekillm + outils dans l'UI web (réponse assistant, dispatch bash).
-- [ ] mekichat phase 3 — streaming token par token (SSE / affichage progressif NiceGUI).
+- [ ] mekichat phase 3 — streaming token par token (`LLM.stream` + affichage progressif NiceGUI).
+- [ ] mekichat — rendu markdown des réponses (aujourd'hui texte brut via `ui.label`).
 - [ ] s14 — outils étendus (read / write / grep / glob / revert) au format OpenAI.
 - [ ] s15 — gouvernance des permissions (3 tiers) autour de `dispatch_tools`.
 - [ ] s13 — streaming dans `mekillm.complete` (token par token).

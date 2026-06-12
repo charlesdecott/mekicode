@@ -2,7 +2,7 @@
 
 Interface web in-process pour dialoguer avec l'agent, construite avec [NiceGUI](https://nicegui.io).
 Mode conversation type « Discord » : historique scrollable, bulle par message, saisie en bas.
-Pensé comme la couche présentation de [mekicore](mekicore.md), dont il sera le front visuel dès la phase 2.
+Couche présentation de [mekicore](mekicore.md) : son front visuel (l'agent + l'outil `bash`), à la place du REPL terminal.
 
 > Numéros de ligne indicatifs (source = vérité).
 
@@ -49,20 +49,33 @@ coins biseautés (`clip-path`), glitch, scanlines, ticker HUD. Stylise les ligne
 (`.msg.user` / `.msg.bot`), le bloc outil (`.tool`), la barre de saisie (`.input-wrap`) et le fil
 (`.thread`).
 
-## `views.py` — helpers de rendu (deux fonctions)
+## `views.py` — helpers de rendu
 
-- `render_message(msg)` : affiche une **ligne de message** façon Discord (avatar + en-tête +
-  corps), d'après `msg["role"]` ; les rôles `system` / `tool` ne sont pas affichés en phase 1.
-- `render_session_item(meta, *, active, on_click)` : affiche un **item de la barre latérale**
-  (titre + id + nombre de messages), marqué `active` pour la session courante.
+- `render_message(msg)` : une **ligne de message** façon Discord (avatar + en-tête + corps) ;
+  les rôles `system` / `tool` ne sont pas affichés directement.
+- `render_session_item(meta, *, active, on_click)` : un **item de la barre latérale**.
+- `render_tool(command, output, status)` : un **bloc `[bash]`** (commande + sortie + statut) ;
+  renvoie `(label_statut, label_sortie)` pour remplissage différé.
+- `fill_tool(handle, output, ok)` : remplit un bloc `[bash]` créé en statut `RUN` (chemin live).
+- `render_thinking()` : l'indicateur animé **« PROCESSING… »** pendant un appel LLM (renvoie
+  l'élément, supprimé via `.delete()` à la réponse).
+- `render_thread(messages)` : rejoue tout un historique (texte + blocs `[bash]` appariés
+  `tool_calls` ↔ messages `role:"tool"`) — chemin de rechargement de session.
 
 ## `app.py` — page NiceGUI
 
-- Bootstrap `sys.path` (comme mekicore) pour résoudre `import sessions, views` en lancement direct.
+- Bootstrap `sys.path` pour résoudre `import sessions, views` **et** `mekillm` / `base` / `tools` /
+  `events` en lancement direct.
 - `@ui.page("/")` → `index()` : la page. L'UI (barre latérale, en-tête, fil, composer) est
-  (re)construite par la closure interne `_refresh()` à chaque action (ouvrir, créer, envoyer).
-- Le store est obtenu via `_get_store()` (singleton **paresseux** : évite de créer `.sessions/`
-  au simple import du module).
+  (re)construite par la closure `_refresh()` ; le fil d'une session rechargée est rejoué par
+  `views.render_thread`.
+- **Envoi** (`send`, async) : ajoute le message user, persiste, puis pilote `base.run_agent`
+  **pas-à-pas** via `await run.io_bound(next, gen, _DONE)` (sans figer l'UI). Rend en direct :
+  `ThinkingStarted` → « PROCESSING… », `AssistantDone` → bulle, `ToolStarted`/`ToolFinished` →
+  bloc `[bash]`, `RunError` → bulle rouge. Persiste à la fin.
+- `state["busy"]` empêche envois/bascules concurrents ; le rendu cesse proprement si l'onglet se
+  ferme en plein run (garde « client supprimé »).
+- Store et LLM en singletons **paresseux** (`_get_store` / `_get_llm`).
 - Démarre le serveur : `ui.run(... port=8080)` → **http://localhost:8080**.
 
 ## Lancer
@@ -71,20 +84,28 @@ coins biseautés (`clip-path`), glitch, scanlines, ticker HUD. Stylise les ligne
 python packages/mekichat/app.py     # ou .\start-chat.ps1 (depuis la racine)
 ```
 
-Le serveur démarre sur **http://localhost:8080**. Pas de clé API nécessaire en phase 1
-(UI statique, pas encore connectée au LLM).
+Le serveur démarre sur **http://localhost:8080**. Nécessite une clé `OPENROUTER_API_KEY` dans
+`.env` (l'agent appelle le LLM) ; le modèle est celui résolu par mekillm (`MEKILLM_MODEL`). Sans
+clé valide, l'envoi affiche une bulle d'erreur « LLM indisponible » (dégradation propre).
 
 ## Statut
 
-**Phase 1 livrée** : persistance des sessions JSON + UI statique (thème Phosphore, bulles, saisie).
-Pas encore de LLM branché.
+**Phases 1 et 2 livrées.**
+- Phase 1 : persistance des sessions JSON + UI statique (thème Phosphore).
+- Phase 2 : chat branché sur l'agent — `mekillm.LLM.complete` via `base.run_agent` à événements,
+  outil `bash` exécuté et affiché en blocs `[bash]`, indicateur « PROCESSING… », gestion d'erreur
+  (bulle rouge), persistance par tour. **Non-streaming.**
 
-Phases suivantes :
-- **Phase 2** — câblage LLM (appel `mekillm.LLM.complete`, outils, affichage des réponses en direct).
-- **Phase 3** — streaming token par token (SSE / `ui.notify` progressif).
+Phase suivante :
+- **Phase 3** — streaming token par token (`LLM.stream`, `AssistantDelta`, caret).
+
+> Limite cosmétique connue (phase 2) : les réponses sont rendues en **texte brut** (`ui.label`), donc
+> le markdown (`**gras**`, `` `code` ``) s'affiche littéralement — à traiter ultérieurement.
 
 ## Relations entrantes / sortantes
 
-- Dépend de [mekillm](mekillm.md) (à venir en phase 2 : `LLM.complete`).
-- Pendant de [mekicore](mekicore.md) (même agent, interface web au lieu du REPL terminal).
-- Non-régression réseau-free : `tests/smoke_mekichat.py`.
+- Dépend de [mekillm](mekillm.md) (`LLM.complete`) et de [mekicore](mekicore.md) (`base.run_agent`,
+  `events`, outil `bash`).
+- Pendant de [mekicore](mekicore.md) : même agent, interface web au lieu du REPL terminal.
+- Non-régression réseau-free : `tests/smoke_mekichat.py` (sessions) + `tests/smoke_packages.py`
+  (`run_agent`, événements).
