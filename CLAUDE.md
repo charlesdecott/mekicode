@@ -11,8 +11,10 @@ Trois bases de code parallèles, du plus pédagogique au plus réutilisable :
   généraliste + mini-harness), backend **OpenRouter** (compatible ollama/litellm), pensés pour être
   importés depuis n'importe quel projet.
 
-Chaque base est documentée par un wiki understand-anything dédié sous `.understand-anything/`
-(graphes de connaissance en français) ; `inspiration/` garde les repos sources d'étude.
+`src/` et `src_scratch/` sont documentés par un wiki understand-anything sous `.understand-anything/`
+(graphes de connaissance en français) ; `packages/` est documenté à la main dans **[`docs/`](docs/README.md)**.
+L'état d'avancement et la feuille de route sont dans **[`ROADMAP.md`](ROADMAP.md)**.
+`inspiration/` garde les repos sources d'étude.
 
 ## Structure
 - `src/shared.py` — bibliothèque commune du harness (code dédupliqué de learn-claude-code)
@@ -33,6 +35,9 @@ Chaque base est documentée par un wiki understand-anything dédié sous `.under
     mekillm (format OpenAI tool-calling, outil `bash`). Entrée : `python packages/mekicore/main.py`.
 - `tests/` — tests du projet, à la racine. Non-régression de `packages/` (réseau-free, sans clé
   API) : `python tests/smoke_packages.py`
+- `ROADMAP.md` (racine) — état d'avancement + features claude-code-from-scratch implémentées / restantes.
+- `docs/` — **documentation du projet** ; sommaire dans `docs/README.md`. Contient le wiki rédigé à la
+  main de `packages/` (`docs/wiki-packages/`) et les specs/plans (`docs/superpowers/`).
 - `.understand-anything/` — graphes understand-anything du projet **+ tous les wikis et le viewer**
   (regroupés ici pour alléger la racine) :
   - `.understand-anything/wiki/` — wiki du projet d'inspiration learn-claude-code (vault Obsidian, ne pas modifier sauf demande)
@@ -47,8 +52,9 @@ Chaque base est documentée par un wiki understand-anything dédié sous `.under
 1. **Après TOUTE modification de `src/` OU `src_scratch/`, exécuter la skill `wiki-update`** pour
    resynchroniser le wiki correspondant — `src/` → `.understand-anything/wiki-src/`, `src_scratch/` → `.understand-anything/wiki-src-scratch/`
    (pages, numéros de lignes, _manifest.json, _graph.json). Les wikis documentent le code avec des
-   numéros de lignes exacts — ils se périment à chaque édition. (`packages/` n'a pas encore de wiki :
-   la règle ne s'y applique pas.)
+   numéros de lignes exacts — ils se périment à chaque édition. (`packages/` est documenté à la main
+   dans `docs/wiki-packages/`, hors pipeline understand-anything : tenir cette doc à jour
+   manuellement après tout changement de `packages/`.)
 2. **Jamais le nom de Claude dans les commits** : pas de `Co-Authored-By: Claude...`, pas de
    « Generated with Claude Code » (exigence explicite de l'utilisateur).
 3. Les fichiers `src/sNN.py` restent des démos fines : la logique réutilisable va dans `shared.py`.
