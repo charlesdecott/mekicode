@@ -67,12 +67,23 @@ def test_list_ignores_bad_files():
         assert len(store.list()) == 1   # le fichier corrompu est ignoré, pas de crash
 
 
+def test_unicode_round_trip():
+    with tempfile.TemporaryDirectory() as d:
+        store = S.SessionStore(d)
+        s = store.create(model="m")
+        s.add("user", "café ☕ déjà — émojis 🤖")
+        store.save(s)
+        loaded = store.load(s.id)
+        assert loaded.messages[-1]["content"] == "café ☕ déjà — émojis 🤖"
+
+
 def main():
     test_create_and_load()
     test_title_set_from_first_user_message()
     test_round_trip_messages()
     test_list_sorted_recent_first()
     test_list_ignores_bad_files()
+    test_unicode_round_trip()
     print("OK - smoke mekichat passe")
 
 

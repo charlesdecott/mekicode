@@ -12,7 +12,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-# parents[2] = racine, depuis packages/mekichat/sessions.py. Surchargeable par env.
+# parents[2] = racine du projet (même convention que packages/mekillm pour .logs/). Surchargeable par MEKICHAT_SESSIONS_DIR.
 _DEFAULT_DIR = Path(__file__).resolve().parents[2] / ".sessions"
 _DEFAULT_TITLE = "(nouvelle session)"
 
@@ -60,8 +60,14 @@ class SessionStore:
     def _path(self, session_id: str) -> Path:
         return self.dir / f"{session_id}.json"
 
+    def _new_id(self) -> str:
+        while True:
+            candidate = uuid.uuid4().hex[:6]
+            if not self._path(candidate).exists():
+                return candidate
+
     def create(self, model: str, system: str | None = None) -> Session:
-        s = Session(id=uuid.uuid4().hex[:6], title=_DEFAULT_TITLE, model=model, created_at=_now_iso())
+        s = Session(id=self._new_id(), title=_DEFAULT_TITLE, model=model, created_at=_now_iso())
         if system:
             s.messages.append({"role": "system", "content": system})
         self.save(s)
@@ -81,7 +87,7 @@ class SessionStore:
         for p in self.dir.glob("*.json"):
             try:
                 d = json.loads(p.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError):
+            except (json.JSONDecodeError, OSError, KeyError):
                 continue   # fichier corrompu/illisible : on l'ignore
             metas.append(SessionMeta(
                 id=d["id"], title=d.get("title", _DEFAULT_TITLE), model=d.get("model", "?"),
