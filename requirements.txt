@@ -4,3 +4,4 @@
 anthropic>=0.40.0          # SDK Anthropic — client, streaming, tool use
 python-dotenv>=1.0.0       # chargement du .env
 openai>=1.0                # SDK OpenAI — utilisé par packages/mekillm (backend OpenRouter)
+nicegui>=2.0            # front web in-process de packages/mekichat (UI en Python ; testé avec 3.13)

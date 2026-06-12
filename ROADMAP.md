@@ -72,10 +72,18 @@ on reconstruit proprement à partir du socle, on ne recopie pas `src_scratch/`.
 - Outil `bash` avec garde-fous, schéma function-calling, table de dispatch.
 - REPL (`main.py`) ; en console : en-tête **heure + modèle** avant chaque réponse.
 
+### `packages/mekichat/` — front web NiceGUI (phase 1 livrée)
+- Interface web in-process, mode conversation type Discord (thème cyberpunk **Phosphore**).
+- `sessions.py` : persistance JSON des sessions sous `.sessions/` (racine) ; format OpenAI-compatible,
+  prêt pour le branchement LLM.
+- `app.py` : page NiceGUI sur **http://localhost:8080** ; lanceur `.\start-chat.ps1`.
+- **Phase 1 livrée** : sessions persistées + UI statique.
+  Phases 2 (chat branché sur mekillm + outils) et 3 (streaming token par token) à venir.
+
 ### Confort projet
-- Lanceurs `start.ps1` / `start.sh` à la racine.
-- Tests réseau-free : `python tests/smoke_packages.py`.
-- Données runtime (logs) à la racine (`.logs/`), jamais dans `packages/`.
+- Lanceurs `start.ps1` / `start.sh` (mekicore) et `start-chat.ps1` (mekichat) à la racine.
+- Tests réseau-free : `python tests/smoke_packages.py` (mekillm + mekicore) et `python tests/smoke_mekichat.py` (mekichat).
+- Données runtime (logs, sessions) à la racine (`.logs/`, `.sessions/`), jamais dans `packages/`.
 
 ## Ce qu'apporte `packages/` en plus de claude-code-from-scratch
 - **Multi-backend** : ccfs est Anthropic-only ; mekillm parle OpenRouter/ollama/litellm.
@@ -85,6 +93,8 @@ on reconstruit proprement à partir du socle, on ne recopie pas `src_scratch/`.
 ## Reste à faire
 
 ### Court terme (porter les prochaines sessions dans `packages/`)
+- [ ] mekichat phase 2 — câbler mekillm + outils dans l'UI web (réponse assistant, dispatch bash).
+- [ ] mekichat phase 3 — streaming token par token (SSE / affichage progressif NiceGUI).
 - [ ] s14 — outils étendus (read / write / grep / glob / revert) au format OpenAI.
 - [ ] s15 — gouvernance des permissions (3 tiers) autour de `dispatch_tools`.
 - [ ] s13 — streaming dans `mekillm.complete` (token par token).

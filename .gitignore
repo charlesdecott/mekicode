@@ -17,3 +17,6 @@ workspace/
 
 # Logs d'appels mekillm (générés à l'exécution, à la racine)
 .logs/
+
+# Sessions de mekichat (générées à l'exécution, à la racine)
+.sessions/
