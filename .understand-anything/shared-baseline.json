@@ -1,0 +1,714 @@
+{
+ "module_names": [
+  "BASE_DELAY_MS",
+  "BUILTIN_HANDLERS",
+  "BUILTIN_TOOLS",
+  "BUS",
+  "CLI_ACTIVE",
+  "CONSOLIDATE_THRESHOLD",
+  "CONTEXT_LIMIT",
+  "CONTINUATION_PROMPT",
+  "CURRENT_TODOS",
+  "CronJob",
+  "DEFAULT_MAX_TOKENS",
+  "DENY_LIST",
+  "DESTRUCTIVE",
+  "DURABLE_PATH",
+  "ESCALATED_MAX_TOKENS",
+  "FALLBACK_MODEL",
+  "HOOKS",
+  "IDLE_POLL_INTERVAL",
+  "IDLE_TIMEOUT",
+  "KEEP_RECENT_TOOL_RESULTS",
+  "MAILBOX_DIR",
+  "MAX_CONSECUTIVE_529",
+  "MAX_RECOVERY_RETRIES",
+  "MAX_RETRIES",
+  "MCPClient",
+  "MEMORY_DIR",
+  "MEMORY_INDEX",
+  "MEMORY_TYPES",
+  "MOCK_SERVERS",
+  "MODEL",
+  "MessageBus",
+  "PERSIST_THRESHOLD",
+  "PRIMARY_MODEL",
+  "PROMPT",
+  "PROMPT_SECTIONS",
+  "ProtocolState",
+  "RecoveryState",
+  "SKILLS_DIR",
+  "SKILL_REGISTRY",
+  "SUB_HANDLERS",
+  "SUB_SYSTEM",
+  "SUB_TOOLS",
+  "TASKS_DIR",
+  "TOOL_RESULTS_DIR",
+  "TRANSCRIPT_DIR",
+  "Task",
+  "VALID_WT_NAME",
+  "WORKDIR",
+  "WORKTREES_DIR",
+  "_DISALLOWED_CHARS",
+  "_bg_counter",
+  "_count_worktree_changes",
+  "_cron_field_matches",
+  "_last_fired",
+  "_mock_server_deploy",
+  "_mock_server_docs",
+  "_normalize_todos",
+  "_parse_frontmatter",
+  "_rebuild_index",
+  "_task_path",
+  "_teammate_submit_plan",
+  "_validate_cron_field",
+  "active_teammates",
+  "agent_lock",
+  "agent_loop",
+  "assemble_system_prompt",
+  "assemble_tool_pool",
+  "background_lock",
+  "background_results",
+  "background_tasks",
+  "bind_task_to_worktree",
+  "block_type",
+  "build_user_content",
+  "call_llm",
+  "call_tool_handler",
+  "can_start",
+  "cancel_job",
+  "claim_task",
+  "client",
+  "collect_background_results",
+  "collect_tool_results",
+  "compact_history",
+  "complete_task",
+  "connect_mcp",
+  "consolidate_memories",
+  "consume_cron_queue",
+  "consume_lead_inbox",
+  "create_task",
+  "create_worktree",
+  "cron_autorun_loop",
+  "cron_lock",
+  "cron_matches",
+  "cron_queue",
+  "cron_scheduler_loop",
+  "estimate_size",
+  "extract_memories",
+  "extract_text",
+  "get_task_json",
+  "has_tool_use",
+  "idle_poll",
+  "inject_background_notifications",
+  "is_prompt_too_long_error",
+  "is_slow_operation",
+  "is_tool_result_message",
+  "keep_worktree",
+  "large_output_hook",
+  "list_memory_files",
+  "list_skills",
+  "list_tasks",
+  "load_durable_jobs",
+  "load_memories",
+  "load_skill",
+  "load_task",
+  "log_event",
+  "log_hook",
+  "match_response",
+  "mcp_clients",
+  "message_has_tool_use",
+  "micro_compact",
+  "new_request_id",
+  "normalize_mcp_name",
+  "pending_requests",
+  "permission_hook",
+  "persist_large_output",
+  "prepare_context",
+  "print_turn_assistants",
+  "reactive_compact",
+  "read_memory_file",
+  "read_memory_index",
+  "register_hook",
+  "remove_worktree",
+  "retry_delay",
+  "rounds_since_todo",
+  "run_bash",
+  "run_cancel_cron",
+  "run_check_inbox",
+  "run_claim_task",
+  "run_complete_task",
+  "run_connect_mcp",
+  "run_create_task",
+  "run_create_worktree",
+  "run_edit",
+  "run_get_task",
+  "run_git",
+  "run_glob",
+  "run_keep_worktree",
+  "run_list_crons",
+  "run_list_tasks",
+  "run_read",
+  "run_remove_worktree",
+  "run_request_plan",
+  "run_request_shutdown",
+  "run_review_plan",
+  "run_schedule_cron",
+  "run_send_message",
+  "run_spawn_teammate",
+  "run_todo_write",
+  "run_write",
+  "safe_path",
+  "save_durable_jobs",
+  "save_task",
+  "scan_skills",
+  "scan_unclaimed_tasks",
+  "schedule_job",
+  "scheduled_jobs",
+  "select_relevant_memories",
+  "should_run_background",
+  "snip_compact",
+  "spawn_subagent",
+  "spawn_teammate_thread",
+  "start_background_task",
+  "stop_hook",
+  "summarize_history",
+  "terminal_print",
+  "tool_result_budget",
+  "trigger_hooks",
+  "update_context",
+  "user_prompt_hook",
+  "validate_cron",
+  "validate_worktree_name",
+  "with_retry",
+  "write_memory_file",
+  "write_transcript"
+ ],
+ "used_by_sessions": [
+  "BASE_DELAY_MS",
+  "BUILTIN_HANDLERS",
+  "BUILTIN_TOOLS",
+  "BUS",
+  "CLI_ACTIVE",
+  "CONTEXT_LIMIT",
+  "CURRENT_TODOS",
+  "DEFAULT_MAX_TOKENS",
+  "DENY_LIST",
+  "DESTRUCTIVE",
+  "ESCALATED_MAX_TOKENS",
+  "HOOKS",
+  "IDLE_TIMEOUT",
+  "KEEP_RECENT_TOOL_RESULTS",
+  "MAILBOX_DIR",
+  "MAX_RETRIES",
+  "MCPClient",
+  "MEMORY_DIR",
+  "MODEL",
+  "PERSIST_THRESHOLD",
+  "PROMPT",
+  "PROMPT_SECTIONS",
+  "RecoveryState",
+  "SKILLS_DIR",
+  "TOOL_RESULTS_DIR",
+  "WORKDIR",
+  "WORKTREES_DIR",
+  "_teammate_submit_plan",
+  "active_teammates",
+  "agent_lock",
+  "agent_loop",
+  "assemble_system_prompt",
+  "assemble_tool_pool",
+  "bind_task_to_worktree",
+  "call_tool_handler",
+  "cancel_job",
+  "claim_task",
+  "client",
+  "compact_history",
+  "complete_task",
+  "connect_mcp",
+  "consolidate_memories",
+  "consume_cron_queue",
+  "consume_lead_inbox",
+  "create_task",
+  "create_worktree",
+  "cron_autorun_loop",
+  "cron_scheduler_loop",
+  "estimate_size",
+  "extract_memories",
+  "extract_text",
+  "has_tool_use",
+  "idle_poll",
+  "inject_background_notifications",
+  "is_prompt_too_long_error",
+  "is_slow_operation",
+  "keep_worktree",
+  "list_memory_files",
+  "list_skills",
+  "load_memories",
+  "load_skill",
+  "load_task",
+  "match_response",
+  "mcp_clients",
+  "micro_compact",
+  "new_request_id",
+  "normalize_mcp_name",
+  "pending_requests",
+  "print_turn_assistants",
+  "reactive_compact",
+  "read_memory_index",
+  "register_hook",
+  "remove_worktree",
+  "retry_delay",
+  "run_list_crons",
+  "run_list_tasks",
+  "run_request_plan",
+  "run_request_shutdown",
+  "run_review_plan",
+  "safe_path",
+  "scan_skills",
+  "scan_unclaimed_tasks",
+  "schedule_job",
+  "should_run_background",
+  "snip_compact",
+  "spawn_subagent",
+  "start_background_task",
+  "tool_result_budget",
+  "trigger_hooks",
+  "update_context",
+  "validate_cron",
+  "validate_worktree_name",
+  "with_retry",
+  "write_memory_file"
+ ],
+ "missing_check": [],
+ "signatures": {
+  "CronJob.__init__": [
+   "id",
+   "cron",
+   "prompt",
+   "recurring",
+   "durable"
+  ],
+  "MCPClient.__init__": [
+   "name"
+  ],
+  "MessageBus.__init__": [
+   "args",
+   "kwargs"
+  ],
+  "ProtocolState.__init__": [
+   "request_id",
+   "type",
+   "sender",
+   "target",
+   "status",
+   "payload",
+   "created_at"
+  ],
+  "RecoveryState.__init__": [],
+  "Task.__init__": [
+   "id",
+   "subject",
+   "description",
+   "status",
+   "owner",
+   "blockedBy",
+   "worktree"
+  ],
+  "_count_worktree_changes": [
+   "path"
+  ],
+  "_cron_field_matches": [
+   "field",
+   "value"
+  ],
+  "_mock_server_deploy": [],
+  "_mock_server_docs": [],
+  "_normalize_todos": [
+   "todos"
+  ],
+  "_parse_frontmatter": [
+   "text"
+  ],
+  "_rebuild_index": [],
+  "_task_path": [
+   "task_id"
+  ],
+  "_teammate_submit_plan": [
+   "from_name",
+   "plan"
+  ],
+  "_validate_cron_field": [
+   "field",
+   "lo",
+   "hi"
+  ],
+  "agent_loop": [
+   "user_input",
+   "messages",
+   "tools",
+   "handlers",
+   "system",
+   "context"
+  ],
+  "assemble_system_prompt": [
+   "context"
+  ],
+  "assemble_tool_pool": [],
+  "bind_task_to_worktree": [
+   "task_id",
+   "worktree_name"
+  ],
+  "block_type": [
+   "block"
+  ],
+  "build_user_content": [
+   "results"
+  ],
+  "call_llm": [
+   "messages",
+   "context",
+   "tools",
+   "state",
+   "max_tokens",
+   "system"
+  ],
+  "call_tool_handler": [
+   "handler",
+   "args",
+   "name"
+  ],
+  "can_start": [
+   "task_id"
+  ],
+  "cancel_job": [
+   "job_id"
+  ],
+  "claim_task": [
+   "task_id",
+   "owner"
+  ],
+  "collect_background_results": [],
+  "collect_tool_results": [
+   "messages"
+  ],
+  "compact_history": [
+   "messages"
+  ],
+  "complete_task": [
+   "task_id"
+  ],
+  "connect_mcp": [
+   "name"
+  ],
+  "consolidate_memories": [],
+  "consume_cron_queue": [],
+  "consume_lead_inbox": [
+   "route_protocol"
+  ],
+  "create_task": [
+   "subject",
+   "description",
+   "blockedBy"
+  ],
+  "create_worktree": [
+   "name",
+   "task_id"
+  ],
+  "cron_autorun_loop": [
+   "history",
+   "context"
+  ],
+  "cron_matches": [
+   "cron_expr",
+   "dt"
+  ],
+  "cron_scheduler_loop": [],
+  "estimate_size": [
+   "messages"
+  ],
+  "extract_memories": [
+   "messages"
+  ],
+  "extract_text": [
+   "content"
+  ],
+  "get_task_json": [
+   "task_id"
+  ],
+  "has_tool_use": [
+   "content"
+  ],
+  "idle_poll": [
+   "agent_name",
+   "messages",
+   "name",
+   "role",
+   "worktree_context"
+  ],
+  "inject_background_notifications": [
+   "messages"
+  ],
+  "is_prompt_too_long_error": [
+   "e"
+  ],
+  "is_slow_operation": [
+   "tool_name",
+   "tool_input"
+  ],
+  "is_tool_result_message": [
+   "message"
+  ],
+  "keep_worktree": [
+   "name"
+  ],
+  "large_output_hook": [
+   "block",
+   "output"
+  ],
+  "list_memory_files": [],
+  "list_skills": [],
+  "list_tasks": [],
+  "load_durable_jobs": [],
+  "load_memories": [
+   "messages"
+  ],
+  "load_skill": [
+   "name"
+  ],
+  "load_task": [
+   "task_id"
+  ],
+  "log_event": [
+   "event_type",
+   "worktree_name",
+   "task_id"
+  ],
+  "log_hook": [
+   "block"
+  ],
+  "match_response": [
+   "response_type",
+   "request_id",
+   "approve"
+  ],
+  "message_has_tool_use": [
+   "message"
+  ],
+  "micro_compact": [
+   "messages"
+  ],
+  "new_request_id": [],
+  "normalize_mcp_name": [
+   "name"
+  ],
+  "permission_hook": [
+   "block"
+  ],
+  "persist_large_output": [
+   "tool_use_id",
+   "output"
+  ],
+  "prepare_context": [
+   "messages"
+  ],
+  "print_turn_assistants": [
+   "messages",
+   "turn_start"
+  ],
+  "reactive_compact": [
+   "messages"
+  ],
+  "read_memory_file": [
+   "filename"
+  ],
+  "read_memory_index": [],
+  "register_hook": [
+   "event",
+   "callback"
+  ],
+  "remove_worktree": [
+   "name",
+   "discard_changes"
+  ],
+  "retry_delay": [
+   "attempt"
+  ],
+  "run_bash": [
+   "command",
+   "cwd",
+   "run_in_background"
+  ],
+  "run_cancel_cron": [
+   "job_id"
+  ],
+  "run_check_inbox": [],
+  "run_claim_task": [
+   "task_id"
+  ],
+  "run_complete_task": [
+   "task_id"
+  ],
+  "run_connect_mcp": [
+   "name"
+  ],
+  "run_create_task": [
+   "subject",
+   "description",
+   "blockedBy"
+  ],
+  "run_create_worktree": [
+   "name",
+   "task_id"
+  ],
+  "run_edit": [
+   "path",
+   "old_text",
+   "new_text",
+   "cwd"
+  ],
+  "run_get_task": [
+   "task_id"
+  ],
+  "run_git": [
+   "args"
+  ],
+  "run_glob": [
+   "pattern",
+   "cwd"
+  ],
+  "run_keep_worktree": [
+   "name"
+  ],
+  "run_list_crons": [],
+  "run_list_tasks": [],
+  "run_read": [
+   "path",
+   "limit",
+   "offset",
+   "cwd"
+  ],
+  "run_remove_worktree": [
+   "name",
+   "discard_changes"
+  ],
+  "run_request_plan": [
+   "teammate",
+   "task"
+  ],
+  "run_request_shutdown": [
+   "teammate"
+  ],
+  "run_review_plan": [
+   "request_id",
+   "approve",
+   "feedback"
+  ],
+  "run_schedule_cron": [
+   "cron",
+   "prompt",
+   "recurring",
+   "durable"
+  ],
+  "run_send_message": [
+   "to",
+   "content"
+  ],
+  "run_spawn_teammate": [
+   "name",
+   "role",
+   "prompt"
+  ],
+  "run_todo_write": [
+   "todos"
+  ],
+  "run_write": [
+   "path",
+   "content",
+   "cwd"
+  ],
+  "safe_path": [
+   "p",
+   "cwd"
+  ],
+  "save_durable_jobs": [],
+  "save_task": [
+   "task"
+  ],
+  "scan_skills": [],
+  "scan_unclaimed_tasks": [],
+  "schedule_job": [
+   "cron",
+   "prompt",
+   "recurring",
+   "durable"
+  ],
+  "select_relevant_memories": [
+   "messages",
+   "max_items"
+  ],
+  "should_run_background": [
+   "tool_name",
+   "tool_input"
+  ],
+  "snip_compact": [
+   "messages",
+   "max_messages"
+  ],
+  "spawn_subagent": [
+   "description"
+  ],
+  "spawn_teammate_thread": [
+   "name",
+   "role",
+   "prompt"
+  ],
+  "start_background_task": [
+   "block",
+   "handlers"
+  ],
+  "stop_hook": [
+   "messages"
+  ],
+  "summarize_history": [
+   "messages"
+  ],
+  "terminal_print": [
+   "text"
+  ],
+  "tool_result_budget": [
+   "messages",
+   "max_bytes"
+  ],
+  "trigger_hooks": [
+   "event",
+   "args"
+  ],
+  "update_context": [
+   "context",
+   "messages"
+  ],
+  "user_prompt_hook": [
+   "query"
+  ],
+  "validate_cron": [
+   "cron_expr"
+  ],
+  "validate_worktree_name": [
+   "name"
+  ],
+  "with_retry": [
+   "fn",
+   "state"
+  ],
+  "write_memory_file": [
+   "name",
+   "mem_type",
+   "description",
+   "body"
+  ],
+  "write_transcript": [
+   "messages"
+  ]
+ }
+}

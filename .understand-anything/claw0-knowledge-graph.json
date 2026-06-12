@@ -1,0 +1,3097 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "claw0",
+    "languages": [
+      "python",
+      "markdown",
+      "json"
+    ],
+    "frameworks": [
+      "Anthropic SDK"
+    ],
+    "description": "Tutoriel de shareAI-lab « From Zero to One: Build an AI Agent Gateway » : 10 sections progressives, chacune un fichier Python autonome (~7000 lignes au total), construisant une gateway d agent IA — agent loop, tool use, sessions, channels Telegram/Feishu, gateway/routing, intelligence (soul/memory/skills), heartbeat/cron, delivery, resilience, concurrency",
+    "analyzedAt": "2026-06-10T23:31:46.098Z",
+    "gitCommitHash": "0090e863bd90aaebc79d244223cc2acc7c284eaf"
+  },
+  "nodes": [
+    {
+      "id": "config:inspiration/claw0/.env.example",
+      "type": "config",
+      "name": ".env.example",
+      "filePath": "inspiration/claw0/.env.example",
+      "summary": "Modèle de configuration d'environnement à copier en .env : définit ANTHROPIC_API_KEY et MODEL_ID, avec des options commentées pour un fournisseur compatible (ANTHROPIC_BASE_URL), Telegram (s04), Feishu/Lark (s04) et les réglages du heartbeat (s07).",
+      "tags": [
+        "configuration",
+        "variables-environnement",
+        "template",
+        "api-key"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Les blocs optionnels sont commentés et annotés avec la section du tutoriel qui les consomme (s04_channels.py, s07_heartbeat_cron.py), ce qui sert de mini-documentation de configuration."
+    },
+    {
+      "id": "document:inspiration/claw0/README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "inspiration/claw0/README.md",
+      "summary": "Documentation principale du tutoriel « From Zero to One: Build an AI Agent Gateway » : présente les 10 sections progressives (agent loop → concurrency), l'architecture en couches, le graphe de dépendances entre sections, le démarrage rapide et la structure du dépôt trilingue (en/zh/ja).",
+      "tags": [
+        "documentation",
+        "entry-point",
+        "tutoriel",
+        "vue-d-ensemble",
+        "architecture"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "README trilingue (en/zh/ja) ; chaque dossier de langue contient code et documentation côte à côte, avec une logique de code identique — seuls les commentaires et les docs diffèrent."
+    },
+    {
+      "id": "document:inspiration/claw0/requirements.txt",
+      "type": "document",
+      "name": "requirements.txt",
+      "filePath": "inspiration/claw0/requirements.txt",
+      "summary": "Manifeste des six dépendances Python du tutoriel : anthropic (SDK LLM), python-dotenv (chargement du .env), websockets (gateway s05), croniter (planification cron s07), python-telegram-bot et httpx (channels s04).",
+      "tags": [
+        "dependances",
+        "configuration",
+        "build-system"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:inspiration/claw0/sessions/en/s01_agent_loop.md",
+      "type": "document",
+      "name": "s01_agent_loop.md",
+      "filePath": "inspiration/claw0/sessions/en/s01_agent_loop.md",
+      "summary": "Documentation de la Section 01 du tutoriel : présente la boucle d'agent minimale (« while True » + branchement sur stop_reason) implémentée dans s01_agent_loop.py, avec schéma d'architecture, walkthrough du code et tableau comparatif avec la version production OpenClaw.",
+      "tags": [
+        "documentation",
+        "tutoriel",
+        "agent-loop",
+        "architecture"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Chaque section du tutoriel suit la même structure pédagogique : Architecture (diagramme ASCII), Key Concepts, Key Code Walkthrough, Try It et « How OpenClaw Does It »."
+    },
+    {
+      "id": "document:inspiration/claw0/sessions/en/s02_tool_use.md",
+      "type": "document",
+      "name": "s02_tool_use.md",
+      "filePath": "inspiration/claw0/sessions/en/s02_tool_use.md",
+      "summary": "Documentation de la Section 02 : explique le pattern « tools = schéma JSON + table de dispatch » de s02_tool_use.py — listes TOOLS et TOOL_HANDLERS, fonction process_tool_call() et boucle interne qui enchaîne les appels d'outils tant que stop_reason vaut tool_use.",
+      "tags": [
+        "documentation",
+        "tutoriel",
+        "tool-use",
+        "dispatch"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:inspiration/claw0/sessions/en/s03_sessions.md",
+      "type": "document",
+      "name": "s03_sessions.md",
+      "filePath": "inspiration/claw0/sessions/en/s03_sessions.md",
+      "summary": "Documentation de la Section 03 : décrit la persistance des sessions en JSONL (SessionStore, _rebuild_history) et le ContextGuard à 3 étapes de s03_sessions.py — appel normal, troncature des résultats d'outils volumineux, puis compaction de l'historique via résumé LLM.",
+      "tags": [
+        "documentation",
+        "tutoriel",
+        "sessions",
+        "persistance",
+        "context-guard"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:inspiration/claw0/sessions/en/s04_channels.md",
+      "type": "document",
+      "name": "s04_channels.md",
+      "filePath": "inspiration/claw0/sessions/en/s04_channels.md",
+      "summary": "Documentation de la Section 04 : montre comment s04_channels.py normalise toutes les plateformes (CLI, Telegram, Feishu) en un InboundMessage unique via l'ABC Channel (receive/send), avec long-polling Telegram, persistance d'offset et traitement agnostique du canal dans run_agent_turn.",
+      "tags": [
+        "documentation",
+        "tutoriel",
+        "channels",
+        "telegram",
+        "feishu"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:inspiration/claw0/sessions/en/s05_gateway_routing.md",
+      "type": "document",
+      "name": "s05_gateway_routing.md",
+      "filePath": "inspiration/claw0/sessions/en/s05_gateway_routing.md",
+      "summary": "Documentation de la Section 05 : détaille le routage de s05_gateway_routing.py — BindingTable à résolution en 5 niveaux (du peer_id le plus spécifique au défaut), clés de session contrôlées par dm_scope, AgentConfig par agent et gateway WebSocket JSON-RPC 2.0.",
+      "tags": [
+        "documentation",
+        "tutoriel",
+        "routing",
+        "gateway",
+        "multi-agent"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:inspiration/claw0/sessions/en/s06_intelligence.md",
+      "type": "document",
+      "name": "s06_intelligence.md",
+      "filePath": "inspiration/claw0/sessions/en/s06_intelligence.md",
+      "summary": "Documentation de la Section 06 : explique l'assemblage du prompt système en 8 couches de s06_intelligence.py à partir des fichiers du workspace (SOUL.md, IDENTITY.md, MEMORY.md, etc.), la recherche mémoire hybride (TF-IDF + vecteurs par projection de hachage + MMR) et l'injection automatique de souvenirs via _auto_recall().",
+      "tags": [
+        "documentation",
+        "tutoriel",
+        "prompt-systeme",
+        "memoire",
+        "recherche-hybride"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Le pipeline de recherche hybride simule des embeddings par projection aléatoire basée sur le hachage afin d'enseigner le pattern double canal (vecteur + mots-clés) sans API d'embedding externe."
+    },
+    {
+      "id": "document:inspiration/claw0/sessions/en/s07_heartbeat_cron.md",
+      "type": "document",
+      "name": "s07_heartbeat_cron.md",
+      "filePath": "inspiration/claw0/sessions/en/s07_heartbeat_cron.md",
+      "summary": "Documentation de la Section 07 : couvre l'exécution autonome de s07_heartbeat_cron.py — exclusion mutuelle par lane (l'utilisateur gagne toujours le verrou), chaîne de préconditions should_run() pilotée par HEARTBEAT.md, et CronService avec 3 types de planification (at, every, cron) défini dans CRON.json avec auto-désactivation après 5 erreurs consécutives.",
+      "tags": [
+        "documentation",
+        "tutoriel",
+        "heartbeat",
+        "cron",
+        "ordonnancement"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:inspiration/claw0/sessions/en/s08_delivery.md",
+      "type": "document",
+      "name": "s08_delivery.md",
+      "filePath": "inspiration/claw0/sessions/en/s08_delivery.md",
+      "summary": "Documentation de la Section 08 : décrit la livraison fiable de s08_delivery.py — DeliveryQueue write-ahead persistée sur disque avec écritures atomiques (tmp + fsync + os.replace), cycle ack/fail avec backoff exponentiel et jitter, découpage des messages par limites de plateforme et scan de récupération au démarrage. Se conclut par un résumé des 10 sections de la série.",
+      "tags": [
+        "documentation",
+        "tutoriel",
+        "delivery",
+        "file-d-attente",
+        "retry"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:inspiration/claw0/sessions/en/s09_resilience.md",
+      "type": "document",
+      "name": "s09_resilience.md",
+      "filePath": "inspiration/claw0/sessions/en/s09_resilience.md",
+      "summary": "Documentation de la Section 09 : explique « l'oignon de retry » à 3 couches de s09_resilience.py — rotation des profils d'authentification avec cooldown (ProfileManager), récupération d'overflow par compaction (ContextGuard) et boucle tool-use interne — piloté par classify_failure() qui classe chaque exception en 6 catégories (rate_limit, auth, timeout, billing, overflow, unknown).",
+      "tags": [
+        "documentation",
+        "tutoriel",
+        "resilience",
+        "failover",
+        "retry"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:inspiration/claw0/sessions/en/s10_concurrency.md",
+      "type": "document",
+      "name": "s10_concurrency.md",
+      "filePath": "inspiration/claw0/sessions/en/s10_concurrency.md",
+      "summary": "Documentation de la Section 10 : présente le modèle de concurrence par lanes nommées de s10_concurrency.py — LaneQueue (deque FIFO + threading.Condition + boucle _pump auto-alimentée), dispatcher CommandQueue à création paresseuse, résultats via Future et suivi de génération pour neutraliser les tâches zombies après un redémarrage.",
+      "tags": [
+        "documentation",
+        "tutoriel",
+        "concurrence",
+        "lanes",
+        "threading"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:inspiration/claw0/workspace/AGENTS.md",
+      "type": "document",
+      "name": "AGENTS.md",
+      "filePath": "inspiration/claw0/workspace/AGENTS.md",
+      "summary": "Note de coordination multi-agents chargée dans le system prompt : décrit l'agent par défaut, l'isolement des agents (workspace, sessions et mémoire séparés) et les mécanismes de coordination indirecte via fichiers partagés, couche de routage ou opérateur humain.",
+      "tags": [
+        "documentation",
+        "multi-agent",
+        "bootstrap",
+        "system-prompt"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:inspiration/claw0/workspace/BOOTSTRAP.md",
+      "type": "document",
+      "name": "BOOTSTRAP.md",
+      "filePath": "inspiration/claw0/workspace/BOOTSTRAP.md",
+      "summary": "Contexte additionnel chargé au démarrage de l'agent : présente le framework pédagogique claw0, recense chaque fichier de configuration du workspace (SOUL, IDENTITY, TOOLS, MEMORY, HEARTBEAT, AGENTS, CRON) et documente la disposition des répertoires (memory/, skills/, .sessions/, .agents/).",
+      "tags": [
+        "documentation",
+        "bootstrap",
+        "contexte-projet",
+        "system-prompt"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:inspiration/claw0/workspace/CRON.json",
+      "type": "config",
+      "name": "CRON.json",
+      "filePath": "inspiration/claw0/workspace/CRON.json",
+      "summary": "Définit quatre tâches planifiées consommées par le CronService : briefing matinal quotidien (expression cron), audit de sécurité hebdomadaire des dépendances, rappel de réunion ponctuel (kind « at », supprimé après exécution) et bilan de santé système horaire (kind « every »).",
+      "tags": [
+        "configuration",
+        "cron",
+        "taches-planifiees",
+        "scheduling"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Illustre trois modes de planification : expression cron avec fuseau horaire, exécution unique « at » avec auto-suppression, et intervalle récurrent « every » avec ancre temporelle. Les payloads distinguent agent_turn (tour d'agent complet) et system_event (injection d'événement)."
+    },
+    {
+      "id": "document:inspiration/claw0/workspace/HEARTBEAT.md",
+      "type": "document",
+      "name": "HEARTBEAT.md",
+      "filePath": "inspiration/claw0/workspace/HEARTBEAT.md",
+      "summary": "Instructions de proactivité lues par le HeartbeatRunner : liste les vérifications périodiques (rappels échus, résumé quotidien après 18 h, suivis de conversation) et impose la réponse sentinelle HEARTBEAT_OK lorsque rien ne mérite d'être signalé.",
+      "tags": [
+        "documentation",
+        "heartbeat",
+        "proactivite",
+        "system-prompt"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:inspiration/claw0/workspace/IDENTITY.md",
+      "type": "document",
+      "name": "IDENTITY.md",
+      "filePath": "inspiration/claw0/workspace/IDENTITY.md",
+      "summary": "Définit le rôle et les limites de l'agent : assistant personnel propulsé par claw0, usage des outils pour les actions concrètes, périmètre restreint au répertoire workspace (pas d'accès internet direct) et persistance du contexte via les outils mémoire.",
+      "tags": [
+        "documentation",
+        "identite",
+        "bootstrap",
+        "system-prompt"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:inspiration/claw0/workspace/MEMORY.md",
+      "type": "document",
+      "name": "MEMORY.md",
+      "filePath": "inspiration/claw0/workspace/MEMORY.md",
+      "summary": "Mémoire pérenne (« evergreen ») relue au début de chaque session : préférences utilisateur (réponses concises, fuseau Asia/Shanghai, chinois avec termes techniques en anglais) et contexte durable sur le projet d'agent IA en cours.",
+      "tags": [
+        "documentation",
+        "memoire-long-terme",
+        "preferences-utilisateur",
+        "bootstrap"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:inspiration/claw0/workspace/SOUL.md",
+      "type": "document",
+      "name": "SOUL.md",
+      "filePath": "inspiration/claw0/workspace/SOUL.md",
+      "summary": "Définition de la personnalité « Luna » injectée en tête du system prompt : traits fondamentaux (chaleur, curiosité, humour léger, franchise), style de langage conversationnel, valeurs (honnêteté, profondeur, action) et consignes d'usage de la mémoire via memory_write.",
+      "tags": [
+        "documentation",
+        "personnalite",
+        "soul",
+        "system-prompt"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Le commentaire de s06_intelligence.py précise que plus une section apparaît tôt dans le prompt, plus son influence sur le comportement du modèle est forte — d'où le chargement prioritaire de SOUL.md."
+    },
+    {
+      "id": "document:inspiration/claw0/workspace/TOOLS.md",
+      "type": "document",
+      "name": "TOOLS.md",
+      "filePath": "inspiration/claw0/workspace/TOOLS.md",
+      "summary": "Guide des outils exposés à l'agent, organisé en trois familles : outils fichiers (read_file, write_file, edit_file, list_directory), outils mémoire (memory_write, memory_search) et outils système (bash, get_current_time), avec des consignes d'usage (lire avant d'éditer, mémoriser proactivement).",
+      "tags": [
+        "documentation",
+        "outils",
+        "bootstrap",
+        "system-prompt"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:inspiration/claw0/workspace/USER.md",
+      "type": "document",
+      "name": "USER.md",
+      "filePath": "inspiration/claw0/workspace/USER.md",
+      "summary": "Contexte utilisateur optionnel injecté dans le system prompt pour les instructions de niveau session, en complément de MEMORY.md qui reste réservé aux faits à mémoriser sur le long terme.",
+      "tags": [
+        "documentation",
+        "contexte-utilisateur",
+        "bootstrap",
+        "optionnel"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:inspiration/claw0/.understand-anything/.understandignore",
+      "type": "file",
+      "name": ".understandignore",
+      "filePath": "inspiration/claw0/.understand-anything/.understandignore",
+      "summary": "Fichier d'exclusion pour l'analyse understand-anything : écarte les traductions chinoise et japonaise (sessions/zh/, sessions/ja/, README localisés) afin de ne conserver que la version anglaise du tutoriel.",
+      "tags": [
+        "configuration",
+        "exclusion",
+        "outillage"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:inspiration/claw0/.understand-anything/config.json",
+      "type": "config",
+      "name": "config.json",
+      "filePath": "inspiration/claw0/.understand-anything/config.json",
+      "summary": "Configuration de l'outil understand-anything fixant la langue de sortie de l'analyse à « fr » (français).",
+      "tags": [
+        "configuration",
+        "outillage",
+        "langue"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:inspiration/claw0/sessions/en/s01_agent_loop.py",
+      "type": "file",
+      "name": "s01_agent_loop.py",
+      "filePath": "inspiration/claw0/sessions/en/s01_agent_loop.py",
+      "summary": "Section 01 du tutoriel : la boucle d'agent minimale — « un agent, c'est juste while True + stop_reason ». Un REPL en console qui accumule les messages, appelle l'API Anthropic en streaming et s'arrête sur end_turn.",
+      "tags": [
+        "entry-point",
+        "agent-loop",
+        "tutoriel",
+        "llm-api"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Script Python autonome (aucun import projet) : chaque section du tutoriel se suffit à elle-même et se lance directement avec python."
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s01_agent_loop.py:agent_loop",
+      "type": "function",
+      "name": "agent_loop",
+      "filePath": "inspiration/claw0/sessions/en/s01_agent_loop.py",
+      "lineRange": [
+        79,
+        155
+      ],
+      "summary": "Cœur pédagogique de la section : boucle REPL qui lit l'entrée utilisateur, l'ajoute à messages[], appelle l'API en streaming et affiche la réponse jusqu'à stop_reason == end_turn. Pas encore d'outils ni de persistance.",
+      "tags": [
+        "agent-loop",
+        "repl",
+        "streaming"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "type": "file",
+      "name": "s02_tool_use.py",
+      "filePath": "inspiration/claw0/sessions/en/s02_tool_use.py",
+      "summary": "Section 02 : ajout des outils à la boucle d'agent — « un outil = un schéma JSON + une entrée dans un dictionnaire de handlers ». Implémente bash, read_file, write_file et edit_file avec sandbox de chemins, et dispatch les tool_use vers les handlers.",
+      "tags": [
+        "tutoriel",
+        "tool-use",
+        "agent-loop",
+        "sandbox"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s02_tool_use.py:tool_bash",
+      "type": "function",
+      "name": "tool_bash",
+      "filePath": "inspiration/claw0/sessions/en/s02_tool_use.py",
+      "lineRange": [
+        118,
+        146
+      ],
+      "summary": "Exécute une commande shell via subprocess avec timeout, capture stdout/stderr et tronque la sortie avant de la renvoyer au modèle.",
+      "tags": [
+        "outil",
+        "shell",
+        "subprocess"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s02_tool_use.py:tool_read_file",
+      "type": "function",
+      "name": "tool_read_file",
+      "filePath": "inspiration/claw0/sessions/en/s02_tool_use.py",
+      "lineRange": [
+        149,
+        163
+      ],
+      "summary": "Outil de lecture de fichier : résout le chemin via safe_path (anti-traversée hors du workspace) puis renvoie le contenu tronqué.",
+      "tags": [
+        "outil",
+        "lecture-fichier",
+        "sandbox"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s02_tool_use.py:tool_write_file",
+      "type": "function",
+      "name": "tool_write_file",
+      "filePath": "inspiration/claw0/sessions/en/s02_tool_use.py",
+      "lineRange": [
+        166,
+        177
+      ],
+      "summary": "Outil d'écriture de fichier : crée les répertoires parents si besoin et écrit le contenu dans le workspace sécurisé.",
+      "tags": [
+        "outil",
+        "ecriture-fichier",
+        "sandbox"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s02_tool_use.py:tool_edit_file",
+      "type": "function",
+      "name": "tool_edit_file",
+      "filePath": "inspiration/claw0/sessions/en/s02_tool_use.py",
+      "lineRange": [
+        180,
+        205
+      ],
+      "summary": "Outil d'édition par remplacement exact de chaîne : vérifie que old_string existe et n'apparaît qu'une seule fois avant de substituer new_string.",
+      "tags": [
+        "outil",
+        "edition-fichier",
+        "validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s02_tool_use.py:process_tool_call",
+      "type": "function",
+      "name": "process_tool_call",
+      "filePath": "inspiration/claw0/sessions/en/s02_tool_use.py",
+      "lineRange": [
+        312,
+        322
+      ],
+      "summary": "Dispatcheur central : résout le nom d'outil dans TOOL_HANDLERS, exécute le handler et encapsule toute exception en message d'erreur renvoyé au modèle.",
+      "tags": [
+        "dispatch",
+        "tool-use",
+        "gestion-erreurs"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s02_tool_use.py:agent_loop",
+      "type": "function",
+      "name": "agent_loop",
+      "filePath": "inspiration/claw0/sessions/en/s02_tool_use.py",
+      "lineRange": [
+        330,
+        422
+      ],
+      "summary": "Évolution de la boucle s01 : gère stop_reason == tool_use en exécutant les appels d'outils via process_tool_call et en renvoyant les tool_result au modèle, en boucle interne jusqu'à end_turn.",
+      "tags": [
+        "agent-loop",
+        "tool-use",
+        "repl"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claw0/sessions/en/s03_sessions.py",
+      "type": "file",
+      "name": "s03_sessions.py",
+      "filePath": "inspiration/claw0/sessions/en/s03_sessions.py",
+      "summary": "Section 03 : persistance des sessions et garde de contexte — « une session est un fichier JSONL : on ajoute à l'écriture, on rejoue à la lecture ». Ajoute SessionStore (persistance JSONL, résumé) et ContextGuard (retry en 3 étapes sur dépassement de contexte).",
+      "tags": [
+        "tutoriel",
+        "sessions",
+        "persistance",
+        "context-window"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s03_sessions.py:SessionStore",
+      "type": "class",
+      "name": "SessionStore",
+      "filePath": "inspiration/claw0/sessions/en/s03_sessions.py",
+      "lineRange": [
+        127,
+        295
+      ],
+      "summary": "Persistance des sessions en JSONL sous workspace/.sessions : index des sessions, ajout des tours et résultats d'outils en append-only, reconstruction de l'historique messages[] par relecture du transcript.",
+      "tags": [
+        "persistance",
+        "jsonl",
+        "sessions",
+        "append-only"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s03_sessions.py:ContextGuard",
+      "type": "class",
+      "name": "ContextGuard",
+      "filePath": "inspiration/claw0/sessions/en/s03_sessions.py",
+      "lineRange": [
+        336,
+        518
+      ],
+      "summary": "Garde de fenêtre de contexte : estime les tokens, puis sur dépassement applique un retry en 3 étapes — appel normal, troncature des gros tool_result, compaction de l'historique à 50 % via résumé LLM — avant d'échouer.",
+      "tags": [
+        "context-window",
+        "compaction",
+        "retry",
+        "estimation-tokens"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s03_sessions.py:handle_repl_command",
+      "type": "function",
+      "name": "handle_repl_command",
+      "filePath": "inspiration/claw0/sessions/en/s03_sessions.py",
+      "lineRange": [
+        637,
+        718
+      ],
+      "summary": "Traite les commandes REPL de gestion de sessions (/new, /list, /resume, /compact...) en pilotant SessionStore et ContextGuard depuis la boucle interactive.",
+      "tags": [
+        "repl",
+        "commandes",
+        "sessions"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s03_sessions.py:agent_loop",
+      "type": "function",
+      "name": "agent_loop",
+      "filePath": "inspiration/claw0/sessions/en/s03_sessions.py",
+      "lineRange": [
+        726,
+        856
+      ],
+      "summary": "Boucle d'agent enrichie : recharge l'historique depuis le JSONL au démarrage, protège chaque appel API via guard_api_call et persiste chaque tour avec save_turn.",
+      "tags": [
+        "agent-loop",
+        "sessions",
+        "persistance"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "type": "file",
+      "name": "s04_channels.py",
+      "filePath": "inspiration/claw0/sessions/en/s04_channels.py",
+      "summary": "Section 04 : les canaux — « même cerveau, plusieurs bouches ». Abstraction Channel (receive/send) avec implémentations CLI, Telegram (long polling) et Feishu, normalisant chaque plateforme en InboundMessage unique pour la même boucle d'agent.",
+      "tags": [
+        "tutoriel",
+        "channels",
+        "telegram",
+        "feishu",
+        "abstraction"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Patron « une interface, N implémentations » : la classe abstraite Channel (ABC) isole les spécificités de chaque plateforme derrière receive() et send()."
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s04_channels.py:Channel",
+      "type": "class",
+      "name": "Channel",
+      "filePath": "inspiration/claw0/sessions/en/s04_channels.py",
+      "lineRange": [
+        114,
+        124
+      ],
+      "summary": "Classe abstraite (ABC) définissant le contrat d'un canal : receive() produit des InboundMessage normalisés, send() expédie la réponse, close() libère les ressources.",
+      "tags": [
+        "interface",
+        "abstraction",
+        "channels"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s04_channels.py:CLIChannel",
+      "type": "class",
+      "name": "CLIChannel",
+      "filePath": "inspiration/claw0/sessions/en/s04_channels.py",
+      "lineRange": [
+        130,
+        150
+      ],
+      "summary": "Implémentation la plus simple du contrat Channel : lit stdin et écrit sur stdout, servant de canal de référence pour le développement local.",
+      "tags": [
+        "channels",
+        "cli",
+        "stdin-stdout"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s04_channels.py:TelegramChannel",
+      "type": "class",
+      "name": "TelegramChannel",
+      "filePath": "inspiration/claw0/sessions/en/s04_channels.py",
+      "lineRange": [
+        170,
+        362
+      ],
+      "summary": "Canal Telegram via l'API Bot HTTP : long polling getUpdates avec offset persisté sur disque, indicateur « en train d'écrire », parsing des updates en InboundMessage et découpage des réponses selon la limite de 4096 caractères.",
+      "tags": [
+        "channels",
+        "telegram",
+        "long-polling",
+        "api-http"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s04_channels.py:FeishuChannel",
+      "type": "class",
+      "name": "FeishuChannel",
+      "filePath": "inspiration/claw0/sessions/en/s04_channels.py",
+      "lineRange": [
+        368,
+        506
+      ],
+      "summary": "Canal Feishu/Lark : rafraîchit le tenant_access_token, parse les événements im.message, détecte les mentions du bot en groupe et envoie via im/v1/messages.",
+      "tags": [
+        "channels",
+        "feishu",
+        "webhook",
+        "authentification"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s04_channels.py:ChannelManager",
+      "type": "class",
+      "name": "ChannelManager",
+      "filePath": "inspiration/claw0/sessions/en/s04_channels.py",
+      "lineRange": [
+        563,
+        580
+      ],
+      "summary": "Registre central des canaux actifs : enregistre, liste, récupère et ferme l'ensemble des canaux d'un coup, point d'accès unique pour la boucle d'agent.",
+      "tags": [
+        "channels",
+        "registre",
+        "cycle-de-vie"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s04_channels.py:run_agent_turn",
+      "type": "function",
+      "name": "run_agent_turn",
+      "filePath": "inspiration/claw0/sessions/en/s04_channels.py",
+      "lineRange": [
+        624,
+        680
+      ],
+      "summary": "Exécute un tour d'agent complet pour un InboundMessage : retrouve la conversation par session_key, déroule la boucle LLM + outils, puis renvoie la réponse au canal d'origine.",
+      "tags": [
+        "agent-loop",
+        "channels",
+        "routage-conversation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s04_channels.py:agent_loop",
+      "type": "function",
+      "name": "agent_loop",
+      "filePath": "inspiration/claw0/sessions/en/s04_channels.py",
+      "lineRange": [
+        686,
+        778
+      ],
+      "summary": "Boucle principale multi-canaux : démarre le polling Telegram dans un thread, consomme la file d'InboundMessage de tous les canaux et délègue chaque message à run_agent_turn.",
+      "tags": [
+        "agent-loop",
+        "channels",
+        "threading"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "type": "file",
+      "name": "s05_gateway_routing.py",
+      "filePath": "inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "summary": "Section 05 : gateway et routage — « chaque message trouve sa maison ». Table de bindings à 5 niveaux (peer > guild > account > channel > défaut) résolvant chaque message entrant en (agent_id, session_key), AgentManager multi-agents et serveur WebSocket JSON-RPC 2.0.",
+      "tags": [
+        "tutoriel",
+        "gateway",
+        "routing",
+        "multi-agents",
+        "json-rpc"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s05_gateway_routing.py:BindingTable",
+      "type": "class",
+      "name": "BindingTable",
+      "filePath": "inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "lineRange": [
+        101,
+        139
+      ],
+      "summary": "Table de routage à 5 niveaux de spécificité : resolve() teste les bindings du plus précis (peer) au plus général (défaut) pour déterminer quel agent traite un message entrant.",
+      "tags": [
+        "routing",
+        "bindings",
+        "priorite"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s05_gateway_routing.py:AgentConfig",
+      "type": "class",
+      "name": "AgentConfig",
+      "filePath": "inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "lineRange": [
+        169,
+        185
+      ],
+      "summary": "Configuration déclarative d'un agent : modèle effectif (avec repli sur le modèle global) et prompt système propre, base de l'isolation par agent.",
+      "tags": [
+        "configuration",
+        "multi-agents",
+        "data-model"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s05_gateway_routing.py:AgentManager",
+      "type": "class",
+      "name": "AgentManager",
+      "filePath": "inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "lineRange": [
+        187,
+        215
+      ],
+      "summary": "Gestionnaire multi-agents : enregistre les AgentConfig, crée un workspace par agent et maintient les sessions isolées par session_key.",
+      "tags": [
+        "multi-agents",
+        "registre",
+        "sessions"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s05_gateway_routing.py:GatewayServer",
+      "type": "class",
+      "name": "GatewayServer",
+      "filePath": "inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "lineRange": [
+        359,
+        466
+      ],
+      "summary": "Serveur WebSocket exposant la gateway en JSON-RPC 2.0 : méthodes send, bind.set, bind.list, sessions, agents et status, avec callback de frappe pendant la génération.",
+      "tags": [
+        "gateway",
+        "websocket",
+        "json-rpc",
+        "serveur"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s05_gateway_routing.py:resolve_route",
+      "type": "function",
+      "name": "resolve_route",
+      "filePath": "inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "lineRange": [
+        282,
+        298
+      ],
+      "summary": "Pipeline de routage : interroge la BindingTable avec (channel, peer_id, account_id, guild_id), valide l'agent résolu auprès de l'AgentManager et fabrique la session_key finale.",
+      "tags": [
+        "routing",
+        "resolution",
+        "session-key"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s05_gateway_routing.py:run_agent",
+      "type": "function",
+      "name": "run_agent",
+      "filePath": "inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "lineRange": [
+        306,
+        323
+      ],
+      "summary": "Exécute un tour pour l'agent routé : charge sa config et son historique de session, signale la frappe via on_typing puis délègue à _agent_loop.",
+      "tags": [
+        "multi-agents",
+        "execution",
+        "sessions"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s05_gateway_routing.py:_agent_loop",
+      "type": "function",
+      "name": "_agent_loop",
+      "filePath": "inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "lineRange": [
+        325,
+        353
+      ],
+      "summary": "Variante compacte de la boucle d'agent paramétrée par (model, system, messages) : permet à chaque agent routé d'utiliser son propre modèle et prompt système.",
+      "tags": [
+        "agent-loop",
+        "tool-use",
+        "multi-agents"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "type": "file",
+      "name": "s06_intelligence.py",
+      "filePath": "inspiration/claw0/sessions/en/s06_intelligence.py",
+      "summary": "Section 06 : l'intelligence — « donne-lui une âme, apprends-lui à se souvenir ». Le prompt système est assemblé depuis les fichiers du workspace (SOUL.md, IDENTITY.md, TOOLS.md...) via BootstrapLoader, enrichi des skills découverts et d'une mémoire hybride (vecteurs + BM25 + MMR).",
+      "tags": [
+        "tutoriel",
+        "system-prompt",
+        "memoire",
+        "skills",
+        "recherche-hybride"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Patron « la personnalité vit sur disque » : changer les fichiers Markdown du workspace modifie le comportement de l'agent sans toucher au code."
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s06_intelligence.py:BootstrapLoader",
+      "type": "class",
+      "name": "BootstrapLoader",
+      "filePath": "inspiration/claw0/sessions/en/s06_intelligence.py",
+      "lineRange": [
+        106,
+        147
+      ],
+      "summary": "Charge et tronque les fichiers bootstrap du workspace (SOUL.md, IDENTITY.md, TOOLS.md, USER.md, HEARTBEAT.md, BOOTSTRAP.md, AGENTS.md, MEMORY.md), avec un mode minimal limité à AGENTS.md et TOOLS.md.",
+      "tags": [
+        "bootstrap",
+        "chargement-fichiers",
+        "workspace"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s06_intelligence.py:SkillsManager",
+      "type": "class",
+      "name": "SkillsManager",
+      "filePath": "inspiration/claw0/sessions/en/s06_intelligence.py",
+      "lineRange": [
+        171,
+        257
+      ],
+      "summary": "Découvre les skills du workspace : scanne workspace/skills/*/SKILL.md, parse le frontmatter (name, description, invocation) et formate le bloc de skills injecté dans le prompt système.",
+      "tags": [
+        "skills",
+        "decouverte",
+        "frontmatter",
+        "system-prompt"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s06_intelligence.py:MemoryStore",
+      "type": "class",
+      "name": "MemoryStore",
+      "filePath": "inspiration/claw0/sessions/en/s06_intelligence.py",
+      "lineRange": [
+        268,
+        557
+      ],
+      "summary": "Mémoire à deux niveaux : MEMORY.md pour les faits pérennes et des chunks pour le rappel. La recherche hybride combine vecteurs de hachage (cosinus), classement BM25, fusion pondérée, décroissance temporelle et re-ranking MMR pour la diversité.",
+      "tags": [
+        "memoire",
+        "recherche-hybride",
+        "bm25",
+        "mmr",
+        "embeddings"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Implémentation pédagogique d'une recherche hybride sans dépendance externe : les « embeddings » sont des vecteurs de hachage de tokens, suffisants pour illustrer cosinus + BM25 + MMR."
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s06_intelligence.py:build_system_prompt",
+      "type": "function",
+      "name": "build_system_prompt",
+      "filePath": "inspiration/claw0/sessions/en/s06_intelligence.py",
+      "lineRange": [
+        636,
+        708
+      ],
+      "summary": "Assemble le prompt système par couches ordonnées : identité, âme (SOUL.md tôt = influence forte), outils, mémoire pérenne, contexte rappelé, skills et fichiers restants — le cœur du concept « la personnalité est dans les fichiers ».",
+      "tags": [
+        "system-prompt",
+        "assemblage",
+        "personnalite"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s06_intelligence.py:agent_loop",
+      "type": "function",
+      "name": "agent_loop",
+      "filePath": "inspiration/claw0/sessions/en/s06_intelligence.py",
+      "lineRange": [
+        799,
+        885
+      ],
+      "summary": "Boucle d'agent avec auto-rappel : avant chaque appel LLM, recherche la mémoire pertinente (_auto_recall) et reconstruit le prompt système avec bootstrap, skills et contexte mémoire.",
+      "tags": [
+        "agent-loop",
+        "memoire",
+        "auto-rappel"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "type": "file",
+      "name": "s07_heartbeat_cron.py",
+      "filePath": "inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "summary": "Section 07 : heartbeat et cron — « pas seulement réactif, proactif ». Un thread de battement lit HEARTBEAT.md et exécute l'agent quand la voie est libre (le lock donne priorité à l'utilisateur), tandis que CronService planifie les jobs déclarés dans CRON.json.",
+      "tags": [
+        "tutoriel",
+        "heartbeat",
+        "cron",
+        "proactivite",
+        "threading"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Exclusion mutuelle par lane via lock.acquire(False) : le heartbeat saute son tour plutôt que de bloquer un message utilisateur — préfiguration des lanes de la section 10."
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s07_heartbeat_cron.py:HeartbeatRunner",
+      "type": "class",
+      "name": "HeartbeatRunner",
+      "filePath": "inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "lineRange": [
+        148,
+        304
+      ],
+      "summary": "Thread de battement périodique : vérifie should_run (HEARTBEAT.md présent et non vide, intervalle écoulé), tente le lock sans bloquer, exécute un tour d'agent avec le prompt heartbeat et déduplique les sorties via parsing de la réponse (HEARTBEAT_OK).",
+      "tags": [
+        "heartbeat",
+        "thread",
+        "planification",
+        "deduplication"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s07_heartbeat_cron.py:CronService",
+      "type": "class",
+      "name": "CronService",
+      "filePath": "inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "lineRange": [
+        328,
+        481
+      ],
+      "summary": "Planificateur de tâches : charge les CronJob depuis CRON.json, calcule la prochaine échéance (intervalles et expressions simples), déclenche les jobs dus à chaque tick et journalise leurs sorties.",
+      "tags": [
+        "cron",
+        "planification",
+        "jobs",
+        "tick"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s07_heartbeat_cron.py:run_agent_single_turn",
+      "type": "function",
+      "name": "run_agent_single_turn",
+      "filePath": "inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "lineRange": [
+        132,
+        142
+      ],
+      "summary": "Exécution d'agent en un seul tour (sans boucle d'outils) utilisée par le heartbeat et le cron : un prompt, un appel LLM, une réponse — la brique d'exécution des tâches d'arrière-plan.",
+      "tags": [
+        "execution",
+        "single-turn",
+        "tache-de-fond"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s07_heartbeat_cron.py:agent_loop",
+      "type": "function",
+      "name": "agent_loop",
+      "filePath": "inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "lineRange": [
+        498,
+        645
+      ],
+      "summary": "Boucle REPL orchestrant trois voies concurrentes : messages utilisateur (prioritaires via le lock), HeartbeatRunner et CronService, avec drainage des sorties d'arrière-plan entre les tours.",
+      "tags": [
+        "agent-loop",
+        "concurrence",
+        "orchestration"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "type": "file",
+      "name": "s08_delivery.py",
+      "filePath": "inspiration/claw0/sessions/en/s08_delivery.py",
+      "summary": "Section 08 : la livraison fiable — « écris sur disque d'abord, essaie d'envoyer ensuite ». File de livraison write-ahead sur disque, runner en arrière-plan avec backoff exponentiel (5s à 10min, 5 essais max), découpage par limites de plateforme et récupération après crash.",
+      "tags": [
+        "tutoriel",
+        "delivery",
+        "write-ahead",
+        "backoff",
+        "fiabilite"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s08_delivery.py:QueuedDelivery",
+      "type": "class",
+      "name": "QueuedDelivery",
+      "filePath": "inspiration/claw0/sessions/en/s08_delivery.py",
+      "lineRange": [
+        123,
+        156
+      ],
+      "summary": "Enregistrement d'une livraison en attente (canal, destinataire, texte, compteur d'essais, horodatages) sérialisable en JSON via to_dict/from_dict pour la persistance sur disque.",
+      "tags": [
+        "data-model",
+        "serialisation",
+        "delivery"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s08_delivery.py:DeliveryQueue",
+      "type": "class",
+      "name": "DeliveryQueue",
+      "filePath": "inspiration/claw0/sessions/en/s08_delivery.py",
+      "lineRange": [
+        176,
+        303
+      ],
+      "summary": "File de livraison persistante (write-ahead) : enqueue écrit chaque entrée sur disque avant tout envoi, ack supprime après succès, fail incrémente les essais avec backoff et move_to_failed archive après épuisement ; retry_failed permet le rejeu manuel.",
+      "tags": [
+        "delivery",
+        "write-ahead",
+        "persistance",
+        "retry"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s08_delivery.py:DeliveryRunner",
+      "type": "class",
+      "name": "DeliveryRunner",
+      "filePath": "inspiration/claw0/sessions/en/s08_delivery.py",
+      "lineRange": [
+        343,
+        435
+      ],
+      "summary": "Thread d'arrière-plan qui traite la file : scan de récupération au démarrage (messages orphelins après crash), boucle d'envoi des entrées dues et statistiques de livraison.",
+      "tags": [
+        "delivery",
+        "thread",
+        "recuperation-crash",
+        "background"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s08_delivery.py:MockDeliveryChannel",
+      "type": "class",
+      "name": "MockDeliveryChannel",
+      "filePath": "inspiration/claw0/sessions/en/s08_delivery.py",
+      "lineRange": [
+        442,
+        459
+      ],
+      "summary": "Canal factice avec taux d'échec configurable (set_fail_rate) pour démontrer en direct les retries, le backoff et le passage en file d'échecs.",
+      "tags": [
+        "mock",
+        "test",
+        "injection-de-pannes"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s08_delivery.py:compute_backoff_ms",
+      "type": "function",
+      "name": "compute_backoff_ms",
+      "filePath": "inspiration/claw0/sessions/en/s08_delivery.py",
+      "lineRange": [
+        159,
+        166
+      ],
+      "summary": "Calcule le délai de retry par backoff exponentiel borné — l'échelle [5s, 25s, 2min, 10min] — à partir du compteur d'essais.",
+      "tags": [
+        "backoff",
+        "retry",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s08_delivery.py:chunk_message",
+      "type": "function",
+      "name": "chunk_message",
+      "filePath": "inspiration/claw0/sessions/en/s08_delivery.py",
+      "lineRange": [
+        319,
+        336
+      ],
+      "summary": "Découpe un message sortant selon la limite de caractères de la plateforme cible (ex. 4096 pour Telegram), en préférant couper aux sauts de ligne.",
+      "tags": [
+        "chunking",
+        "limites-plateforme",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s08_delivery.py:agent_loop",
+      "type": "function",
+      "name": "agent_loop",
+      "filePath": "inspiration/claw0/sessions/en/s08_delivery.py",
+      "lineRange": [
+        720,
+        852
+      ],
+      "summary": "Boucle REPL où chaque réponse d'agent transite par chunk_message puis DeliveryQueue au lieu d'un print direct : la sortie devient un flux fiable, partagé avec le heartbeat.",
+      "tags": [
+        "agent-loop",
+        "delivery",
+        "integration"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:inspiration/claw0/sessions/en/s09_resilience.py",
+      "type": "file",
+      "name": "s09_resilience.py",
+      "filePath": "inspiration/claw0/sessions/en/s09_resilience.py",
+      "summary": "Section 09 : la résilience — « quand un appel échoue, on tourne et on réessaie ». Oignon de retry à 3 couches : rotation de profils d'authentification (avec cooldown), récupération de dépassement de contexte par compaction, puis boucle tool-use standard ; un injecteur de pannes simulées permet de tester chaque couche.",
+      "tags": [
+        "tutoriel",
+        "resilience",
+        "failover",
+        "rotation-cles",
+        "retry"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Architecture en « oignon » : chaque couche ne traite qu'une classe d'échec (auth/rate limit, overflow, exécution) et classify_failure décide vers quelle couche remonter."
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s09_resilience.py:ProfileManager",
+      "type": "class",
+      "name": "ProfileManager",
+      "filePath": "inspiration/claw0/sessions/en/s09_resilience.py",
+      "lineRange": [
+        199,
+        262
+      ],
+      "summary": "Gère la rotation des AuthProfile (clés API principale, secours, urgence) : sélectionne les profils hors cooldown, marque échecs et succès, et applique les périodes de mise à l'écart.",
+      "tags": [
+        "failover",
+        "rotation-cles",
+        "cooldown",
+        "authentification"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s09_resilience.py:SimulatedFailure",
+      "type": "class",
+      "name": "SimulatedFailure",
+      "filePath": "inspiration/claw0/sessions/en/s09_resilience.py",
+      "lineRange": [
+        565,
+        603
+      ],
+      "summary": "Injecteur de pannes pour la démo : arme un type d'échec (auth, rate limit, overflow, timeout) qui se déclenche au prochain appel, permettant d'observer chaque couche de retry en action.",
+      "tags": [
+        "injection-de-pannes",
+        "test",
+        "simulation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s09_resilience.py:ResilienceRunner",
+      "type": "class",
+      "name": "ResilienceRunner",
+      "filePath": "inspiration/claw0/sessions/en/s09_resilience.py",
+      "lineRange": [
+        627,
+        894
+      ],
+      "summary": "Orchestrateur des 3 couches de retry : itère sur les profils disponibles (couche 1), retente avec compaction du contexte sur overflow (couche 2) et délègue à _run_attempt la boucle tool-use (couche 3), en classifiant chaque exception pour router le retry.",
+      "tags": [
+        "resilience",
+        "retry",
+        "orchestration",
+        "failover"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s09_resilience.py:classify_failure",
+      "type": "function",
+      "name": "classify_failure",
+      "filePath": "inspiration/claw0/sessions/en/s09_resilience.py",
+      "lineRange": [
+        142,
+        166
+      ],
+      "summary": "Classifie une exception API en FailoverReason (auth, rate limit, overflow de contexte, timeout, inconnu) — l'aiguillage qui détermine quelle couche de l'oignon de retry doit réagir.",
+      "tags": [
+        "classification",
+        "gestion-erreurs",
+        "failover"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s09_resilience.py:agent_loop",
+      "type": "function",
+      "name": "agent_loop",
+      "filePath": "inspiration/claw0/sessions/en/s09_resilience.py",
+      "lineRange": [
+        999,
+        1116
+      ],
+      "summary": "Boucle REPL où chaque tour passe par ResilienceRunner.run au lieu d'un appel API direct ; les commandes /fail, /profiles et /stats pilotent la simulation de pannes et l'observation du failover.",
+      "tags": [
+        "agent-loop",
+        "resilience",
+        "repl"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "type": "file",
+      "name": "s10_concurrency.py",
+      "filePath": "inspiration/claw0/sessions/en/s10_concurrency.py",
+      "summary": "Section 10 (finale) : la concurrence — « des lanes nommées sérialisent le chaos ». Remplace le simple Lock de la section 07 par un système de files nommées (main, cron, heartbeat) à concurrence maximale configurable, où les tâches s'exécutent dans des threads dédiés et rendent leurs résultats via des Future.",
+      "tags": [
+        "tutoriel",
+        "concurrence",
+        "lanes",
+        "files",
+        "threading"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Usage de concurrent.futures.Future comme canal de retour entre threads : enqueue rend immédiatement un Future, le pump FIFO garantit l'ordre par lane."
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s10_concurrency.py:LaneQueue",
+      "type": "class",
+      "name": "LaneQueue",
+      "filePath": "inspiration/claw0/sessions/en/s10_concurrency.py",
+      "lineRange": [
+        101,
+        204
+      ],
+      "summary": "File FIFO nommée à concurrence bornée : enqueue ajoute un callable et rend un Future, _pump démarre les tâches tant que active < max_concurrency, _task_done relance le pompage ; gère génération (invalidation) et attente d'inactivité.",
+      "tags": [
+        "concurrence",
+        "fifo",
+        "future",
+        "lane"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:inspiration/claw0/sessions/en/s10_concurrency.py:CommandQueue",
+      "type": "class",
+      "name": "CommandQueue",
+      "filePath": "inspiration/claw0/sessions/en/s10_concurrency.py",
+      "lineRange": [
+        212,
+        269
+      ],
+      "summary": "Façade multi-lanes : crée les LaneQueue à la demande (get_or_create_lane), route chaque tâche vers sa lane, et offre reset global, attente de toutes les lanes et statistiques agrégées.",
+      "tags": [
+        "concurrence",
+        "facade",
+        "routage-taches"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claw0/sessions/en/s10_concurrency.py:agent_loop",
+      "type": "function",
+      "name": "agent_loop",
+      "filePath": "inspiration/claw0/sessions/en/s10_concurrency.py",
+      "lineRange": [
+        629,
+        886
+      ],
+      "summary": "Boucle finale du tutoriel : les messages utilisateur, ticks de heartbeat et jobs cron sont tous enfilés dans la CommandQueue (lanes main/heartbeat/cron) au lieu de se disputer un lock, aboutissant à la gateway complète et ordonnée.",
+      "tags": [
+        "agent-loop",
+        "concurrence",
+        "orchestration",
+        "synthese"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:inspiration/claw0/workspace/skills/example-skill/SKILL.md",
+      "type": "document",
+      "name": "SKILL.md",
+      "filePath": "inspiration/claw0/workspace/skills/example-skill/SKILL.md",
+      "summary": "Skill d'exemple chargé par le SkillsManager de la section 06 : frontmatter (name, description, invocation /example) suivi des instructions, servant de modèle pour créer ses propres skills sous workspace/skills/.",
+      "tags": [
+        "skill",
+        "exemple",
+        "frontmatter",
+        "workspace"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "file:inspiration/claw0/sessions/en/s01_agent_loop.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "file:inspiration/claw0/sessions/en/s03_sessions.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "file:inspiration/claw0/sessions/en/s09_resilience.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/sessions/en/s01_agent_loop.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/sessions/en/s02_tool_use.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/sessions/en/s03_sessions.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/sessions/en/s04_channels.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/sessions/en/s05_gateway_routing.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/sessions/en/s06_intelligence.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/sessions/en/s07_heartbeat_cron.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/sessions/en/s08_delivery.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/sessions/en/s09_resilience.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/sessions/en/s10_concurrency.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/workspace/SOUL.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/workspace/IDENTITY.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/workspace/TOOLS.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/workspace/USER.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/workspace/HEARTBEAT.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/workspace/BOOTSTRAP.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/workspace/AGENTS.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/workspace/MEMORY.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "config:inspiration/claw0/workspace/CRON.json",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/workspace/skills/example-skill/SKILL.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "config:inspiration/claw0/.env.example",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/README.md",
+      "target": "document:inspiration/claw0/requirements.txt",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "config:inspiration/claw0/.env.example",
+      "target": "file:inspiration/claw0/sessions/en/s01_agent_loop.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:inspiration/claw0/.env.example",
+      "target": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:inspiration/claw0/.env.example",
+      "target": "file:inspiration/claw0/sessions/en/s03_sessions.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:inspiration/claw0/.env.example",
+      "target": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:inspiration/claw0/.env.example",
+      "target": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:inspiration/claw0/.env.example",
+      "target": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:inspiration/claw0/.env.example",
+      "target": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:inspiration/claw0/.env.example",
+      "target": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:inspiration/claw0/.env.example",
+      "target": "file:inspiration/claw0/sessions/en/s09_resilience.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:inspiration/claw0/.env.example",
+      "target": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/requirements.txt",
+      "target": "file:inspiration/claw0/sessions/en/s01_agent_loop.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/requirements.txt",
+      "target": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/requirements.txt",
+      "target": "file:inspiration/claw0/sessions/en/s03_sessions.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/requirements.txt",
+      "target": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/requirements.txt",
+      "target": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/requirements.txt",
+      "target": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/requirements.txt",
+      "target": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/requirements.txt",
+      "target": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/requirements.txt",
+      "target": "file:inspiration/claw0/sessions/en/s09_resilience.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/requirements.txt",
+      "target": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s01_agent_loop.md",
+      "target": "file:inspiration/claw0/sessions/en/s01_agent_loop.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s02_tool_use.md",
+      "target": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s03_sessions.md",
+      "target": "file:inspiration/claw0/sessions/en/s03_sessions.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s04_channels.md",
+      "target": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s05_gateway_routing.md",
+      "target": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s06_intelligence.md",
+      "target": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s07_heartbeat_cron.md",
+      "target": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s08_delivery.md",
+      "target": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s09_resilience.md",
+      "target": "file:inspiration/claw0/sessions/en/s09_resilience.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s10_concurrency.md",
+      "target": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s01_agent_loop.md",
+      "target": "document:inspiration/claw0/sessions/en/s02_tool_use.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s02_tool_use.md",
+      "target": "document:inspiration/claw0/sessions/en/s03_sessions.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s03_sessions.md",
+      "target": "document:inspiration/claw0/sessions/en/s04_channels.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s04_channels.md",
+      "target": "document:inspiration/claw0/sessions/en/s05_gateway_routing.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s05_gateway_routing.md",
+      "target": "document:inspiration/claw0/sessions/en/s06_intelligence.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s06_intelligence.md",
+      "target": "document:inspiration/claw0/sessions/en/s07_heartbeat_cron.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s07_heartbeat_cron.md",
+      "target": "document:inspiration/claw0/sessions/en/s08_delivery.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s08_delivery.md",
+      "target": "document:inspiration/claw0/sessions/en/s09_resilience.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s09_resilience.md",
+      "target": "document:inspiration/claw0/sessions/en/s10_concurrency.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s06_intelligence.md",
+      "target": "document:inspiration/claw0/workspace/SOUL.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s06_intelligence.md",
+      "target": "document:inspiration/claw0/workspace/IDENTITY.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s06_intelligence.md",
+      "target": "document:inspiration/claw0/workspace/MEMORY.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s06_intelligence.md",
+      "target": "document:inspiration/claw0/workspace/TOOLS.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s06_intelligence.md",
+      "target": "document:inspiration/claw0/workspace/HEARTBEAT.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s06_intelligence.md",
+      "target": "document:inspiration/claw0/workspace/BOOTSTRAP.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s06_intelligence.md",
+      "target": "document:inspiration/claw0/workspace/AGENTS.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s06_intelligence.md",
+      "target": "document:inspiration/claw0/workspace/USER.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s07_heartbeat_cron.md",
+      "target": "document:inspiration/claw0/workspace/HEARTBEAT.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/sessions/en/s07_heartbeat_cron.md",
+      "target": "config:inspiration/claw0/workspace/CRON.json",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/SOUL.md",
+      "target": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/SOUL.md",
+      "target": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/SOUL.md",
+      "target": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/SOUL.md",
+      "target": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/IDENTITY.md",
+      "target": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/TOOLS.md",
+      "target": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/USER.md",
+      "target": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/AGENTS.md",
+      "target": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/BOOTSTRAP.md",
+      "target": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/MEMORY.md",
+      "target": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/MEMORY.md",
+      "target": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/MEMORY.md",
+      "target": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/MEMORY.md",
+      "target": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/HEARTBEAT.md",
+      "target": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/HEARTBEAT.md",
+      "target": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/HEARTBEAT.md",
+      "target": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:inspiration/claw0/workspace/CRON.json",
+      "target": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:inspiration/claw0/workspace/CRON.json",
+      "target": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/BOOTSTRAP.md",
+      "target": "document:inspiration/claw0/workspace/SOUL.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/BOOTSTRAP.md",
+      "target": "document:inspiration/claw0/workspace/IDENTITY.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/BOOTSTRAP.md",
+      "target": "document:inspiration/claw0/workspace/TOOLS.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/BOOTSTRAP.md",
+      "target": "document:inspiration/claw0/workspace/MEMORY.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/BOOTSTRAP.md",
+      "target": "document:inspiration/claw0/workspace/HEARTBEAT.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/BOOTSTRAP.md",
+      "target": "document:inspiration/claw0/workspace/AGENTS.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/BOOTSTRAP.md",
+      "target": "config:inspiration/claw0/workspace/CRON.json",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claw0/workspace/USER.md",
+      "target": "document:inspiration/claw0/workspace/MEMORY.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s01_agent_loop.py",
+      "target": "function:inspiration/claw0/sessions/en/s01_agent_loop.py:agent_loop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s01_agent_loop.py",
+      "target": "function:inspiration/claw0/sessions/en/s01_agent_loop.py:agent_loop",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "target": "function:inspiration/claw0/sessions/en/s02_tool_use.py:tool_bash",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "target": "function:inspiration/claw0/sessions/en/s02_tool_use.py:tool_read_file",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "target": "function:inspiration/claw0/sessions/en/s02_tool_use.py:tool_write_file",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "target": "function:inspiration/claw0/sessions/en/s02_tool_use.py:tool_edit_file",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "target": "function:inspiration/claw0/sessions/en/s02_tool_use.py:process_tool_call",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "target": "function:inspiration/claw0/sessions/en/s02_tool_use.py:agent_loop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "target": "function:inspiration/claw0/sessions/en/s02_tool_use.py:tool_bash",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "target": "function:inspiration/claw0/sessions/en/s02_tool_use.py:tool_read_file",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "target": "function:inspiration/claw0/sessions/en/s02_tool_use.py:tool_write_file",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "target": "function:inspiration/claw0/sessions/en/s02_tool_use.py:tool_edit_file",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "target": "function:inspiration/claw0/sessions/en/s02_tool_use.py:process_tool_call",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "target": "function:inspiration/claw0/sessions/en/s02_tool_use.py:agent_loop",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s03_sessions.py",
+      "target": "class:inspiration/claw0/sessions/en/s03_sessions.py:SessionStore",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s03_sessions.py",
+      "target": "class:inspiration/claw0/sessions/en/s03_sessions.py:ContextGuard",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s03_sessions.py",
+      "target": "function:inspiration/claw0/sessions/en/s03_sessions.py:handle_repl_command",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s03_sessions.py",
+      "target": "function:inspiration/claw0/sessions/en/s03_sessions.py:agent_loop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s03_sessions.py",
+      "target": "class:inspiration/claw0/sessions/en/s03_sessions.py:SessionStore",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s03_sessions.py",
+      "target": "class:inspiration/claw0/sessions/en/s03_sessions.py:ContextGuard",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s03_sessions.py",
+      "target": "function:inspiration/claw0/sessions/en/s03_sessions.py:handle_repl_command",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s03_sessions.py",
+      "target": "function:inspiration/claw0/sessions/en/s03_sessions.py:agent_loop",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "target": "class:inspiration/claw0/sessions/en/s04_channels.py:Channel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "target": "class:inspiration/claw0/sessions/en/s04_channels.py:CLIChannel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "target": "class:inspiration/claw0/sessions/en/s04_channels.py:TelegramChannel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "target": "class:inspiration/claw0/sessions/en/s04_channels.py:FeishuChannel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "target": "class:inspiration/claw0/sessions/en/s04_channels.py:ChannelManager",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "target": "function:inspiration/claw0/sessions/en/s04_channels.py:run_agent_turn",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "target": "function:inspiration/claw0/sessions/en/s04_channels.py:agent_loop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "target": "class:inspiration/claw0/sessions/en/s04_channels.py:Channel",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "target": "class:inspiration/claw0/sessions/en/s04_channels.py:CLIChannel",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "target": "class:inspiration/claw0/sessions/en/s04_channels.py:TelegramChannel",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "target": "class:inspiration/claw0/sessions/en/s04_channels.py:FeishuChannel",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "target": "class:inspiration/claw0/sessions/en/s04_channels.py:ChannelManager",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "target": "function:inspiration/claw0/sessions/en/s04_channels.py:run_agent_turn",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "target": "function:inspiration/claw0/sessions/en/s04_channels.py:agent_loop",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "target": "class:inspiration/claw0/sessions/en/s05_gateway_routing.py:BindingTable",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "target": "class:inspiration/claw0/sessions/en/s05_gateway_routing.py:AgentConfig",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "target": "class:inspiration/claw0/sessions/en/s05_gateway_routing.py:AgentManager",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "target": "class:inspiration/claw0/sessions/en/s05_gateway_routing.py:GatewayServer",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "target": "function:inspiration/claw0/sessions/en/s05_gateway_routing.py:resolve_route",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "target": "function:inspiration/claw0/sessions/en/s05_gateway_routing.py:run_agent",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "target": "function:inspiration/claw0/sessions/en/s05_gateway_routing.py:_agent_loop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "target": "class:inspiration/claw0/sessions/en/s05_gateway_routing.py:BindingTable",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "target": "class:inspiration/claw0/sessions/en/s05_gateway_routing.py:AgentConfig",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "target": "class:inspiration/claw0/sessions/en/s05_gateway_routing.py:AgentManager",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "target": "class:inspiration/claw0/sessions/en/s05_gateway_routing.py:GatewayServer",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "target": "function:inspiration/claw0/sessions/en/s05_gateway_routing.py:resolve_route",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "target": "function:inspiration/claw0/sessions/en/s05_gateway_routing.py:run_agent",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "target": "function:inspiration/claw0/sessions/en/s05_gateway_routing.py:_agent_loop",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s01_agent_loop.py",
+      "target": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+      "target": "file:inspiration/claw0/sessions/en/s03_sessions.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s03_sessions.py",
+      "target": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "target": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s05_gateway_routing.py",
+      "target": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s04_channels.py",
+      "target": "document:inspiration/claw0/workspace/MEMORY.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "class:inspiration/claw0/sessions/en/s06_intelligence.py:BootstrapLoader",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "class:inspiration/claw0/sessions/en/s06_intelligence.py:SkillsManager",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "class:inspiration/claw0/sessions/en/s06_intelligence.py:MemoryStore",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "function:inspiration/claw0/sessions/en/s06_intelligence.py:build_system_prompt",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "function:inspiration/claw0/sessions/en/s06_intelligence.py:agent_loop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "class:inspiration/claw0/sessions/en/s06_intelligence.py:BootstrapLoader",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "class:inspiration/claw0/sessions/en/s06_intelligence.py:SkillsManager",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "class:inspiration/claw0/sessions/en/s06_intelligence.py:MemoryStore",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "function:inspiration/claw0/sessions/en/s06_intelligence.py:build_system_prompt",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "function:inspiration/claw0/sessions/en/s06_intelligence.py:agent_loop",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "target": "class:inspiration/claw0/sessions/en/s07_heartbeat_cron.py:HeartbeatRunner",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "target": "class:inspiration/claw0/sessions/en/s07_heartbeat_cron.py:CronService",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "target": "function:inspiration/claw0/sessions/en/s07_heartbeat_cron.py:run_agent_single_turn",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "target": "function:inspiration/claw0/sessions/en/s07_heartbeat_cron.py:agent_loop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "target": "class:inspiration/claw0/sessions/en/s07_heartbeat_cron.py:HeartbeatRunner",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "target": "class:inspiration/claw0/sessions/en/s07_heartbeat_cron.py:CronService",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "target": "function:inspiration/claw0/sessions/en/s07_heartbeat_cron.py:run_agent_single_turn",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "target": "function:inspiration/claw0/sessions/en/s07_heartbeat_cron.py:agent_loop",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "target": "class:inspiration/claw0/sessions/en/s08_delivery.py:QueuedDelivery",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "target": "class:inspiration/claw0/sessions/en/s08_delivery.py:DeliveryQueue",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "target": "class:inspiration/claw0/sessions/en/s08_delivery.py:DeliveryRunner",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "target": "class:inspiration/claw0/sessions/en/s08_delivery.py:MockDeliveryChannel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "target": "function:inspiration/claw0/sessions/en/s08_delivery.py:compute_backoff_ms",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "target": "function:inspiration/claw0/sessions/en/s08_delivery.py:chunk_message",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "target": "function:inspiration/claw0/sessions/en/s08_delivery.py:agent_loop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "target": "class:inspiration/claw0/sessions/en/s08_delivery.py:QueuedDelivery",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "target": "class:inspiration/claw0/sessions/en/s08_delivery.py:DeliveryQueue",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "target": "class:inspiration/claw0/sessions/en/s08_delivery.py:DeliveryRunner",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "target": "class:inspiration/claw0/sessions/en/s08_delivery.py:MockDeliveryChannel",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "target": "function:inspiration/claw0/sessions/en/s08_delivery.py:compute_backoff_ms",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "target": "function:inspiration/claw0/sessions/en/s08_delivery.py:chunk_message",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "target": "function:inspiration/claw0/sessions/en/s08_delivery.py:agent_loop",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s09_resilience.py",
+      "target": "class:inspiration/claw0/sessions/en/s09_resilience.py:ProfileManager",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s09_resilience.py",
+      "target": "class:inspiration/claw0/sessions/en/s09_resilience.py:SimulatedFailure",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s09_resilience.py",
+      "target": "class:inspiration/claw0/sessions/en/s09_resilience.py:ResilienceRunner",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s09_resilience.py",
+      "target": "function:inspiration/claw0/sessions/en/s09_resilience.py:classify_failure",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s09_resilience.py",
+      "target": "function:inspiration/claw0/sessions/en/s09_resilience.py:agent_loop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s09_resilience.py",
+      "target": "class:inspiration/claw0/sessions/en/s09_resilience.py:ProfileManager",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s09_resilience.py",
+      "target": "class:inspiration/claw0/sessions/en/s09_resilience.py:SimulatedFailure",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s09_resilience.py",
+      "target": "class:inspiration/claw0/sessions/en/s09_resilience.py:ResilienceRunner",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s09_resilience.py",
+      "target": "function:inspiration/claw0/sessions/en/s09_resilience.py:classify_failure",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s09_resilience.py",
+      "target": "function:inspiration/claw0/sessions/en/s09_resilience.py:agent_loop",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "target": "class:inspiration/claw0/sessions/en/s10_concurrency.py:LaneQueue",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "target": "class:inspiration/claw0/sessions/en/s10_concurrency.py:CommandQueue",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "target": "function:inspiration/claw0/sessions/en/s10_concurrency.py:agent_loop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "target": "class:inspiration/claw0/sessions/en/s10_concurrency.py:LaneQueue",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "target": "class:inspiration/claw0/sessions/en/s10_concurrency.py:CommandQueue",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "target": "function:inspiration/claw0/sessions/en/s10_concurrency.py:agent_loop",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "target": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "target": "file:inspiration/claw0/sessions/en/s09_resilience.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s09_resilience.py",
+      "target": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "document:inspiration/claw0/workspace/SOUL.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "document:inspiration/claw0/workspace/IDENTITY.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "document:inspiration/claw0/workspace/TOOLS.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "document:inspiration/claw0/workspace/USER.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "document:inspiration/claw0/workspace/HEARTBEAT.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "document:inspiration/claw0/workspace/BOOTSTRAP.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "document:inspiration/claw0/workspace/AGENTS.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "document:inspiration/claw0/workspace/MEMORY.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+      "target": "document:inspiration/claw0/workspace/skills/example-skill/SKILL.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "target": "document:inspiration/claw0/workspace/SOUL.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "target": "document:inspiration/claw0/workspace/MEMORY.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "target": "document:inspiration/claw0/workspace/HEARTBEAT.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+      "target": "config:inspiration/claw0/workspace/CRON.json",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s08_delivery.py",
+      "target": "document:inspiration/claw0/workspace/SOUL.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "target": "document:inspiration/claw0/workspace/SOUL.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "target": "document:inspiration/claw0/workspace/MEMORY.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "target": "document:inspiration/claw0/workspace/HEARTBEAT.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:inspiration/claw0/sessions/en/s10_concurrency.py",
+      "target": "config:inspiration/claw0/workspace/CRON.json",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    }
+  ],
+  "layers": [
+    {
+      "id": "layer:claw0--noyau-agent",
+      "name": "[claw0] Noyau de l'agent",
+      "description": "Fondations du tutoriel (s01–s03) : la boucle d'agent minimale en « while True », le dispatch d'outils par schéma JSON avec sandbox de chemins, et la persistance des sessions en JSONL avec garde de contexte (SessionStore, ContextGuard).",
+      "nodeIds": [
+        "file:inspiration/claw0/sessions/en/s01_agent_loop.py",
+        "file:inspiration/claw0/sessions/en/s02_tool_use.py",
+        "file:inspiration/claw0/sessions/en/s03_sessions.py"
+      ]
+    },
+    {
+      "id": "layer:claw0--connectivite",
+      "name": "[claw0] Connectivité et routage",
+      "description": "Ouverture de l'agent au monde extérieur (s04–s05) : abstraction Channel normalisant CLI, Telegram et Feishu en InboundMessage unique, puis gateway WebSocket JSON-RPC 2.0 avec table de bindings à 5 niveaux et gestion multi-agents.",
+      "nodeIds": [
+        "file:inspiration/claw0/sessions/en/s04_channels.py",
+        "file:inspiration/claw0/sessions/en/s05_gateway_routing.py"
+      ]
+    },
+    {
+      "id": "layer:claw0--intelligence",
+      "name": "[claw0] Intelligence et workspace",
+      "description": "Le cerveau de l'agent : s06 assemble le prompt système en 8 couches via BootstrapLoader à partir des fichiers du workspace — personnalité (SOUL), identité, mémoire evergreen, guide des outils, skills et consignes de proactivité (HEARTBEAT, CRON) — enrichi d'une recherche mémoire hybride (TF-IDF + vecteurs + MMR).",
+      "nodeIds": [
+        "file:inspiration/claw0/sessions/en/s06_intelligence.py",
+        "document:inspiration/claw0/workspace/SOUL.md",
+        "document:inspiration/claw0/workspace/IDENTITY.md",
+        "document:inspiration/claw0/workspace/MEMORY.md",
+        "document:inspiration/claw0/workspace/TOOLS.md",
+        "document:inspiration/claw0/workspace/USER.md",
+        "document:inspiration/claw0/workspace/AGENTS.md",
+        "document:inspiration/claw0/workspace/BOOTSTRAP.md",
+        "document:inspiration/claw0/workspace/HEARTBEAT.md",
+        "config:inspiration/claw0/workspace/CRON.json",
+        "document:inspiration/claw0/workspace/skills/example-skill/SKILL.md"
+      ]
+    },
+    {
+      "id": "layer:claw0--exploitation",
+      "name": "[claw0] Exploitation et fiabilité",
+      "description": "Passage de l'agent en régime de production (s07–s10) : exécution autonome par heartbeat et cron, livraison fiable write-ahead avec backoff exponentiel, résilience par rotation de profils d'authentification et concurrence sérialisée par lanes nommées.",
+      "nodeIds": [
+        "file:inspiration/claw0/sessions/en/s07_heartbeat_cron.py",
+        "file:inspiration/claw0/sessions/en/s08_delivery.py",
+        "file:inspiration/claw0/sessions/en/s09_resilience.py",
+        "file:inspiration/claw0/sessions/en/s10_concurrency.py"
+      ]
+    },
+    {
+      "id": "layer:claw0--documentation",
+      "name": "[claw0] Documentation du tutoriel",
+      "description": "Le README de la série « From Zero to One: Build an AI Agent Gateway » et la fiche pédagogique co-localisée de chacune des 10 sections, avec schémas d'architecture, walkthrough du code et comparaison avec la version production OpenClaw.",
+      "nodeIds": [
+        "document:inspiration/claw0/README.md",
+        "document:inspiration/claw0/sessions/en/s01_agent_loop.md",
+        "document:inspiration/claw0/sessions/en/s02_tool_use.md",
+        "document:inspiration/claw0/sessions/en/s03_sessions.md",
+        "document:inspiration/claw0/sessions/en/s04_channels.md",
+        "document:inspiration/claw0/sessions/en/s05_gateway_routing.md",
+        "document:inspiration/claw0/sessions/en/s06_intelligence.md",
+        "document:inspiration/claw0/sessions/en/s07_heartbeat_cron.md",
+        "document:inspiration/claw0/sessions/en/s08_delivery.md",
+        "document:inspiration/claw0/sessions/en/s09_resilience.md",
+        "document:inspiration/claw0/sessions/en/s10_concurrency.md"
+      ]
+    },
+    {
+      "id": "layer:claw0--configuration",
+      "name": "[claw0] Configuration",
+      "description": "Configuration transverse du projet : modèle de variables d'environnement (.env.example) et manifeste des six dépendances Python (requirements.txt) qui configurent les 10 sections, plus les réglages de l'outillage d'analyse understand-anything.",
+      "nodeIds": [
+        "config:inspiration/claw0/.env.example",
+        "document:inspiration/claw0/requirements.txt",
+        "file:inspiration/claw0/.understand-anything/.understandignore",
+        "config:inspiration/claw0/.understand-anything/config.json"
+      ]
+    }
+  ],
+  "tour": []
+}

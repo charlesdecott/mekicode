@@ -11,7 +11,7 @@ import queue as _queue
 import signal
 import time
 
-from core import client, MODEL, DEFAULT_SYSTEM, check_permission, emit, paint
+from core import client, MODEL, DEFAULT_SYSTEM, check_permission, drain_queue, emit, paint
 from tools import TOOLS, DISPATCH, ASYNC_DISPATCH, drain_notifications
 
 
@@ -79,12 +79,7 @@ class Interrupts:
 
     def drain(self) -> list[str]:
         """Vide la file d'interruptions sans bloquer."""
-        out = []
-        while True:
-            try:
-                out.append(self._queue.get_nowait())
-            except _queue.Empty:
-                return out
+        return drain_queue(self._queue)
 
 
 INTERRUPTS = Interrupts()

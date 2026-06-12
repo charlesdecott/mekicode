@@ -1,0 +1,142 @@
+[
+  {
+    "page": "s01-agent-loop",
+    "title": "s01 · La boucle d'agent",
+    "phase": "Fondamentaux",
+    "lignes": 138,
+    "mdLines": 196
+  },
+  {
+    "page": "s02-tool-use",
+    "title": "s02 · Tool use et dispatch",
+    "phase": "Fondamentaux",
+    "lignes": 191,
+    "mdLines": 190
+  },
+  {
+    "page": "s03-permission",
+    "title": "s03 · Le système de permission",
+    "phase": "Fondamentaux",
+    "lignes": 252,
+    "mdLines": 198
+  },
+  {
+    "page": "s04-hooks",
+    "title": "s04 · Les hooks",
+    "phase": "Fondamentaux",
+    "lignes": 294,
+    "mdLines": 240
+  },
+  {
+    "page": "s05-todo-write",
+    "title": "s05 · TodoWrite, l'outil de planification",
+    "phase": "Fondamentaux",
+    "lignes": 305,
+    "mdLines": 197
+  },
+  {
+    "page": "s06-subagent",
+    "title": "s06 · Subagent",
+    "phase": "Fondamentaux",
+    "lignes": 384,
+    "mdLines": 208
+  },
+  {
+    "page": "s07-skill-loading",
+    "title": "s07 · Skill Loading",
+    "phase": "Fondamentaux",
+    "lignes": 427,
+    "mdLines": 200
+  },
+  {
+    "page": "s08-context-compact",
+    "title": "s08 · Context Compact",
+    "phase": "Contexte & mémoire",
+    "lignes": 525,
+    "mdLines": 329
+  },
+  {
+    "page": "s09-memory",
+    "title": "s09 · Mémoire persistante",
+    "phase": "Contexte & mémoire",
+    "lignes": 656,
+    "mdLines": 328
+  },
+  {
+    "page": "s10-system-prompt",
+    "title": "s10 · System Prompt",
+    "phase": "Contexte & mémoire",
+    "lignes": 219,
+    "mdLines": 188
+  },
+  {
+    "page": "s11-error-recovery",
+    "title": "s11 · Récupération d'erreurs",
+    "phase": "Contexte & mémoire",
+    "lignes": 366,
+    "mdLines": 270
+  },
+  {
+    "page": "s12-task-system",
+    "title": "s12 · Système de tâches",
+    "phase": "Tâches & temps",
+    "lignes": 377,
+    "mdLines": 227
+  },
+  {
+    "page": "s13-background-tasks",
+    "title": "s13 · Tâches en arrière-plan",
+    "phase": "Tâches & temps",
+    "lignes": 479,
+    "mdLines": 246
+  },
+  {
+    "page": "s14-cron-scheduler",
+    "title": "s14 · Cron Scheduler",
+    "phase": "Tâches & temps",
+    "lignes": 805,
+    "mdLines": 427
+  },
+  {
+    "page": "s15-agent-teams",
+    "title": "s15 · Agent Teams",
+    "phase": "Multi-agents",
+    "lignes": 929,
+    "mdLines": 309
+  },
+  {
+    "page": "s16-team-protocols",
+    "title": "s16 · Team Protocols",
+    "phase": "Multi-agents",
+    "lignes": 881,
+    "mdLines": 426
+  },
+  {
+    "page": "s17-autonomous-agents",
+    "title": "s17 · Agents autonomes",
+    "phase": "Multi-agents",
+    "lignes": 813,
+    "mdLines": 361
+  },
+  {
+    "page": "s18-worktree-isolation",
+    "title": "s18 · Isolation par worktree",
+    "phase": "Intégration & synthèse",
+    "lignes": 997,
+    "mdLines": 403
+  },
+  {
+    "page": "s19-mcp-plugin",
+    "title": "s19 · Plugin MCP",
+    "phase": "Intégration & synthèse",
+    "lignes": 1025,
+    "mdLines": 330
+  },
+  {
+    "page": "s20-comprehensive",
+    "title": "s20 · Agent complet",
+    "phase": "Intégration & synthèse",
+    "lignes": 2124,
+    "mdLines": 850
+  }
+]

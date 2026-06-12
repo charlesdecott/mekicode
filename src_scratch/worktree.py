@@ -20,7 +20,7 @@ import threading
 import uuid
 from pathlib import Path
 
-from core import paint
+from core import paint, text_of
 from loop import agent_loop
 
 # FIX(mekicode): cwd figé à l'import — pendant le sandwich chdir d'un autre
@@ -126,7 +126,7 @@ def run_task_in_worktree(task: str, task_id: str | None = None) -> dict:
                 final = agent_loop([{"role": "user", "content": task}], system=system)
             finally:
                 os.chdir(old)
-        res["result"] = "".join(getattr(b, "text", "") for b in final.content)
+        res["result"] = text_of(final)
         if _git("status", "--porcelain", cwd=path)[1]:  # commit, sinon le diff ne voit rien
             _git("add", "-A", cwd=path)
             _git("commit", "-m", f"[{tid}] {task[:60]}", cwd=path)

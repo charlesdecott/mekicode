@@ -3,7 +3,9 @@
 Refonte dédupliquée de inspiration/claude-code-from-scratch (core.py + s15 + s16).
 Hooks de l'event bus : appelés `hook(event, payload)` ; un retour False vaut veto.
 """
+import json
 import os
+import queue
 import re
 import sys
 from pathlib import Path
@@ -132,3 +134,25 @@ def emit(event: str, payload: dict) -> bool:
         except Exception as e:
             print(paint(f"[hooks] erreur dans un hook '{event}': {e}", "red"))
     return ok
+
+
+# --- Utilitaires partagés ------------------------------------------------------
+
+def text_of(message) -> str:
+    """Concatène les blocs texte d'une réponse API (ignore tool_use et autres blocs)."""
+    return "".join(getattr(b, "text", "") for b in message.content)
+
+
+def drain_queue(q: queue.Queue) -> list:
+    """Vide une file sans bloquer ; retourne la liste des éléments en attente."""
+    out = []
+    while True:
+        try:
+            out.append(q.get_nowait())
+        except queue.Empty:
+            return out
+
+
+def write_json(path: Path, data) -> None:
+    """Écrit `data` en JSON indenté UTF-8 — format unique de persistance du harness."""
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")

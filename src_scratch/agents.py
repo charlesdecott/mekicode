@@ -11,16 +11,11 @@ import time
 import uuid
 from enum import Enum
 
-from core import paint
+from core import paint, text_of
 from loop import agent_loop
 from mailbox import Mailbox, get_mailbox
 from tasks import claim_next_task, complete_task, fail_task
 from tools import register_tool
-
-
-def _text_of(message) -> str:
-    """Concatène les blocs texte d'une réponse API (ignore les tool_use)."""
-    return "".join(b.text for b in message.content if hasattr(b, "text"))
 
 
 # --- Subagent éphémère (s04) -------------------------------------------------
@@ -36,7 +31,7 @@ def spawn_subagent(task: str, system: str | None = None, tools: list[dict] | Non
     print(paint(f"  [subagent] lancé pour: {task[:60]}…", "magenta"))
     final = agent_loop([{"role": "user", "content": task}],
                        tools=tools, system=system or SUBAGENT_SYSTEM)
-    text = _text_of(final)
+    text = text_of(final)
     print(paint(f"  [subagent] terminé: {text[:80]}…", "magenta"))
     return text
 
@@ -126,8 +121,8 @@ class Team:
                 sender = msg.get("from", "lead")
                 print(paint(f"  [{name}] tâche de {sender}: {msg['body'][:60]}…", "magenta"))
                 try:
-                    reply = _text_of(agent_loop([{"role": "user", "content": msg["body"]}],
-                                                system=prompt))
+                    reply = text_of(agent_loop([{"role": "user", "content": msg["body"]}],
+                                               system=prompt))
                 except Exception as e:
                     reply = f"Erreur de l'équipier {name}: {e}"
                 finally:
@@ -199,7 +194,7 @@ def run_autonomous_agent(name: str, max_idle: int = 3) -> None:
         try:
             # FIX(mekicode): vraie boucle + vrai dispatch (s22 exécutait tout tool_use comme bash)
             final = agent_loop([{"role": "user", "content": task["description"]}], system=system)
-            complete_task(task["id"], _text_of(final))
+            complete_task(task["id"], text_of(final))
             print(paint(f"  [{name}] terminé: {task['id']}", "green"))
         except Exception as e:
             fail_task(task["id"], str(e))

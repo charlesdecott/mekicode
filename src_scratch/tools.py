@@ -13,21 +13,27 @@ import threading
 import uuid
 from typing import Callable, Optional
 
-from core import paint
+from core import drain_queue, paint
 
 # s14 — snapshots pour revert : chemin -> contenu avant écriture (None = fichier créé).
 SNAPSHOTS: dict[str, Optional[str]] = {}
 
 # Liste noire testée par sous-chaîne — filet grossier, la vraie politique est dans config.yaml.
 _ALWAYS_BLOCK = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/", ":(){ :|:& };:"]
+_BLOCK_MSG = "Error: dangerous command blocked"
+
+
+def _blocked(command: str) -> bool:
+    """Vrai si `command` contient un motif de la liste noire (filet grossier)."""
+    return any(b in command for b in _ALWAYS_BLOCK)
 
 
 # --- Implémentations synchrones ----------------------------------------------
 
 def run_bash(command: str) -> str:
     """Commande shell : blocklist, timeout 120 s, sortie plafonnée à 50 000 car."""
-    if any(b in command for b in _ALWAYS_BLOCK):
-        return "Error: dangerous command blocked"
+    if _blocked(command):
+        return _BLOCK_MSG
     try:
         r = subprocess.run(command, shell=True, cwd=os.getcwd(),
                            capture_output=True, text=True, timeout=120)
@@ -114,12 +120,12 @@ def run_revert(path: str) -> str:
         return f"Error reverting {path}: {e}"
 
 
-# --- Wrappers asynchrones ------------------------------------------------------
+# --- bash async natif (les autres outils : sync déporté en thread, voir _as_async) --
 
 async def async_bash(command: str) -> str:
     """Version async native de run_bash (sous-processus non bloquant)."""
-    if any(b in command for b in _ALWAYS_BLOCK):
-        return "Error: dangerous command blocked"
+    if _blocked(command):
+        return _BLOCK_MSG
     try:
         proc = await asyncio.create_subprocess_shell(
             command, stdout=asyncio.subprocess.PIPE,
@@ -131,28 +137,6 @@ async def async_bash(command: str) -> str:
         return "Error: timeout (120s)"
     except Exception as e:
         return f"Error: {e}"
-
-
-async def async_read(path: str, start_line: Optional[int] = None, end_line: Optional[int] = None) -> str:
-    return await asyncio.to_thread(run_read, path, start_line, end_line)
-
-
-async def async_write(path: str, content: str) -> str:
-    return await asyncio.to_thread(run_write, path, content)
-
-
-async def async_grep(pattern: str, path: str = ".", recursive: bool = True) -> str:
-    return await asyncio.to_thread(run_grep, pattern, path, recursive)
-
-
-async def async_glob(pattern: str) -> str:
-    return await asyncio.to_thread(run_glob, pattern)
-
-
-async def async_revert(path: str) -> str:
-    # FIX(mekicode): manquait à l'ASYNC_DISPATCH de la source — `revert` était
-    # annoncé au modèle mais répondait "Unknown tool" dans les sessions async.
-    return await asyncio.to_thread(run_revert, path)
 
 
 # --- Schémas et tables de dispatch (= EXTENDED_TOOLS/EXTENDED_DISPATCH source) --
@@ -192,14 +176,15 @@ DISPATCH: dict[str, Callable] = {
     "revert": lambda inp: run_revert(inp["path"]),
 }
 
-ASYNC_DISPATCH: dict[str, Callable] = {  # mêmes clés que DISPATCH, revert inclus (FIX)
-    "bash":   lambda inp: async_bash(inp["command"]),
-    "read":   lambda inp: async_read(inp["path"], inp.get("start_line"), inp.get("end_line")),
-    "write":  lambda inp: async_write(inp["path"], inp["content"]),
-    "grep":   lambda inp: async_grep(inp["pattern"], inp.get("path", "."), inp.get("recursive", True)),
-    "glob":   lambda inp: async_glob(inp["pattern"]),
-    "revert": lambda inp: async_revert(inp["path"]),
-}
+
+def _as_async(sync_fn: Callable) -> Callable:
+    """Dérive un handler async d'un handler sync : exécution déportée hors event loop."""
+    return lambda inp: asyncio.to_thread(sync_fn, inp)
+
+
+# Async = sync déporté en thread, SAUF bash (async natif). revert inclus via la dérivation (FIX).
+ASYNC_DISPATCH: dict[str, Callable] = {name: _as_async(fn) for name, fn in DISPATCH.items()}
+ASYNC_DISPATCH["bash"] = lambda inp: async_bash(inp["command"])
 
 
 def register_tool(schema: dict, sync_fn: Callable | None = None,
@@ -213,7 +198,7 @@ def register_tool(schema: dict, sync_fn: Callable | None = None,
     if sync_fn is None and async_fn is None:
         raise ValueError(f"register_tool({name!r}): fournir sync_fn et/ou async_fn")
     if async_fn is None:
-        async_fn = lambda inp: asyncio.to_thread(sync_fn, inp)  # noqa: E731
+        async_fn = _as_async(sync_fn)
     if sync_fn is None:
         sync_fn = lambda inp: asyncio.run(async_fn(inp))  # noqa: E731
     TOOLS[:] = [t for t in TOOLS if t["name"] != name] + [schema]
@@ -232,8 +217,8 @@ def run_bash_background(command: str) -> str:
     FIX(mekicode): applique _ALWAYS_BLOCK — la source (s08) laissait le fond
     contourner la liste noire appliquée au bash synchrone.
     """
-    if any(b in command for b in _ALWAYS_BLOCK):
-        return "Error: dangerous command blocked"
+    if _blocked(command):
+        return _BLOCK_MSG
     bg_id = uuid.uuid4().hex[:6]
 
     def _worker():
@@ -254,12 +239,7 @@ def run_bash_background(command: str) -> str:
 
 def drain_notifications() -> list[str]:
     """Vide la file de notifications sans bloquer."""
-    out = []
-    while True:
-        try:
-            out.append(NOTIFICATIONS.get_nowait())
-        except queue.Empty:
-            return out
+    return drain_queue(NOTIFICATIONS)
 
 
 register_tool(

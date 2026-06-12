@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from core import STATE_DIR, paint
+from core import STATE_DIR, paint, write_json
 
 SESSIONS_DIR: Path = STATE_DIR / "sessions"
 SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
@@ -40,8 +40,7 @@ def _read(sid: str) -> dict:
 
 def _write(data: dict) -> None:
     data["updated"] = _now()
-    _path(data["id"]).write_text(json.dumps(data, indent=2, ensure_ascii=False),
-                                 encoding="utf-8")
+    write_json(_path(data["id"]), data)
 
 
 def _serialize(messages: list[dict]) -> list[dict]:

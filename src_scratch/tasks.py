@@ -5,7 +5,7 @@ import json
 import threading
 from pathlib import Path
 
-from core import STATE_DIR, paint
+from core import STATE_DIR, paint, write_json
 from tools import register_tool
 
 TODO_FILE: Path = STATE_DIR / "todos.json"
@@ -34,7 +34,7 @@ def _load(path: Path = TASKS_FILE) -> list:
 
 
 def _save(data: list, path: Path = TASKS_FILE) -> None:
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    write_json(path, data)
 
 
 # ---------------------------------------------------------------- todos (s03)

@@ -2,7 +2,8 @@
 inspiration/
 
 # Dépendances et artefacts
-wiki-viewer/node_modules/
+.understand-anything/wiki-viewer/node_modules/
+.understand-anything/.trash-*/
 __pycache__/
 *.pyc
 
@@ -13,3 +14,6 @@ workspace/
 
 # État runtime du harness src_scratch (sessions, mailboxes, tâches, mémoire)
 .state/
+
+# Logs d'appels mekillm (générés à l'exécution, à la racine)
+.logs/

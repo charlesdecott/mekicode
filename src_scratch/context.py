@@ -7,7 +7,7 @@ from pathlib import Path
 
 import yaml
 
-from core import MODEL, ROOT, STATE_DIR, client, paint
+from core import MODEL, ROOT, STATE_DIR, client, paint, text_of
 from tools import register_tool
 
 # FIX(mekicode): SKILLS_DIR dans le repo (la source remontait hors du dépôt avec parent.parent)
@@ -123,7 +123,7 @@ def _summarize(messages: list) -> str:
                    "content": f"Summarize this history:\n\n{_flatten(messages)[:20000]}"}],
         max_tokens=2000,
     )
-    return "".join(b.text for b in response.content if hasattr(b, "text"))
+    return text_of(response)
 
 
 def _has_tool_result(msg: dict) -> bool:

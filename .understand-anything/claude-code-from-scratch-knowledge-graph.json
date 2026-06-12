@@ -1,0 +1,4617 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "claude-code-from-scratch",
+    "languages": [
+      "python",
+      "markdown",
+      "yaml",
+      "json"
+    ],
+    "frameworks": [
+      "Anthropic SDK",
+      "MCP",
+      "Redis"
+    ],
+    "description": "Retro-ingenierie pedagogique de l architecture de Claude Code via le harness engineering - d une boucle d agent minimale (s01) a un systeme de production en 23 sessions (s23)",
+    "analyzedAt": "2026-06-10T22:30:12.323Z",
+    "gitCommitHash": "fb9709e39a5ac2ce0654d8704a2e33c36d55e91a"
+  },
+  "nodes": [
+    {
+      "id": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "file",
+      "name": "core.py",
+      "filePath": "inspiration/claude-code-from-scratch/core.py",
+      "summary": "Hub central partagé par les 23 sessions : client Anthropic configuré, schémas d'outils (BASIC_TOOLS, EXTENDED_TOOLS), dispatch maps synchrones et asynchrones, gouvernance des permissions et boucle d'agent en streaming. Chaque fichier de session importe ce module et n'ajoute que le mécanisme nouveau de sa session.",
+      "tags": [
+        "bibliothèque-centrale",
+        "outils-agent",
+        "dispatch-map",
+        "boucle-agent",
+        "permissions"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Pattern « dispatch map » : des dictionnaires de lambdas (BASIC_DISPATCH, EXTENDED_DISPATCH, ASYNC_DISPATCH) routent les tool_use de l'API Anthropic vers les handlers Python — ajouter un outil revient à ajouter une entrée."
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/core.py:run_bash",
+      "type": "function",
+      "name": "run_bash",
+      "filePath": "inspiration/claude-code-from-scratch/core.py",
+      "lineRange": [
+        100,
+        129
+      ],
+      "summary": "Exécute une commande shell de façon synchrone via subprocess, après vérification contre la liste noire _ALWAYS_BLOCK (sudo, rm -rf /, fork bomb...) et avec timeout.",
+      "tags": [
+        "outil-shell",
+        "sécurité",
+        "subprocess"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/core.py:run_read",
+      "type": "function",
+      "name": "run_read",
+      "filePath": "inspiration/claude-code-from-scratch/core.py",
+      "lineRange": [
+        132,
+        166
+      ],
+      "summary": "Lit un fichier avec plage de lignes optionnelle (start_line/end_line, indexée à 1) et renvoie le contenu numéroté ligne par ligne.",
+      "tags": [
+        "outil-fichier",
+        "lecture",
+        "utilitaire"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/core.py:run_write",
+      "type": "function",
+      "name": "run_write",
+      "filePath": "inspiration/claude-code-from-scratch/core.py",
+      "lineRange": [
+        169,
+        201
+      ],
+      "summary": "Écrit du contenu dans un fichier en sauvegardant d'abord l'état précédent dans le registre SNAPSHOTS, ce qui rend chaque écriture réversible via run_revert.",
+      "tags": [
+        "outil-fichier",
+        "écriture",
+        "snapshot",
+        "réversibilité"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/core.py:run_grep",
+      "type": "function",
+      "name": "run_grep",
+      "filePath": "inspiration/claude-code-from-scratch/core.py",
+      "lineRange": [
+        204,
+        240
+      ],
+      "summary": "Recherche un motif regex dans les fichiers d'un chemin donné en s'appuyant sur grep en sous-processus, avec mode récursif optionnel.",
+      "tags": [
+        "outil-recherche",
+        "regex",
+        "subprocess"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/core.py:run_glob",
+      "type": "function",
+      "name": "run_glob",
+      "filePath": "inspiration/claude-code-from-scratch/core.py",
+      "lineRange": [
+        243,
+        258
+      ],
+      "summary": "Trouve les fichiers correspondant à un motif glob (ex. **/*.py) et renvoie la liste triée des chemins.",
+      "tags": [
+        "outil-recherche",
+        "glob",
+        "utilitaire"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/core.py:run_revert",
+      "type": "function",
+      "name": "run_revert",
+      "filePath": "inspiration/claude-code-from-scratch/core.py",
+      "lineRange": [
+        261,
+        292
+      ],
+      "summary": "Restaure un fichier à son état d'avant la dernière écriture grâce au registre SNAPSHOTS : supprime le fichier s'il était nouveau, sinon réécrit l'ancien contenu.",
+      "tags": [
+        "outil-fichier",
+        "undo",
+        "snapshot"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/core.py:async_bash",
+      "type": "function",
+      "name": "async_bash",
+      "filePath": "inspiration/claude-code-from-scratch/core.py",
+      "lineRange": [
+        297,
+        326
+      ],
+      "summary": "Variante asynchrone de run_bash utilisant asyncio.create_subprocess_shell avec timeout via asyncio.wait_for, après le même contrôle de liste noire.",
+      "tags": [
+        "outil-shell",
+        "asyncio",
+        "non-bloquant"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/core.py:load_rules",
+      "type": "function",
+      "name": "load_rules",
+      "filePath": "inspiration/claude-code-from-scratch/core.py",
+      "lineRange": [
+        459,
+        472
+      ],
+      "summary": "Charge les règles de permission depuis config/permissions.yaml et les renvoie sous forme de dictionnaire de listes de règles.",
+      "tags": [
+        "permissions",
+        "configuration",
+        "yaml"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/core.py:check_permission",
+      "type": "function",
+      "name": "check_permission",
+      "filePath": "inspiration/claude-code-from-scratch/core.py",
+      "lineRange": [
+        475,
+        519
+      ],
+      "summary": "Évalue un appel d'outil contre les règles deny/allow/ask chargées du YAML : refus immédiat, autorisation silencieuse ou demande de confirmation interactive à l'utilisateur.",
+      "tags": [
+        "permissions",
+        "gouvernance",
+        "sécurité",
+        "regex"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/core.py:dispatch_tools",
+      "type": "function",
+      "name": "dispatch_tools",
+      "filePath": "inspiration/claude-code-from-scratch/core.py",
+      "lineRange": [
+        524,
+        570
+      ],
+      "summary": "Parcourt les blocs tool_use d'une réponse du modèle, route chaque appel vers son handler dans le dispatch map fourni et collecte les blocs tool_result correspondants (erreurs incluses).",
+      "tags": [
+        "dispatch-map",
+        "exécution-outils",
+        "boucle-agent"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/core.py:stream_loop",
+      "type": "function",
+      "name": "stream_loop",
+      "filePath": "inspiration/claude-code-from-scratch/core.py",
+      "lineRange": [
+        573,
+        626
+      ],
+      "summary": "Boucle d'agent générique en streaming : appelle client.messages.stream, affiche les tokens au fil de l'eau, exécute les outils via dispatch_tools et réinjecte les résultats jusqu'à ce que le modèle s'arrête. C'est la boucle réutilisée par la majorité des sessions.",
+      "tags": [
+        "boucle-agent",
+        "streaming",
+        "api-anthropic",
+        "cœur"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s01_perception_action_loop.py",
+      "type": "file",
+      "name": "s01_perception_action_loop.py",
+      "filePath": "inspiration/claude-code-from-scratch/s01_perception_action_loop.py",
+      "summary": "Session 1 : la boucle fondamentale perception-action d'un agent IA (« One loop & bash is all you need »). Implémente le cycle penser-agir synchrone minimal : le LLM est interrogé, décide s'il utilise l'outil bash, l'exécute, et recommence jusqu'à la réponse finale.",
+      "tags": [
+        "entry-point",
+        "boucle-agent",
+        "pédagogique",
+        "session"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s01_perception_action_loop.py:agent_loop",
+      "type": "function",
+      "name": "agent_loop",
+      "filePath": "inspiration/claude-code-from-scratch/s01_perception_action_loop.py",
+      "lineRange": [
+        38,
+        87
+      ],
+      "summary": "Boucle agent synchrone minimale : appelle client.messages.create, ajoute la réponse à l'historique, exécute les outils demandés via dispatch_tools et boucle tant que le modèle demande des outils.",
+      "tags": [
+        "boucle-agent",
+        "synchrone",
+        "cœur-session"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s01_perception_action_loop.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s01_perception_action_loop.py",
+      "lineRange": [
+        92,
+        143
+      ],
+      "summary": "REPL interactif de la session : lit les requêtes utilisateur, alimente l'historique et lance agent_loop avec l'outil bash uniquement.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "cli"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s02_tool_use.py",
+      "type": "file",
+      "name": "s02_tool_use.py",
+      "filePath": "inspiration/claude-code-from-scratch/s02_tool_use.py",
+      "summary": "Session 2 : le pattern « dispatch map » extensible (« Adding a tool means adding one handler »). Remplace la boucle codée en dur de s01 par le routage générique de core.py, découplant la décision du modèle de l'exécution des outils.",
+      "tags": [
+        "entry-point",
+        "dispatch-map",
+        "pédagogique",
+        "session"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s02_tool_use.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s02_tool_use.py",
+      "lineRange": [
+        38,
+        89
+      ],
+      "summary": "REPL interactif qui délègue entièrement la boucle agent à stream_loop de core.py avec les outils de base, démontrant qu'ajouter un outil revient à ajouter une entrée au dispatch map.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "cli"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s03_todo_write.py",
+      "type": "file",
+      "name": "s03_todo_write.py",
+      "filePath": "inspiration/claude-code-from-scratch/s03_todo_write.py",
+      "summary": "Session 3 : planification agentique et suivi d'état (« An agent without a plan drifts »). Ajoute des outils todo_write/todo_read/todo_update qui persistent le plan de l'agent dans un fichier JSON, créant une source de vérité qui réduit les dérives sur les tâches longues.",
+      "tags": [
+        "entry-point",
+        "planification",
+        "persistance",
+        "todo",
+        "session"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s03_todo_write.py:run_todo_write",
+      "type": "function",
+      "name": "run_todo_write",
+      "filePath": "inspiration/claude-code-from-scratch/s03_todo_write.py",
+      "lineRange": [
+        51,
+        77
+      ],
+      "summary": "Crée ou remplace la liste de tâches de l'agent et la persiste en JSON sur disque, puis renvoie un rendu lisible du plan.",
+      "tags": [
+        "outil-todo",
+        "persistance",
+        "json"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s03_todo_write.py:run_todo_read",
+      "type": "function",
+      "name": "run_todo_read",
+      "filePath": "inspiration/claude-code-from-scratch/s03_todo_write.py",
+      "lineRange": [
+        80,
+        103
+      ],
+      "summary": "Relit la liste de tâches persistée et la renvoie formatée avec le statut de chaque entrée.",
+      "tags": [
+        "outil-todo",
+        "lecture",
+        "json"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s03_todo_write.py:run_todo_update",
+      "type": "function",
+      "name": "run_todo_update",
+      "filePath": "inspiration/claude-code-from-scratch/s03_todo_write.py",
+      "lineRange": [
+        106,
+        139
+      ],
+      "summary": "Met à jour le statut d'une tâche par index (pending, in_progress, completed) et réécrit le fichier JSON.",
+      "tags": [
+        "outil-todo",
+        "mise-à-jour",
+        "json"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s03_todo_write.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s03_todo_write.py",
+      "lineRange": [
+        200,
+        236
+      ],
+      "summary": "REPL interactif lançant stream_loop avec les outils todo en plus des outils de base, pour que l'agent planifie avant d'agir.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "cli"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s04_subagent.py",
+      "type": "file",
+      "name": "s04_subagent.py",
+      "filePath": "inspiration/claude-code-from-scratch/s04_subagent.py",
+      "summary": "Session 4 : délégation récursive à des sous-agents (« Break big tasks down; each subtask gets a clean context »). L'agent principal peut déléguer une sous-tâche à un subagent éphémère qui travaille dans un contexte isolé et ne renvoie que son résultat final.",
+      "tags": [
+        "entry-point",
+        "subagent",
+        "délégation",
+        "isolation-contexte",
+        "session"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s04_subagent.py:run_subagent",
+      "type": "function",
+      "name": "run_subagent",
+      "filePath": "inspiration/claude-code-from-scratch/s04_subagent.py",
+      "lineRange": [
+        58,
+        112
+      ],
+      "summary": "Exécute un sous-agent complet dans un historique de messages vierge : boucle d'appels API avec dispatch_tools jusqu'à complétion, puis renvoie uniquement le texte final au parent — le contexte intermédiaire reste isolé.",
+      "tags": [
+        "subagent",
+        "isolation-contexte",
+        "boucle-agent"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s04_subagent.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s04_subagent.py",
+      "lineRange": [
+        148,
+        185
+      ],
+      "summary": "REPL interactif où l'agent principal dispose de l'outil subagent en plus de bash, démontrant la délégation hiérarchique.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "cli"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "type": "file",
+      "name": "s05_skill_loading.py",
+      "filePath": "inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "summary": "Session 5 : chargement de connaissances à la demande (« Load knowledge when you need it, not upfront »). Au lieu de gonfler le system prompt, l'agent découvre les skills disponibles (dossiers contenant SKILL.md) et ne charge le contenu complet que lorsqu'il en a besoin.",
+      "tags": [
+        "entry-point",
+        "skills",
+        "meta-tooling",
+        "économie-contexte",
+        "session"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Pattern de « progressive disclosure » : seuls les noms et descriptions des skills sont visibles d'office ; le corps du SKILL.md n'entre dans le contexte qu'au chargement explicite."
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s05_skill_loading.py:discover_skills",
+      "type": "function",
+      "name": "discover_skills",
+      "filePath": "inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "lineRange": [
+        47,
+        93
+      ],
+      "summary": "Parcourt le répertoire des skills, lit l'en-tête de chaque SKILL.md et renvoie un index nom → description sans charger les contenus complets.",
+      "tags": [
+        "skills",
+        "découverte",
+        "indexation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s05_skill_loading.py:run_list_skills",
+      "type": "function",
+      "name": "run_list_skills",
+      "filePath": "inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "lineRange": [
+        96,
+        108
+      ],
+      "summary": "Outil exposé au modèle qui liste les skills découvertes avec leur description courte.",
+      "tags": [
+        "skills",
+        "outil-agent",
+        "listing"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s05_skill_loading.py:run_load_skill",
+      "type": "function",
+      "name": "run_load_skill",
+      "filePath": "inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "lineRange": [
+        111,
+        133
+      ],
+      "summary": "Outil exposé au modèle qui charge le contenu intégral du SKILL.md demandé dans le contexte de conversation.",
+      "tags": [
+        "skills",
+        "outil-agent",
+        "chargement-à-la-demande"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s05_skill_loading.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "lineRange": [
+        192,
+        229
+      ],
+      "summary": "REPL interactif lançant stream_loop avec les outils list_skills et load_skill en plus des outils de base.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "cli"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s06_context_compact.py",
+      "type": "file",
+      "name": "s06_context_compact.py",
+      "filePath": "inspiration/claude-code-from-scratch/s06_context_compact.py",
+      "summary": "Session 6 : gestion automatique du contexte en 3 couches (« Context will fill up; you need a way to make room »). Quand l'historique dépasse un seuil, l'agent le résume via le LLM, persiste la mémoire dans un fichier et repart d'un contexte compacté — mécanisme analogue au /compact de Claude Code.",
+      "tags": [
+        "entry-point",
+        "compression-contexte",
+        "mémoire",
+        "résumé",
+        "session"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s06_context_compact.py:_estimate_size",
+      "type": "function",
+      "name": "_estimate_size",
+      "filePath": "inspiration/claude-code-from-scratch/s06_context_compact.py",
+      "lineRange": [
+        54,
+        81
+      ],
+      "summary": "Estime grossièrement la taille en caractères de l'historique de messages en parcourant textes et blocs de contenu, pour décider du déclenchement de la compression.",
+      "tags": [
+        "compression-contexte",
+        "estimation",
+        "heuristique"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s06_context_compact.py:_summarize",
+      "type": "function",
+      "name": "_summarize",
+      "filePath": "inspiration/claude-code-from-scratch/s06_context_compact.py",
+      "lineRange": [
+        84,
+        120
+      ],
+      "summary": "Demande au LLM de produire un résumé structuré de l'historique de conversation, qui servira de mémoire compactée.",
+      "tags": [
+        "compression-contexte",
+        "résumé-llm",
+        "mémoire"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s06_context_compact.py:maybe_compress",
+      "type": "function",
+      "name": "maybe_compress",
+      "filePath": "inspiration/claude-code-from-scratch/s06_context_compact.py",
+      "lineRange": [
+        123,
+        181
+      ],
+      "summary": "Cœur du mécanisme : si l'historique dépasse le seuil, résume les anciens messages, écrit la mémoire dans un fichier persistant et reconstruit l'historique avec le résumé en tête plus les messages récents conservés tels quels.",
+      "tags": [
+        "compression-contexte",
+        "rolling-window",
+        "persistance"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s06_context_compact.py:agent_loop_with_compression",
+      "type": "function",
+      "name": "agent_loop_with_compression",
+      "filePath": "inspiration/claude-code-from-scratch/s06_context_compact.py",
+      "lineRange": [
+        184,
+        196
+      ],
+      "summary": "Enrobe stream_loop de core.py en appelant maybe_compress après chaque tour, pour que la compression soit transparente pour l'agent.",
+      "tags": [
+        "boucle-agent",
+        "wrapper",
+        "compression-contexte"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s06_context_compact.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s06_context_compact.py",
+      "lineRange": [
+        201,
+        247
+      ],
+      "summary": "REPL interactif qui recharge la mémoire persistée au démarrage (fichier MEMORY_FILE) puis boucle sur agent_loop_with_compression.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "mémoire-persistante"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s07_task_system.py",
+      "type": "file",
+      "name": "s07_task_system.py",
+      "filePath": "inspiration/claude-code-from-scratch/s07_task_system.py",
+      "summary": "Session 7 : graphe de tâches persistant avec dépendances (« Break big goals into small tasks, order them, persist to disk »). Fait évoluer la simple liste de s03 vers un système de tâches sur fichier où chaque tâche a un id, une priorité, des dépendances et un statut.",
+      "tags": [
+        "entry-point",
+        "graphe-de-tâches",
+        "dépendances",
+        "persistance",
+        "session"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s07_task_system.py:run_task_create",
+      "type": "function",
+      "name": "run_task_create",
+      "filePath": "inspiration/claude-code-from-scratch/s07_task_system.py",
+      "lineRange": [
+        93,
+        122
+      ],
+      "summary": "Crée une tâche avec id UUID, description, priorité et liste de dépendances, puis la persiste dans le fichier de tâches JSON.",
+      "tags": [
+        "outil-tâches",
+        "création",
+        "uuid"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s07_task_system.py:run_task_list",
+      "type": "function",
+      "name": "run_task_list",
+      "filePath": "inspiration/claude-code-from-scratch/s07_task_system.py",
+      "lineRange": [
+        125,
+        144
+      ],
+      "summary": "Liste toutes les tâches persistées avec statut, priorité et dépendances dans un format lisible par le modèle.",
+      "tags": [
+        "outil-tâches",
+        "listing",
+        "json"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s07_task_system.py:run_task_update",
+      "type": "function",
+      "name": "run_task_update",
+      "filePath": "inspiration/claude-code-from-scratch/s07_task_system.py",
+      "lineRange": [
+        147,
+        176
+      ],
+      "summary": "Met à jour le statut et le résultat d'une tâche identifiée par préfixe d'id, puis sauvegarde le fichier de tâches.",
+      "tags": [
+        "outil-tâches",
+        "mise-à-jour",
+        "statut"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s07_task_system.py:run_task_next",
+      "type": "function",
+      "name": "run_task_next",
+      "filePath": "inspiration/claude-code-from-scratch/s07_task_system.py",
+      "lineRange": [
+        179,
+        203
+      ],
+      "summary": "Sélectionne la prochaine tâche exécutable : la première tâche en attente dont toutes les dépendances sont complétées, en respectant la priorité.",
+      "tags": [
+        "outil-tâches",
+        "ordonnancement",
+        "résolution-dépendances"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s07_task_system.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s07_task_system.py",
+      "lineRange": [
+        272,
+        308
+      ],
+      "summary": "REPL interactif exposant les outils task_create/list/update/next à l'agent via stream_loop.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "cli"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s08_background_tasks.py",
+      "type": "file",
+      "name": "s08_background_tasks.py",
+      "filePath": "inspiration/claude-code-from-scratch/s08_background_tasks.py",
+      "summary": "Session 8 : exécution shell asynchrone en arrière-plan (« Run slow operations in the background; the agent keeps thinking »). Les commandes lentes tournent dans des threads dédiés et notifient l'agent via une file d'attente, sans bloquer la boucle de réflexion.",
+      "tags": [
+        "entry-point",
+        "tâches-arrière-plan",
+        "threading",
+        "non-bloquant",
+        "session"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s08_background_tasks.py:run_bash_background",
+      "type": "function",
+      "name": "run_bash_background",
+      "filePath": "inspiration/claude-code-from-scratch/s08_background_tasks.py",
+      "lineRange": [
+        64,
+        113
+      ],
+      "summary": "Lance une commande shell dans un thread worker détaché : le résultat est poussé dans la file de notifications une fois la commande terminée, et l'outil rend immédiatement la main à l'agent.",
+      "tags": [
+        "outil-shell",
+        "threading",
+        "non-bloquant",
+        "notification"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s08_background_tasks.py:_drain_notifications",
+      "type": "function",
+      "name": "_drain_notifications",
+      "filePath": "inspiration/claude-code-from-scratch/s08_background_tasks.py",
+      "lineRange": [
+        116,
+        135
+      ],
+      "summary": "Vide la file de notifications des tâches d'arrière-plan terminées et renvoie les messages à injecter dans la conversation.",
+      "tags": [
+        "notification",
+        "file-d-attente",
+        "threading"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s08_background_tasks.py:agent_loop_with_bg",
+      "type": "function",
+      "name": "agent_loop_with_bg",
+      "filePath": "inspiration/claude-code-from-scratch/s08_background_tasks.py",
+      "lineRange": [
+        173,
+        195
+      ],
+      "summary": "Enrobe stream_loop en drainant les notifications après chaque tour : si des tâches d'arrière-plan ont fini, leurs résultats sont injectés comme messages utilisateur et la boucle repart.",
+      "tags": [
+        "boucle-agent",
+        "wrapper",
+        "notification"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s08_background_tasks.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s08_background_tasks.py",
+      "lineRange": [
+        200,
+        231
+      ],
+      "summary": "REPL interactif exposant l'outil bash_background en plus des outils de base via agent_loop_with_bg.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "cli"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s09_agent_teams.py",
+      "type": "file",
+      "name": "s09_agent_teams.py",
+      "filePath": "inspiration/claude-code-from-scratch/s09_agent_teams.py",
+      "summary": "Session 9 : équipe multi-agents persistante (« When the task is too big for one, delegate to teammates »). Architecture lead-spécialistes où les coéquipiers sont des threads d'arrière-plan permanents qui communiquent par mailboxes JSONL sur disque, contrairement aux subagents éphémères de s04.",
+      "tags": [
+        "entry-point",
+        "multi-agents",
+        "mailbox",
+        "threading",
+        "session"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s09_agent_teams.py:_send_message",
+      "type": "function",
+      "name": "_send_message",
+      "filePath": "inspiration/claude-code-from-scratch/s09_agent_teams.py",
+      "lineRange": [
+        83,
+        99
+      ],
+      "summary": "Dépose un message horodaté (expéditeur, corps) en mode append dans le fichier mailbox JSONL du destinataire.",
+      "tags": [
+        "mailbox",
+        "jsonl",
+        "messagerie"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s09_agent_teams.py:_receive_messages",
+      "type": "function",
+      "name": "_receive_messages",
+      "filePath": "inspiration/claude-code-from-scratch/s09_agent_teams.py",
+      "lineRange": [
+        102,
+        125
+      ],
+      "summary": "Lit et vide la mailbox JSONL d'un agent, renvoyant les messages en attente — un consommateur destructif simple.",
+      "tags": [
+        "mailbox",
+        "jsonl",
+        "polling"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s09_agent_teams.py:_run_teammate_loop",
+      "type": "function",
+      "name": "_run_teammate_loop",
+      "filePath": "inspiration/claude-code-from-scratch/s09_agent_teams.py",
+      "lineRange": [
+        130,
+        187
+      ],
+      "summary": "Boucle de vie d'un coéquipier persistant : sonde sa mailbox, traite chaque demande avec sa propre boucle LLM + dispatch_tools selon son prompt de spécialiste, puis renvoie la réponse au lead par mailbox.",
+      "tags": [
+        "multi-agents",
+        "worker",
+        "boucle-agent",
+        "threading"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s09_agent_teams.py:run_send_to_teammate",
+      "type": "function",
+      "name": "run_send_to_teammate",
+      "filePath": "inspiration/claude-code-from-scratch/s09_agent_teams.py",
+      "lineRange": [
+        192,
+        222
+      ],
+      "summary": "Outil exposé au lead : envoie un message à un coéquipier puis attend sa réponse en sondant la mailbox du lead avec un timeout.",
+      "tags": [
+        "outil-agent",
+        "délégation",
+        "mailbox"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s09_agent_teams.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s09_agent_teams.py",
+      "lineRange": [
+        256,
+        312
+      ],
+      "summary": "Démarre les threads des coéquipiers définis dans TEAMMATES, lance le REPL du lead avec l'outil send_to_teammate, puis arrête proprement les threads et nettoie les mailboxes à la sortie.",
+      "tags": [
+        "entry-point",
+        "orchestration",
+        "cycle-de-vie",
+        "threading"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s10_team_protocols.py",
+      "type": "file",
+      "name": "s10_team_protocols.py",
+      "filePath": "inspiration/claude-code-from-scratch/s10_team_protocols.py",
+      "summary": "Session 10 : protocole de communication gouverné par machine à états (« Teammates need shared communication rules »). Renforce la messagerie libre de s09 avec une FSM stricte (AgentState) garantissant que chaque agent est dans un état prévisible durant le cycle requête-réponse.",
+      "tags": [
+        "entry-point",
+        "machine-à-états",
+        "protocole",
+        "multi-agents",
+        "session"
+      ],
+      "complexity": "complex",
+      "languageNotes": "La FSM (IDLE → WORKING → ...) transforme la coordination ad hoc de s09 en protocole vérifiable : un agent ne peut accepter une requête que dans l'état adéquat."
+    },
+    {
+      "id": "class:inspiration/claude-code-from-scratch/s10_team_protocols.py:ProtocolAgent",
+      "type": "class",
+      "name": "ProtocolAgent",
+      "filePath": "inspiration/claude-code-from-scratch/s10_team_protocols.py",
+      "lineRange": [
+        68,
+        186
+      ],
+      "summary": "Agent encapsulant la machine à états et la messagerie : méthodes send/receive pour la mailbox et handle qui traite une requête en respectant les transitions d'états et en exécutant les outils via dispatch_tools.",
+      "tags": [
+        "machine-à-états",
+        "multi-agents",
+        "protocole",
+        "classe-agent"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s10_team_protocols.py:run_delegate",
+      "type": "function",
+      "name": "run_delegate",
+      "filePath": "inspiration/claude-code-from-scratch/s10_team_protocols.py",
+      "lineRange": [
+        205,
+        229
+      ],
+      "summary": "Outil du lead pour déléguer une tâche à un ProtocolAgent nommé et attendre sa réponse en respectant le protocole FSM.",
+      "tags": [
+        "outil-agent",
+        "délégation",
+        "protocole"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s10_team_protocols.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s10_team_protocols.py",
+      "lineRange": [
+        273,
+        311
+      ],
+      "summary": "Instancie les ProtocolAgent spécialistes, démarre leurs threads et lance le REPL du lead avec l'outil delegate via stream_loop.",
+      "tags": [
+        "entry-point",
+        "orchestration",
+        "repl"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "type": "file",
+      "name": "s11_autonomous_agents.py",
+      "filePath": "inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "summary": "Session 11 : réclamation atomique de tâches et auto-organisation (« Teammates scan the board and claim tasks themselves »). Le lead ne gère plus les individus mais le tableau de tâches : les workers en arrière-plan sondent le board, résolvent les dépendances et réclament les tâches avec verrouillage thread-safe.",
+      "tags": [
+        "entry-point",
+        "autonomie",
+        "tableau-de-tâches",
+        "verrouillage",
+        "session"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Passage du modèle « délégation » (s09/s10) au modèle « marché de tâches » : la coordination émerge du board partagé et du claim atomique, pas d'un orchestrateur."
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:claim_next_task",
+      "type": "function",
+      "name": "claim_next_task",
+      "filePath": "inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "lineRange": [
+        86,
+        119
+      ],
+      "summary": "Réclamation atomique sous verrou : parcourt le board, trouve la première tâche en attente dont les dépendances sont satisfaites et la marque comme réclamée par l'agent, évitant qu'un même travail soit pris deux fois.",
+      "tags": [
+        "verrouillage",
+        "atomicité",
+        "ordonnancement",
+        "tableau-de-tâches"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:complete_task",
+      "type": "function",
+      "name": "complete_task",
+      "filePath": "inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "lineRange": [
+        122,
+        137
+      ],
+      "summary": "Marque une tâche comme complétée avec son résultat et persiste le board, débloquant les tâches qui en dépendaient.",
+      "tags": [
+        "tableau-de-tâches",
+        "statut",
+        "persistance"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:fail_task",
+      "type": "function",
+      "name": "fail_task",
+      "filePath": "inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "lineRange": [
+        140,
+        155
+      ],
+      "summary": "Marque une tâche comme échouée avec le message d'erreur et persiste le board pour que l'échec soit visible des autres agents.",
+      "tags": [
+        "tableau-de-tâches",
+        "gestion-erreurs",
+        "persistance"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:run_autonomous_agent",
+      "type": "function",
+      "name": "run_autonomous_agent",
+      "filePath": "inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "lineRange": [
+        160,
+        223
+      ],
+      "summary": "Boucle de vie d'un worker autonome : sonde le board, réclame une tâche via claim_next_task, l'exécute avec sa propre boucle LLM + dispatch_tools, puis la complète ou la fait échouer avant de repartir en attente.",
+      "tags": [
+        "worker",
+        "autonomie",
+        "boucle-agent",
+        "threading"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:_post_new_task",
+      "type": "function",
+      "name": "_post_new_task",
+      "filePath": "inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "lineRange": [
+        228,
+        246
+      ],
+      "summary": "Publie une nouvelle tâche sur le board partagé avec description, dépendances et priorité — l'interface du lead avec le marché de tâches.",
+      "tags": [
+        "tableau-de-tâches",
+        "création",
+        "publication"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "lineRange": [
+        291,
+        350
+      ],
+      "summary": "Démarre les workers autonomes en threads, lance le REPL du lead qui publie des tâches via stream_loop, puis arrête proprement les workers à la sortie.",
+      "tags": [
+        "entry-point",
+        "orchestration",
+        "threading",
+        "repl"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "type": "file",
+      "name": "s12_worktree_task_isolation.py",
+      "filePath": "inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "summary": "Session 12 : isolation des tâches par git worktree (« Each works in its own directory, no interference »). Chaque tâche d'agent s'exécute dans son propre worktree sur une branche dédiée, éliminant les conflits d'édition quand plusieurs agents travaillent en parallèle sur le même dépôt.",
+      "tags": [
+        "entry-point",
+        "git-worktree",
+        "isolation",
+        "parallélisme",
+        "session"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py:_git",
+      "type": "function",
+      "name": "_git",
+      "filePath": "inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "lineRange": [
+        51,
+        70
+      ],
+      "summary": "Helper exécutant une commande git en sous-processus dans un répertoire donné et renvoyant code de retour et sortie.",
+      "tags": [
+        "git",
+        "subprocess",
+        "helper"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py:create_worktree",
+      "type": "function",
+      "name": "create_worktree",
+      "filePath": "inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "lineRange": [
+        75,
+        106
+      ],
+      "summary": "Crée un git worktree et une branche dédiés à une tâche identifiée, fournissant un répertoire de travail isolé du dépôt principal.",
+      "tags": [
+        "git-worktree",
+        "isolation",
+        "création"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py:remove_worktree",
+      "type": "function",
+      "name": "remove_worktree",
+      "filePath": "inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "lineRange": [
+        109,
+        125
+      ],
+      "summary": "Supprime le worktree et la branche associés à une tâche terminée pour nettoyer le dépôt.",
+      "tags": [
+        "git-worktree",
+        "nettoyage",
+        "cycle-de-vie"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py:run_task_in_worktree",
+      "type": "function",
+      "name": "run_task_in_worktree",
+      "filePath": "inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "lineRange": [
+        130,
+        228
+      ],
+      "summary": "Pipeline complet d'une tâche isolée : crée le worktree, exécute un agent dont les commandes bash sont confinées au répertoire du worktree, récapitule les changements, puis nettoie. C'est la fonction la plus longue du fichier et le cœur de la session.",
+      "tags": [
+        "git-worktree",
+        "boucle-agent",
+        "isolation",
+        "pipeline"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "lineRange": [
+        233,
+        271
+      ],
+      "summary": "REPL de démonstration permettant de lancer des tâches dans des worktrees isolés.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "cli"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s13_streaming.py",
+      "type": "file",
+      "name": "s13_streaming.py",
+      "filePath": "inspiration/claude-code-from-scratch/s13_streaming.py",
+      "summary": "Session 13 : streaming de tokens en temps réel (« Tokens print as they arrive — the terminal feels alive »). Montre la transition des appels API bloquants vers une architecture en streaming où le texte s'affiche au fil de la génération.",
+      "tags": [
+        "entry-point",
+        "streaming",
+        "ux-terminal",
+        "session"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s13_streaming.py:agent_loop_streaming",
+      "type": "function",
+      "name": "agent_loop_streaming",
+      "filePath": "inspiration/claude-code-from-scratch/s13_streaming.py",
+      "lineRange": [
+        47,
+        99
+      ],
+      "summary": "Boucle agent utilisant client.messages.stream : affiche chaque delta de texte dès son arrivée, puis récupère le message final et exécute les outils via dispatch_tools comme dans les sessions précédentes.",
+      "tags": [
+        "streaming",
+        "boucle-agent",
+        "affichage-incrémental"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s13_streaming.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s13_streaming.py",
+      "lineRange": [
+        104,
+        135
+      ],
+      "summary": "REPL interactif branché sur agent_loop_streaming pour expérimenter l'affichage temps réel.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "cli"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s14_tools_extended.py",
+      "type": "file",
+      "name": "s14_tools_extended.py",
+      "filePath": "inspiration/claude-code-from-scratch/s14_tools_extended.py",
+      "summary": "Session 14 : arsenal d'outils étendu et réversible (« More hands, but every touch is reversible »). Active l'EXTENDED_TOOLS de core.py (read, write, grep, glob, revert) à la place du bash brut : sorties structurées et restauration automatique grâce aux snapshots.",
+      "tags": [
+        "entry-point",
+        "outils-étendus",
+        "réversibilité",
+        "session"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s14_tools_extended.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s14_tools_extended.py",
+      "lineRange": [
+        57,
+        104
+      ],
+      "summary": "REPL interactif lançant stream_loop avec EXTENDED_TOOLS et EXTENDED_DISPATCH de core.py, démontrant les outils fichiers spécialisés et l'outil revert.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "cli"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s15_permissions.py",
+      "type": "file",
+      "name": "s15_permissions.py",
+      "filePath": "inspiration/claude-code-from-scratch/s15_permissions.py",
+      "summary": "Session 15 : gouvernance des permissions par règles (« Trust is earned; every action is judged before it runs »). Introduit le pattern « guarded dispatch » : chaque exécution d'outil passe d'abord par check_permission qui l'évalue contre la politique YAML config/permissions.yaml.",
+      "tags": [
+        "entry-point",
+        "permissions",
+        "sécurité",
+        "gouvernance",
+        "session"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s15_permissions.py:_guarded",
+      "type": "function",
+      "name": "_guarded",
+      "filePath": "inspiration/claude-code-from-scratch/s15_permissions.py",
+      "lineRange": [
+        60,
+        90
+      ],
+      "summary": "Décorateur de handler implémentant le « guarded dispatch » : appelle check_permission de core.py avant l'exécution réelle de l'outil et bloque ou demande confirmation selon la décision.",
+      "tags": [
+        "permissions",
+        "middleware",
+        "guarded-dispatch"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s15_permissions.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s15_permissions.py",
+      "lineRange": [
+        120,
+        163
+      ],
+      "summary": "REPL interactif où tous les handlers du dispatch map sont enveloppés par _guarded avant d'être passés à stream_loop.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "cli"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "type": "file",
+      "name": "s16_event_bus.py",
+      "filePath": "inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "summary": "Session 16 : système de hooks piloté par événements (« Every action fires an event; hooks let you observe and intercept »). Un EventBus de type middleware émet des événements à chaque étape du cycle de vie de l'agent ; des hooks (logger, statistiques, chronomètre) s'y abonnent pour l'observabilité, l'audit et la sécurité.",
+      "tags": [
+        "entry-point",
+        "event-bus",
+        "hooks",
+        "observabilité",
+        "session"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Architecture publish/subscribe minimaliste : la boucle agent émet des événements nommés (pre_tool, post_tool...) et l'EventBus invoque tous les handlers abonnés — l'équivalent pédagogique des hooks de Claude Code."
+    },
+    {
+      "id": "class:inspiration/claude-code-from-scratch/s16_event_bus.py:EventBus",
+      "type": "class",
+      "name": "EventBus",
+      "filePath": "inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "lineRange": [
+        51,
+        97
+      ],
+      "summary": "Bus d'événements publish/subscribe : on() abonne un handler à un type d'événement et emit() notifie tous les abonnés avec la charge utile de l'événement.",
+      "tags": [
+        "event-bus",
+        "publish-subscribe",
+        "middleware"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s16_event_bus.py:hook_logger",
+      "type": "function",
+      "name": "hook_logger",
+      "filePath": "inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "lineRange": [
+        108,
+        117
+      ],
+      "summary": "Hook d'audit qui journalise chaque événement du cycle de vie de l'agent sur la sortie standard.",
+      "tags": [
+        "hook",
+        "journalisation",
+        "audit"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s16_event_bus.py:hook_stats",
+      "type": "function",
+      "name": "hook_stats",
+      "filePath": "inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "lineRange": [
+        120,
+        136
+      ],
+      "summary": "Hook qui agrège des statistiques d'utilisation (compteurs d'appels d'outils, événements) au fil de la session.",
+      "tags": [
+        "hook",
+        "statistiques",
+        "observabilité"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s16_event_bus.py:hook_timer",
+      "type": "function",
+      "name": "hook_timer",
+      "filePath": "inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "lineRange": [
+        139,
+        155
+      ],
+      "summary": "Hook de chronométrage qui mesure la durée d'exécution des outils en appariant les événements pre/post.",
+      "tags": [
+        "hook",
+        "performance",
+        "chronométrage"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s16_event_bus.py:agent_loop_with_hooks",
+      "type": "function",
+      "name": "agent_loop_with_hooks",
+      "filePath": "inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "lineRange": [
+        166,
+        259
+      ],
+      "summary": "Boucle agent instrumentée : émet des événements sur le bus à chaque étape (avant/après appel API, avant/après chaque outil), permettant aux hooks d'observer ou d'intercepter sans modifier la logique de la boucle.",
+      "tags": [
+        "boucle-agent",
+        "event-bus",
+        "instrumentation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s16_event_bus.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "lineRange": [
+        264,
+        296
+      ],
+      "summary": "REPL interactif qui abonne les hooks logger, stats et timer au bus puis boucle sur agent_loop_with_hooks.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "cli"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s17_session_management.py",
+      "type": "file",
+      "name": "s17_session_management.py",
+      "filePath": "inspiration/claude-code-from-scratch/s17_session_management.py",
+      "summary": "Session 17 : cycle de vie persistant des sessions et forking (« Every conversation is saved; pick up where you left off »). Couche de sérialisation complète qui persiste l'historique en JSON, permettant de reprendre une session interrompue ou de la forker pour explorer plusieurs pistes en parallèle.",
+      "tags": [
+        "entry-point",
+        "sessions",
+        "persistance",
+        "sérialisation",
+        "session"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s17_session_management.py:create_new_session",
+      "type": "function",
+      "name": "create_new_session",
+      "filePath": "inspiration/claude-code-from-scratch/s17_session_management.py",
+      "lineRange": [
+        58,
+        71
+      ],
+      "summary": "Initialise une nouvelle session avec identifiant unique, horodatage et historique vide.",
+      "tags": [
+        "sessions",
+        "initialisation",
+        "uuid"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s17_session_management.py:_serialize_messages",
+      "type": "function",
+      "name": "_serialize_messages",
+      "filePath": "inspiration/claude-code-from-scratch/s17_session_management.py",
+      "lineRange": [
+        74,
+        109
+      ],
+      "summary": "Convertit l'historique de messages (y compris les objets de réponse du SDK Anthropic) en structures JSON pures sérialisables sur disque.",
+      "tags": [
+        "sérialisation",
+        "json",
+        "conversion"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s17_session_management.py:save_session",
+      "type": "function",
+      "name": "save_session",
+      "filePath": "inspiration/claude-code-from-scratch/s17_session_management.py",
+      "lineRange": [
+        112,
+        132
+      ],
+      "summary": "Persiste les données d'une session (métadonnées et historique sérialisé) dans un fichier JSON du répertoire de sessions.",
+      "tags": [
+        "sessions",
+        "persistance",
+        "json"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s17_session_management.py:load_session",
+      "type": "function",
+      "name": "load_session",
+      "filePath": "inspiration/claude-code-from-scratch/s17_session_management.py",
+      "lineRange": [
+        135,
+        154
+      ],
+      "summary": "Recharge une session sauvegardée par son identifiant (préfixe accepté) et restitue son historique exploitable par la boucle agent.",
+      "tags": [
+        "sessions",
+        "reprise",
+        "json"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s17_session_management.py:list_all_sessions",
+      "type": "function",
+      "name": "list_all_sessions",
+      "filePath": "inspiration/claude-code-from-scratch/s17_session_management.py",
+      "lineRange": [
+        157,
+        175
+      ],
+      "summary": "Énumère les sessions persistées sur disque avec leurs métadonnées (id, date, nombre de messages).",
+      "tags": [
+        "sessions",
+        "listing",
+        "métadonnées"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s17_session_management.py:print_sessions_table",
+      "type": "function",
+      "name": "print_sessions_table",
+      "filePath": "inspiration/claude-code-from-scratch/s17_session_management.py",
+      "lineRange": [
+        178,
+        192
+      ],
+      "summary": "Affiche un tableau formaté des sessions disponibles dans le terminal.",
+      "tags": [
+        "sessions",
+        "affichage",
+        "cli"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s17_session_management.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s17_session_management.py",
+      "lineRange": [
+        197,
+        296
+      ],
+      "summary": "REPL enrichi de commandes de gestion de sessions (/sessions, /resume, /fork, /new) : sauvegarde automatique après chaque tour de stream_loop et reprise ou duplication d'une conversation existante.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "sessions",
+        "forking"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+      "type": "file",
+      "name": "s18_parallel_tools.py",
+      "filePath": "inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+      "summary": "Session 18 : fichier annoncé comme « parallel tools » mais dont le contenu est octet pour octet identique à s20_cache_optimization.py (prompt caching Anthropic) — docstring inclus. La boucle agent y exécute les outils en parallèle via asyncio.gather tout en mesurant les hits du cache de prompt.",
+      "tags": [
+        "entry-point",
+        "prompt-caching",
+        "asyncio",
+        "doublon",
+        "session"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Anomalie détectée : s18_parallel_tools.py est un duplicata exact de s20_cache_optimization.py (même hash MD5) ; le contenu spécifique « parallel tools » semble avoir été remplacé par celui de la session 20."
+    },
+    {
+      "id": "class:inspiration/claude-code-from-scratch/s18_parallel_tools.py:CacheStats",
+      "type": "class",
+      "name": "CacheStats",
+      "filePath": "inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+      "lineRange": [
+        72,
+        120
+      ],
+      "summary": "Collecteur de métriques du prompt caching : enregistre les tokens créés/réutilisés du cache à chaque tour (record), affiche le détail du tour (show_turn) et un bilan final (summary).",
+      "tags": [
+        "prompt-caching",
+        "métriques",
+        "observabilité"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s18_parallel_tools.py:dispatch_one_tool",
+      "type": "function",
+      "name": "dispatch_one_tool",
+      "filePath": "inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+      "lineRange": [
+        129,
+        158
+      ],
+      "summary": "Exécute un bloc tool_use unique de façon asynchrone via ASYNC_DISPATCH et renvoie son tool_result, brique de base de l'exécution parallèle par asyncio.gather.",
+      "tags": [
+        "asyncio",
+        "exécution-outils",
+        "parallélisme"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s18_parallel_tools.py:agent_loop_cached",
+      "type": "function",
+      "name": "agent_loop_cached",
+      "filePath": "inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+      "lineRange": [
+        163,
+        214
+      ],
+      "summary": "Boucle agent posant des marqueurs cache_control sur le system prompt, les outils et l'historique, exécutant les outils en parallèle avec asyncio.gather et consignant les statistiques de cache à chaque tour.",
+      "tags": [
+        "prompt-caching",
+        "boucle-agent",
+        "asyncio"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s18_parallel_tools.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+      "lineRange": [
+        219,
+        258
+      ],
+      "summary": "REPL interactif asynchrone branché sur agent_loop_cached, affichant le bilan des économies de cache en sortie.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "cli"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s19_interrupts.py",
+      "type": "file",
+      "name": "s19_interrupts.py",
+      "filePath": "inspiration/claude-code-from-scratch/s19_interrupts.py",
+      "summary": "Session 19 : injection d'interruptions en temps réel (« Ctrl+C steers the agent; you're always in control »). Résout le problème de l'« agent fou » avec un pattern de « soft interrupt » : Ctrl+C ne tue pas le processus mais injecte une directive utilisateur dans la boucle via des files asynchrones.",
+      "tags": [
+        "entry-point",
+        "interruptions",
+        "asyncio",
+        "contrôle-utilisateur",
+        "session"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s19_interrupts.py:dispatch_one_tool",
+      "type": "function",
+      "name": "dispatch_one_tool",
+      "filePath": "inspiration/claude-code-from-scratch/s19_interrupts.py",
+      "lineRange": [
+        64,
+        94
+      ],
+      "summary": "Exécute un bloc tool_use de façon asynchrone et annulable, permettant à la boucle d'interrompre un outil en cours lors d'un soft interrupt.",
+      "tags": [
+        "asyncio",
+        "exécution-outils",
+        "annulation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s19_interrupts.py:agent_loop_interruptible",
+      "type": "function",
+      "name": "agent_loop_interruptible",
+      "filePath": "inspiration/claude-code-from-scratch/s19_interrupts.py",
+      "lineRange": [
+        99,
+        161
+      ],
+      "summary": "Boucle agent interruptible : surveille une file d'interruptions pendant l'exécution ; lorsqu'un Ctrl+C survient, le travail en cours est suspendu et le message de pilotage de l'utilisateur est injecté dans le contexte avant de reprendre.",
+      "tags": [
+        "boucle-agent",
+        "soft-interrupt",
+        "asyncio"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s19_interrupts.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s19_interrupts.py",
+      "lineRange": [
+        166,
+        231
+      ],
+      "summary": "REPL asynchrone installant le handler de signal Ctrl+C qui alimente la file d'interruptions et pilote agent_loop_interruptible.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "gestion-signaux"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+      "type": "file",
+      "name": "s20_cache_optimization.py",
+      "filePath": "inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+      "summary": "Session 20 : prompt caching Anthropic (« Never rebuild what you've already sent »). Pose des points de contrôle cache_control sur le préfixe stable de la conversation (system prompt, outils, début d'historique) pour que les cache hits réduisent latence et coût, avec mesure des économies via CacheStats.",
+      "tags": [
+        "entry-point",
+        "prompt-caching",
+        "optimisation-coûts",
+        "asyncio",
+        "session"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Le fichier est identique octet pour octet à s18_parallel_tools.py ; c'est ici que le contenu porte son vrai nom de session."
+    },
+    {
+      "id": "class:inspiration/claude-code-from-scratch/s20_cache_optimization.py:CacheStats",
+      "type": "class",
+      "name": "CacheStats",
+      "filePath": "inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+      "lineRange": [
+        72,
+        120
+      ],
+      "summary": "Collecteur de métriques du prompt caching : enregistre les tokens créés/réutilisés du cache à chaque tour (record), affiche le détail du tour (show_turn) et un bilan final (summary).",
+      "tags": [
+        "prompt-caching",
+        "métriques",
+        "observabilité"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s20_cache_optimization.py:dispatch_one_tool",
+      "type": "function",
+      "name": "dispatch_one_tool",
+      "filePath": "inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+      "lineRange": [
+        129,
+        158
+      ],
+      "summary": "Exécute un bloc tool_use unique de façon asynchrone via ASYNC_DISPATCH et renvoie son tool_result, utilisé en parallèle par asyncio.gather.",
+      "tags": [
+        "asyncio",
+        "exécution-outils",
+        "parallélisme"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s20_cache_optimization.py:agent_loop_cached",
+      "type": "function",
+      "name": "agent_loop_cached",
+      "filePath": "inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+      "lineRange": [
+        163,
+        214
+      ],
+      "summary": "Boucle agent posant des marqueurs cache_control sur le system prompt, les outils et l'historique, exécutant les outils en parallèle avec asyncio.gather et consignant les statistiques de cache à chaque tour.",
+      "tags": [
+        "prompt-caching",
+        "boucle-agent",
+        "asyncio"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s20_cache_optimization.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+      "lineRange": [
+        219,
+        258
+      ],
+      "summary": "REPL interactif asynchrone branché sur agent_loop_cached, affichant le bilan des économies de cache en sortie.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "cli"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "type": "file",
+      "name": "s21_mcp_runtime.py",
+      "filePath": "inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "summary": "Session 21 : runtime du Model Context Protocol officiel (« Any server, any tool; the world connects here »). Implémente un client MCP : lecture d'un fichier de configuration, connexion à des serveurs MCP externes et peuplement dynamique du toolset de l'agent avec leurs outils préfixés.",
+      "tags": [
+        "entry-point",
+        "mcp",
+        "intégrations",
+        "outils-dynamiques",
+        "session"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s21_mcp_runtime.py:connect_mcp_servers",
+      "type": "function",
+      "name": "connect_mcp_servers",
+      "filePath": "inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "lineRange": [
+        74,
+        151
+      ],
+      "summary": "Lit la configuration des serveurs MCP, établit les sessions client, interroge chaque serveur pour la liste de ses outils et construit les définitions d'outils préfixées par nom de serveur à exposer au modèle.",
+      "tags": [
+        "mcp",
+        "connexion",
+        "découverte-outils"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s21_mcp_runtime.py:execute_mcp_tool",
+      "type": "function",
+      "name": "execute_mcp_tool",
+      "filePath": "inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "lineRange": [
+        154,
+        188
+      ],
+      "summary": "Résout un nom d'outil préfixé (serveur__outil), route l'appel vers la session MCP correspondante et renvoie le résultat normalisé en texte.",
+      "tags": [
+        "mcp",
+        "routage",
+        "exécution-outils"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s21_mcp_runtime.py:dispatch_one_tool",
+      "type": "function",
+      "name": "dispatch_one_tool",
+      "filePath": "inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "lineRange": [
+        193,
+        222
+      ],
+      "summary": "Dispatch hybride : route chaque tool_use soit vers les handlers locaux, soit vers execute_mcp_tool quand le nom appartient à un serveur MCP connecté.",
+      "tags": [
+        "dispatch-map",
+        "mcp",
+        "routage"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s21_mcp_runtime.py:agent_loop_mcp",
+      "type": "function",
+      "name": "agent_loop_mcp",
+      "filePath": "inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "lineRange": [
+        227,
+        285
+      ],
+      "summary": "Boucle agent asynchrone dont le toolset combine outils locaux et outils MCP découverts dynamiquement au démarrage.",
+      "tags": [
+        "boucle-agent",
+        "mcp",
+        "asyncio"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s21_mcp_runtime.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "lineRange": [
+        290,
+        336
+      ],
+      "summary": "REPL asynchrone : connecte les serveurs MCP, affiche les outils découverts puis boucle sur agent_loop_mcp avant de fermer proprement les sessions.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "cycle-de-vie"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "type": "file",
+      "name": "s22_production_mailbox.py",
+      "filePath": "inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "summary": "Session 22 : messagerie inter-agents de niveau production (« Redis pipes the messages; no JSONL file left waiting »). Remplace les mailboxes JSONL de s09 par du Redis Pub/Sub temps réel derrière une abstraction MailboxBackend, avec repli automatique sur des files en mémoire si Redis est absent.",
+      "tags": [
+        "entry-point",
+        "redis",
+        "pub-sub",
+        "multi-agents",
+        "session"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Pattern « strategy » sur le backend de messagerie : l'interface MailboxBackend permet d'échanger RedisMailbox (production, inter-processus) et QueueMailbox (fallback en mémoire) sans toucher aux boucles d'agents."
+    },
+    {
+      "id": "class:inspiration/claude-code-from-scratch/s22_production_mailbox.py:MailboxBackend",
+      "type": "class",
+      "name": "MailboxBackend",
+      "filePath": "inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "lineRange": [
+        63,
+        81
+      ],
+      "summary": "Interface abstraite de la messagerie inter-agents définissant le contrat send/receive/close que tout backend doit honorer.",
+      "tags": [
+        "interface",
+        "abstraction",
+        "messagerie"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:inspiration/claude-code-from-scratch/s22_production_mailbox.py:RedisMailbox",
+      "type": "class",
+      "name": "RedisMailbox",
+      "filePath": "inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "lineRange": [
+        84,
+        144
+      ],
+      "summary": "Backend de production utilisant Redis Pub/Sub : un canal par agent, livraison temps réel des messages sans polling du système de fichiers.",
+      "tags": [
+        "redis",
+        "pub-sub",
+        "messagerie",
+        "production"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:inspiration/claude-code-from-scratch/s22_production_mailbox.py:QueueMailbox",
+      "type": "class",
+      "name": "QueueMailbox",
+      "filePath": "inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "lineRange": [
+        147,
+        176
+      ],
+      "summary": "Backend de repli en mémoire basé sur queue.Queue, offrant la même interface que RedisMailbox pour les environnements sans Redis.",
+      "tags": [
+        "file-d-attente",
+        "fallback",
+        "messagerie"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s22_production_mailbox.py:initialize_mailbox",
+      "type": "function",
+      "name": "initialize_mailbox",
+      "filePath": "inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "lineRange": [
+        179,
+        193
+      ],
+      "summary": "Factory qui tente de se connecter à Redis et renvoie un RedisMailbox, ou retombe silencieusement sur QueueMailbox en cas d'échec.",
+      "tags": [
+        "factory",
+        "fallback",
+        "initialisation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s22_production_mailbox.py:teammate_worker_loop",
+      "type": "function",
+      "name": "teammate_worker_loop",
+      "filePath": "inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "lineRange": [
+        198,
+        264
+      ],
+      "summary": "Boucle de vie asynchrone d'un coéquipier : reçoit les requêtes via la mailbox, les traite avec sa propre boucle LLM (outils asynchrones dont async_bash) et publie la réponse sur le canal du lead.",
+      "tags": [
+        "worker",
+        "multi-agents",
+        "asyncio",
+        "messagerie"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s22_production_mailbox.py:lead_orchestration_loop",
+      "type": "function",
+      "name": "lead_orchestration_loop",
+      "filePath": "inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "lineRange": [
+        269,
+        305
+      ],
+      "summary": "Boucle d'orchestration du lead : diffuse la requête utilisateur aux coéquipiers via la mailbox et agrège leurs réponses au fur et à mesure de leur arrivée.",
+      "tags": [
+        "orchestration",
+        "multi-agents",
+        "agrégation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s22_production_mailbox.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "lineRange": [
+        310,
+        362
+      ],
+      "summary": "Point d'entrée asynchrone : initialise le backend de mailbox (Redis ou file mémoire), démarre les workers coéquipiers, boucle sur les requêtes utilisateur puis arrête et ferme proprement les connexions.",
+      "tags": [
+        "entry-point",
+        "cycle-de-vie",
+        "orchestration"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "type": "file",
+      "name": "s23_worktree_advanced.py",
+      "filePath": "inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "summary": "Session 23, aboutissement de la série : isolation git worktree de qualité production avec détection de conflits (« Git state is sacred; every edge case handled »). Orchestration de tâches parallèles où chaque agent travaille dans un worktree dédié, avec validation de l'état git, noms de branches assainis, analyse de chevauchement de fichiers et nettoyage robuste.",
+      "tags": [
+        "entry-point",
+        "git-worktree",
+        "détection-conflits",
+        "parallélisme",
+        "session"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Couvre les cas limites ignorés par s12 : dépôt sale, worktrees orphelins (prune), collisions de noms de branches, conflits potentiels détectés avant exécution via l'analyse des fichiers ciblés par chaque tâche."
+    },
+    {
+      "id": "class:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:WTask",
+      "type": "class",
+      "name": "WTask",
+      "filePath": "inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "lineRange": [
+        160,
+        170
+      ],
+      "summary": "Dataclass décrivant une tâche de worktree : identifiant, description, chemins de worktree et de branche, statut et résultat.",
+      "tags": [
+        "data-model",
+        "dataclass",
+        "git-worktree"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:_git",
+      "type": "function",
+      "name": "_git",
+      "filePath": "inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "lineRange": [
+        53,
+        74
+      ],
+      "summary": "Helper exécutant une commande git en sous-processus avec capture de la sortie et du code de retour, socle de toutes les opérations git du module.",
+      "tags": [
+        "git",
+        "subprocess",
+        "helper"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:get_current_branch",
+      "type": "function",
+      "name": "get_current_branch",
+      "filePath": "inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "lineRange": [
+        93,
+        105
+      ],
+      "summary": "Détermine la branche git courante, en gérant le cas du HEAD détaché.",
+      "tags": [
+        "git",
+        "inspection",
+        "helper"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:list_active_worktrees",
+      "type": "function",
+      "name": "list_active_worktrees",
+      "filePath": "inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "lineRange": [
+        108,
+        132
+      ],
+      "summary": "Analyse la sortie de git worktree list --porcelain pour inventorier les worktrees actifs avec chemin et branche.",
+      "tags": [
+        "git-worktree",
+        "inspection",
+        "parsing"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:prune_stale_worktrees",
+      "type": "function",
+      "name": "prune_stale_worktrees",
+      "filePath": "inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "lineRange": [
+        135,
+        154
+      ],
+      "summary": "Nettoie les worktrees orphelins (répertoires supprimés mais toujours référencés) via git worktree prune avant toute nouvelle orchestration.",
+      "tags": [
+        "git-worktree",
+        "nettoyage",
+        "robustesse"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:setup_isolated_worktree",
+      "type": "function",
+      "name": "setup_isolated_worktree",
+      "filePath": "inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "lineRange": [
+        188,
+        225
+      ],
+      "summary": "Provisionne un worktree isolé pour une tâche : vérifie l'état du dépôt, génère un nom de branche et un chemin assainis, crée le worktree et met à jour la WTask.",
+      "tags": [
+        "git-worktree",
+        "provisionnement",
+        "validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:teardown_worktree",
+      "type": "function",
+      "name": "teardown_worktree",
+      "filePath": "inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "lineRange": [
+        228,
+        250
+      ],
+      "summary": "Démantèle proprement le worktree et la branche d'une tâche, avec option force pour les cas où le worktree contient des modifications non commitées.",
+      "tags": [
+        "git-worktree",
+        "nettoyage",
+        "cycle-de-vie"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:analyze_parallel_conflicts",
+      "type": "function",
+      "name": "analyze_parallel_conflicts",
+      "filePath": "inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "lineRange": [
+        253,
+        288
+      ],
+      "summary": "Détecte avant exécution les conflits potentiels entre tâches parallèles en comparant les fichiers que chaque tâche prévoit de toucher, et signale les chevauchements.",
+      "tags": [
+        "détection-conflits",
+        "analyse-statique",
+        "parallélisme"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:run_agent_in_worktree",
+      "type": "function",
+      "name": "run_agent_in_worktree",
+      "filePath": "inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "lineRange": [
+        293,
+        336
+      ],
+      "summary": "Exécute un agent LLM confiné au worktree de sa tâche : boucle d'appels API avec dispatch_tools dont les commandes sont ancrées dans le répertoire isolé, puis consigne le résultat dans la WTask.",
+      "tags": [
+        "boucle-agent",
+        "git-worktree",
+        "isolation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:orchestrate_parallel_tasks",
+      "type": "function",
+      "name": "orchestrate_parallel_tasks",
+      "filePath": "inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "lineRange": [
+        339,
+        405
+      ],
+      "summary": "Chef d'orchestre de la session : prune les worktrees obsolètes, analyse les conflits, provisionne un worktree par tâche, lance les agents en parallèle dans des threads, collecte les résultats et démantèle le tout.",
+      "tags": [
+        "orchestration",
+        "parallélisme",
+        "git-worktree",
+        "pipeline"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "lineRange": [
+        410,
+        459
+      ],
+      "summary": "REPL de démonstration permettant de soumettre plusieurs descriptions de tâches et de les voir s'exécuter en parallèle dans des worktrees isolés.",
+      "tags": [
+        "entry-point",
+        "repl",
+        "cli"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "config:inspiration/claude-code-from-scratch/.env.example",
+      "type": "config",
+      "name": ".env.example",
+      "filePath": "inspiration/claude-code-from-scratch/.env.example",
+      "summary": "Modèle de variables d'environnement à copier en .env : clé API Anthropic et MODEL_ID (option A), redirection vers le proxy LiteLLM avec les clés des fournisseurs tiers Nebius/OpenAI/Groq (option B), et URL Redis optionnelle pour la mailbox de production de la session s22.",
+      "tags": [
+        "configuration",
+        "variables-environnement",
+        "secrets",
+        "template"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Illustre le patron .env.example : le modèle versionné documente les variables attendues tandis que le .env réel contenant les secrets reste exclu de git."
+    },
+    {
+      "id": "document:inspiration/claude-code-from-scratch/README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "inspiration/claude-code-from-scratch/README.md",
+      "summary": "Documentation principale du projet : présente le concept de « harness engineering », la structure du dépôt centrée sur core.py, le guide de démarrage rapide (Anthropic direct ou proxy LiteLLM) et les six phases pédagogiques couvrant les 23 sessions, de la boucle d'agent minimale jusqu'au runtime MCP et aux mailboxes Redis de production.",
+      "tags": [
+        "documentation",
+        "entry-point",
+        "architecture",
+        "guide-demarrage",
+        "pedagogie"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Le README sert de carte pédagogique : chaque phase est décrite par un tableau « Fichier → Mécanisme → Analogue Claude Code » qui relie chaque session à la fonctionnalité réelle de Claude Code qu'elle reproduit."
+    },
+    {
+      "id": "config:inspiration/claude-code-from-scratch/litellm_config.yaml",
+      "type": "config",
+      "name": "litellm_config.yaml",
+      "filePath": "inspiration/claude-code-from-scratch/litellm_config.yaml",
+      "summary": "Configuration du proxy LiteLLM déclarant le modèle Nebius AI DeepSeek V3.2 sous l'alias my-nebius-model, ce qui permet d'utiliser un fournisseur non-Anthropic à travers le SDK Anthropic sans modifier une seule ligne du code des sessions.",
+      "tags": [
+        "configuration",
+        "llm-proxy",
+        "litellm",
+        "multi-fournisseur"
+      ],
+      "complexity": "simple",
+      "languageNotes": "La syntaxe os.environ/NEBIUS_API_KEY propre à LiteLLM résout la clé API depuis l'environnement au lancement du proxy, évitant tout secret en clair dans le fichier."
+    },
+    {
+      "id": "document:inspiration/claude-code-from-scratch/requirements.txt",
+      "type": "document",
+      "name": "requirements.txt",
+      "filePath": "inspiration/claude-code-from-scratch/requirements.txt",
+      "summary": "Manifeste des dépendances Python annoté par session : SDK anthropic et python-dotenv pour le cœur (s01–s12), colorama et PyYAML à partir de s13, SDK MCP officiel pour s21, redis pour s22, et proxy LiteLLM optionnel laissé en commentaire.",
+      "tags": [
+        "dependances",
+        "configuration",
+        "build-system",
+        "python"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:inspiration/claude-code-from-scratch/.understand-anything/.understandignore",
+      "type": "file",
+      "name": ".understandignore",
+      "filePath": "inspiration/claude-code-from-scratch/.understand-anything/.understandignore",
+      "summary": "Fichier de motifs d'exclusion pour l'outil d'analyse Understand-Anything, avec une syntaxe identique à .gitignore. Tous les motifs (fichiers de test) sont commentés : seules les exclusions par défaut s'appliquent.",
+      "tags": [
+        "outillage",
+        "ignore-patterns",
+        "configuration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:inspiration/claude-code-from-scratch/.understand-anything/config.json",
+      "type": "config",
+      "name": "config.json",
+      "filePath": "inspiration/claude-code-from-scratch/.understand-anything/config.json",
+      "summary": "Configuration minimale de l'outil Understand-Anything fixant la langue de sortie de l'analyse en français (outputLanguage: fr).",
+      "tags": [
+        "configuration",
+        "outillage",
+        "localisation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:inspiration/claude-code-from-scratch/config/mcp_config.yaml",
+      "type": "config",
+      "name": "mcp_config.yaml",
+      "filePath": "inspiration/claude-code-from-scratch/config/mcp_config.yaml",
+      "summary": "Configuration des serveurs MCP consommée par s21_mcp_runtime.py. Toutes les entrées (serveur filesystem Node.js, serveur git, serveur Python personnalisé) sont commentées et servent de modèles à décommenter pour connecter de vrais serveurs.",
+      "tags": [
+        "configuration",
+        "mcp",
+        "modèle",
+        "intégration"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Chaque entrée de serveur déclare un transport stdio avec sa commande de lancement (npx, uvx, python) — le patron standard de connexion MCP côté client."
+    },
+    {
+      "id": "config:inspiration/claude-code-from-scratch/config/permissions.yaml",
+      "type": "config",
+      "name": "permissions.yaml",
+      "filePath": "inspiration/claude-code-from-scratch/config/permissions.yaml",
+      "summary": "Système de confiance à base de règles utilisé par s15 (permissions) et s16 (event bus) : trois listes de motifs regex Python (always_deny, always_allow, ask_user) appariées aux commandes, chaque règle accompagnée d'une raison lisible.",
+      "tags": [
+        "configuration",
+        "sécurité",
+        "permissions",
+        "validation"
+      ],
+      "complexity": "simple",
+      "languageNotes": "L'ordre d'évaluation est en cascade : always_deny → always_allow → ask_user → autorisation par défaut. Les refus couvrent les classiques dangereux (rm -rf /, sudo, fork bomb, curl | sh)."
+    },
+    {
+      "id": "document:inspiration/claude-code-from-scratch/skills/agent-builder/SKILL.md",
+      "type": "document",
+      "name": "agent-builder/SKILL.md",
+      "filePath": "inspiration/claude-code-from-scratch/skills/agent-builder/SKILL.md",
+      "summary": "Skill de harness engineering chargée à la demande par s05 : principe central « l'agent, c'est le modèle ; votre travail, c'est le harness », boucle d'agent minimale en Python, checklist de conception d'outils, arbre de décision d'architecture et patron de sous-agents.",
+      "tags": [
+        "documentation",
+        "skill",
+        "harness-engineering",
+        "architecture-agent"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Le frontmatter YAML (name, description) permet la découverte progressive : seule la description est exposée au modèle, le corps complet n'est chargé qu'à l'invocation de la skill."
+    },
+    {
+      "id": "document:inspiration/claude-code-from-scratch/skills/code-review/SKILL.md",
+      "type": "document",
+      "name": "code-review/SKILL.md",
+      "filePath": "inspiration/claude-code-from-scratch/skills/code-review/SKILL.md",
+      "summary": "Skill de revue de code chargée à la demande par s05 : processus en 5 étapes (lire avant de commenter, comprendre l'intention, catégoriser, rédiger les findings, résumer), complété par des listes de bugs Python courants, de bugs propres aux agents et d'une checklist sécurité.",
+      "tags": [
+        "documentation",
+        "skill",
+        "revue-de-code",
+        "qualité"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:inspiration/claude-code-from-scratch/skills/pdf/SKILL.md",
+      "type": "document",
+      "name": "pdf/SKILL.md",
+      "filePath": "inspiration/claude-code-from-scratch/skills/pdf/SKILL.md",
+      "summary": "Skill de manipulation de PDF chargée à la demande par s05 : arbre de décision entre bibliothèques (pdfplumber pour l'extraction de texte et tableaux, pypdf pour fusion/découpage/formulaires, pytesseract pour l'OCR), avec des extraits de code prêts à l'emploi et les pièges courants.",
+      "tags": [
+        "documentation",
+        "skill",
+        "pdf",
+        "recettes"
+      ],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:run_bash",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:run_read",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:run_write",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:run_grep",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:run_glob",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:run_revert",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:async_bash",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:load_rules",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:check_permission",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:dispatch_tools",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:stream_loop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:run_bash",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:run_read",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:run_write",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:run_grep",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:run_glob",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:run_revert",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:async_bash",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:load_rules",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:check_permission",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:dispatch_tools",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/core.py",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:stream_loop",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s01_perception_action_loop.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s01_perception_action_loop.py",
+      "target": "function:inspiration/claude-code-from-scratch/s01_perception_action_loop.py:agent_loop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s01_perception_action_loop.py",
+      "target": "function:inspiration/claude-code-from-scratch/s01_perception_action_loop.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s01_perception_action_loop.py",
+      "target": "function:inspiration/claude-code-from-scratch/s01_perception_action_loop.py:agent_loop",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s01_perception_action_loop.py",
+      "target": "function:inspiration/claude-code-from-scratch/s01_perception_action_loop.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s01_perception_action_loop.py:agent_loop",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:dispatch_tools",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s02_tool_use.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s02_tool_use.py",
+      "target": "function:inspiration/claude-code-from-scratch/s02_tool_use.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s02_tool_use.py",
+      "target": "function:inspiration/claude-code-from-scratch/s02_tool_use.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s02_tool_use.py:main",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:stream_loop",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s03_todo_write.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s03_todo_write.py",
+      "target": "function:inspiration/claude-code-from-scratch/s03_todo_write.py:run_todo_write",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s03_todo_write.py",
+      "target": "function:inspiration/claude-code-from-scratch/s03_todo_write.py:run_todo_read",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s03_todo_write.py",
+      "target": "function:inspiration/claude-code-from-scratch/s03_todo_write.py:run_todo_update",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s03_todo_write.py",
+      "target": "function:inspiration/claude-code-from-scratch/s03_todo_write.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s03_todo_write.py",
+      "target": "function:inspiration/claude-code-from-scratch/s03_todo_write.py:run_todo_write",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s03_todo_write.py",
+      "target": "function:inspiration/claude-code-from-scratch/s03_todo_write.py:run_todo_read",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s03_todo_write.py",
+      "target": "function:inspiration/claude-code-from-scratch/s03_todo_write.py:run_todo_update",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s03_todo_write.py",
+      "target": "function:inspiration/claude-code-from-scratch/s03_todo_write.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s03_todo_write.py:main",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:stream_loop",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s04_subagent.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s04_subagent.py",
+      "target": "function:inspiration/claude-code-from-scratch/s04_subagent.py:run_subagent",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s04_subagent.py",
+      "target": "function:inspiration/claude-code-from-scratch/s04_subagent.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s04_subagent.py",
+      "target": "function:inspiration/claude-code-from-scratch/s04_subagent.py:run_subagent",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s04_subagent.py",
+      "target": "function:inspiration/claude-code-from-scratch/s04_subagent.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s04_subagent.py:run_subagent",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:dispatch_tools",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s04_subagent.py:main",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:stream_loop",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "target": "function:inspiration/claude-code-from-scratch/s05_skill_loading.py:discover_skills",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "target": "function:inspiration/claude-code-from-scratch/s05_skill_loading.py:run_list_skills",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "target": "function:inspiration/claude-code-from-scratch/s05_skill_loading.py:run_load_skill",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "target": "function:inspiration/claude-code-from-scratch/s05_skill_loading.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "target": "function:inspiration/claude-code-from-scratch/s05_skill_loading.py:discover_skills",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "target": "function:inspiration/claude-code-from-scratch/s05_skill_loading.py:run_list_skills",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "target": "function:inspiration/claude-code-from-scratch/s05_skill_loading.py:run_load_skill",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "target": "function:inspiration/claude-code-from-scratch/s05_skill_loading.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s05_skill_loading.py:main",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:stream_loop",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s06_context_compact.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s06_context_compact.py",
+      "target": "function:inspiration/claude-code-from-scratch/s06_context_compact.py:_estimate_size",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s06_context_compact.py",
+      "target": "function:inspiration/claude-code-from-scratch/s06_context_compact.py:_summarize",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s06_context_compact.py",
+      "target": "function:inspiration/claude-code-from-scratch/s06_context_compact.py:maybe_compress",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s06_context_compact.py",
+      "target": "function:inspiration/claude-code-from-scratch/s06_context_compact.py:agent_loop_with_compression",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s06_context_compact.py",
+      "target": "function:inspiration/claude-code-from-scratch/s06_context_compact.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s06_context_compact.py",
+      "target": "function:inspiration/claude-code-from-scratch/s06_context_compact.py:maybe_compress",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s06_context_compact.py",
+      "target": "function:inspiration/claude-code-from-scratch/s06_context_compact.py:agent_loop_with_compression",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s06_context_compact.py",
+      "target": "function:inspiration/claude-code-from-scratch/s06_context_compact.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s06_context_compact.py:agent_loop_with_compression",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:stream_loop",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s07_task_system.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s07_task_system.py",
+      "target": "function:inspiration/claude-code-from-scratch/s07_task_system.py:run_task_create",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s07_task_system.py",
+      "target": "function:inspiration/claude-code-from-scratch/s07_task_system.py:run_task_list",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s07_task_system.py",
+      "target": "function:inspiration/claude-code-from-scratch/s07_task_system.py:run_task_update",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s07_task_system.py",
+      "target": "function:inspiration/claude-code-from-scratch/s07_task_system.py:run_task_next",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s07_task_system.py",
+      "target": "function:inspiration/claude-code-from-scratch/s07_task_system.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s07_task_system.py",
+      "target": "function:inspiration/claude-code-from-scratch/s07_task_system.py:run_task_create",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s07_task_system.py",
+      "target": "function:inspiration/claude-code-from-scratch/s07_task_system.py:run_task_list",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s07_task_system.py",
+      "target": "function:inspiration/claude-code-from-scratch/s07_task_system.py:run_task_update",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s07_task_system.py",
+      "target": "function:inspiration/claude-code-from-scratch/s07_task_system.py:run_task_next",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s07_task_system.py",
+      "target": "function:inspiration/claude-code-from-scratch/s07_task_system.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s07_task_system.py:main",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:stream_loop",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s08_background_tasks.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s08_background_tasks.py",
+      "target": "function:inspiration/claude-code-from-scratch/s08_background_tasks.py:run_bash_background",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s08_background_tasks.py",
+      "target": "function:inspiration/claude-code-from-scratch/s08_background_tasks.py:_drain_notifications",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s08_background_tasks.py",
+      "target": "function:inspiration/claude-code-from-scratch/s08_background_tasks.py:agent_loop_with_bg",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s08_background_tasks.py",
+      "target": "function:inspiration/claude-code-from-scratch/s08_background_tasks.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s08_background_tasks.py",
+      "target": "function:inspiration/claude-code-from-scratch/s08_background_tasks.py:run_bash_background",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s08_background_tasks.py",
+      "target": "function:inspiration/claude-code-from-scratch/s08_background_tasks.py:agent_loop_with_bg",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s08_background_tasks.py",
+      "target": "function:inspiration/claude-code-from-scratch/s08_background_tasks.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s08_background_tasks.py:agent_loop_with_bg",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:stream_loop",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s09_agent_teams.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s09_agent_teams.py",
+      "target": "function:inspiration/claude-code-from-scratch/s09_agent_teams.py:_send_message",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s09_agent_teams.py",
+      "target": "function:inspiration/claude-code-from-scratch/s09_agent_teams.py:_receive_messages",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s09_agent_teams.py",
+      "target": "function:inspiration/claude-code-from-scratch/s09_agent_teams.py:_run_teammate_loop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s09_agent_teams.py",
+      "target": "function:inspiration/claude-code-from-scratch/s09_agent_teams.py:run_send_to_teammate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s09_agent_teams.py",
+      "target": "function:inspiration/claude-code-from-scratch/s09_agent_teams.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s09_agent_teams.py",
+      "target": "function:inspiration/claude-code-from-scratch/s09_agent_teams.py:run_send_to_teammate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s09_agent_teams.py",
+      "target": "function:inspiration/claude-code-from-scratch/s09_agent_teams.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s09_agent_teams.py:_run_teammate_loop",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:dispatch_tools",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s09_agent_teams.py:main",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:stream_loop",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s10_team_protocols.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s10_team_protocols.py",
+      "target": "class:inspiration/claude-code-from-scratch/s10_team_protocols.py:ProtocolAgent",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s10_team_protocols.py",
+      "target": "function:inspiration/claude-code-from-scratch/s10_team_protocols.py:run_delegate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s10_team_protocols.py",
+      "target": "function:inspiration/claude-code-from-scratch/s10_team_protocols.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s10_team_protocols.py",
+      "target": "class:inspiration/claude-code-from-scratch/s10_team_protocols.py:ProtocolAgent",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s10_team_protocols.py",
+      "target": "function:inspiration/claude-code-from-scratch/s10_team_protocols.py:run_delegate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s10_team_protocols.py",
+      "target": "function:inspiration/claude-code-from-scratch/s10_team_protocols.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:inspiration/claude-code-from-scratch/s10_team_protocols.py:ProtocolAgent",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:dispatch_tools",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s10_team_protocols.py:main",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:stream_loop",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "target": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:claim_next_task",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "target": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:complete_task",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "target": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:fail_task",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "target": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:run_autonomous_agent",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "target": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:_post_new_task",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "target": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "target": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:claim_next_task",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "target": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:complete_task",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "target": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:fail_task",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "target": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:run_autonomous_agent",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "target": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:run_autonomous_agent",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:dispatch_tools",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s11_autonomous_agents.py:main",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:stream_loop",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "target": "function:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py:_git",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "target": "function:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py:create_worktree",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "target": "function:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py:remove_worktree",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "target": "function:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py:run_task_in_worktree",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "target": "function:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "target": "function:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py:create_worktree",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "target": "function:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py:remove_worktree",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "target": "function:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py:run_task_in_worktree",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "target": "function:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py:run_task_in_worktree",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:run_bash",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s13_streaming.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s13_streaming.py",
+      "target": "function:inspiration/claude-code-from-scratch/s13_streaming.py:agent_loop_streaming",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s13_streaming.py",
+      "target": "function:inspiration/claude-code-from-scratch/s13_streaming.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s13_streaming.py",
+      "target": "function:inspiration/claude-code-from-scratch/s13_streaming.py:agent_loop_streaming",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s13_streaming.py",
+      "target": "function:inspiration/claude-code-from-scratch/s13_streaming.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s13_streaming.py:agent_loop_streaming",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:dispatch_tools",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s14_tools_extended.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s14_tools_extended.py",
+      "target": "function:inspiration/claude-code-from-scratch/s14_tools_extended.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s14_tools_extended.py",
+      "target": "function:inspiration/claude-code-from-scratch/s14_tools_extended.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s14_tools_extended.py:main",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:stream_loop",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s15_permissions.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s15_permissions.py",
+      "target": "function:inspiration/claude-code-from-scratch/s15_permissions.py:_guarded",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s15_permissions.py",
+      "target": "function:inspiration/claude-code-from-scratch/s15_permissions.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s15_permissions.py",
+      "target": "function:inspiration/claude-code-from-scratch/s15_permissions.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s15_permissions.py:_guarded",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:check_permission",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s15_permissions.py:main",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:stream_loop",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "target": "class:inspiration/claude-code-from-scratch/s16_event_bus.py:EventBus",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "target": "function:inspiration/claude-code-from-scratch/s16_event_bus.py:hook_logger",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "target": "function:inspiration/claude-code-from-scratch/s16_event_bus.py:hook_stats",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "target": "function:inspiration/claude-code-from-scratch/s16_event_bus.py:hook_timer",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "target": "function:inspiration/claude-code-from-scratch/s16_event_bus.py:agent_loop_with_hooks",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "target": "function:inspiration/claude-code-from-scratch/s16_event_bus.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "target": "class:inspiration/claude-code-from-scratch/s16_event_bus.py:EventBus",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "target": "function:inspiration/claude-code-from-scratch/s16_event_bus.py:hook_logger",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "target": "function:inspiration/claude-code-from-scratch/s16_event_bus.py:hook_stats",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "target": "function:inspiration/claude-code-from-scratch/s16_event_bus.py:hook_timer",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "target": "function:inspiration/claude-code-from-scratch/s16_event_bus.py:agent_loop_with_hooks",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "target": "function:inspiration/claude-code-from-scratch/s16_event_bus.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s17_session_management.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s17_session_management.py",
+      "target": "function:inspiration/claude-code-from-scratch/s17_session_management.py:create_new_session",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s17_session_management.py",
+      "target": "function:inspiration/claude-code-from-scratch/s17_session_management.py:_serialize_messages",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s17_session_management.py",
+      "target": "function:inspiration/claude-code-from-scratch/s17_session_management.py:save_session",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s17_session_management.py",
+      "target": "function:inspiration/claude-code-from-scratch/s17_session_management.py:load_session",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s17_session_management.py",
+      "target": "function:inspiration/claude-code-from-scratch/s17_session_management.py:list_all_sessions",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s17_session_management.py",
+      "target": "function:inspiration/claude-code-from-scratch/s17_session_management.py:print_sessions_table",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s17_session_management.py",
+      "target": "function:inspiration/claude-code-from-scratch/s17_session_management.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s17_session_management.py",
+      "target": "function:inspiration/claude-code-from-scratch/s17_session_management.py:create_new_session",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s17_session_management.py",
+      "target": "function:inspiration/claude-code-from-scratch/s17_session_management.py:save_session",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s17_session_management.py",
+      "target": "function:inspiration/claude-code-from-scratch/s17_session_management.py:load_session",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s17_session_management.py",
+      "target": "function:inspiration/claude-code-from-scratch/s17_session_management.py:list_all_sessions",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s17_session_management.py",
+      "target": "function:inspiration/claude-code-from-scratch/s17_session_management.py:print_sessions_table",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s17_session_management.py",
+      "target": "function:inspiration/claude-code-from-scratch/s17_session_management.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s17_session_management.py:main",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:stream_loop",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+      "target": "class:inspiration/claude-code-from-scratch/s18_parallel_tools.py:CacheStats",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+      "target": "function:inspiration/claude-code-from-scratch/s18_parallel_tools.py:dispatch_one_tool",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+      "target": "function:inspiration/claude-code-from-scratch/s18_parallel_tools.py:agent_loop_cached",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+      "target": "function:inspiration/claude-code-from-scratch/s18_parallel_tools.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+      "target": "class:inspiration/claude-code-from-scratch/s18_parallel_tools.py:CacheStats",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+      "target": "function:inspiration/claude-code-from-scratch/s18_parallel_tools.py:dispatch_one_tool",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+      "target": "function:inspiration/claude-code-from-scratch/s18_parallel_tools.py:agent_loop_cached",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+      "target": "function:inspiration/claude-code-from-scratch/s18_parallel_tools.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+      "target": "file:inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s19_interrupts.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s19_interrupts.py",
+      "target": "function:inspiration/claude-code-from-scratch/s19_interrupts.py:dispatch_one_tool",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s19_interrupts.py",
+      "target": "function:inspiration/claude-code-from-scratch/s19_interrupts.py:agent_loop_interruptible",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s19_interrupts.py",
+      "target": "function:inspiration/claude-code-from-scratch/s19_interrupts.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s19_interrupts.py",
+      "target": "function:inspiration/claude-code-from-scratch/s19_interrupts.py:dispatch_one_tool",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s19_interrupts.py",
+      "target": "function:inspiration/claude-code-from-scratch/s19_interrupts.py:agent_loop_interruptible",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s19_interrupts.py",
+      "target": "function:inspiration/claude-code-from-scratch/s19_interrupts.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+      "target": "class:inspiration/claude-code-from-scratch/s20_cache_optimization.py:CacheStats",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+      "target": "function:inspiration/claude-code-from-scratch/s20_cache_optimization.py:dispatch_one_tool",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+      "target": "function:inspiration/claude-code-from-scratch/s20_cache_optimization.py:agent_loop_cached",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+      "target": "function:inspiration/claude-code-from-scratch/s20_cache_optimization.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+      "target": "class:inspiration/claude-code-from-scratch/s20_cache_optimization.py:CacheStats",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+      "target": "function:inspiration/claude-code-from-scratch/s20_cache_optimization.py:dispatch_one_tool",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+      "target": "function:inspiration/claude-code-from-scratch/s20_cache_optimization.py:agent_loop_cached",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+      "target": "function:inspiration/claude-code-from-scratch/s20_cache_optimization.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "target": "function:inspiration/claude-code-from-scratch/s21_mcp_runtime.py:connect_mcp_servers",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "target": "function:inspiration/claude-code-from-scratch/s21_mcp_runtime.py:execute_mcp_tool",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "target": "function:inspiration/claude-code-from-scratch/s21_mcp_runtime.py:dispatch_one_tool",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "target": "function:inspiration/claude-code-from-scratch/s21_mcp_runtime.py:agent_loop_mcp",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "target": "function:inspiration/claude-code-from-scratch/s21_mcp_runtime.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "target": "function:inspiration/claude-code-from-scratch/s21_mcp_runtime.py:connect_mcp_servers",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "target": "function:inspiration/claude-code-from-scratch/s21_mcp_runtime.py:execute_mcp_tool",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "target": "function:inspiration/claude-code-from-scratch/s21_mcp_runtime.py:dispatch_one_tool",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "target": "function:inspiration/claude-code-from-scratch/s21_mcp_runtime.py:agent_loop_mcp",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "target": "function:inspiration/claude-code-from-scratch/s21_mcp_runtime.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "target": "class:inspiration/claude-code-from-scratch/s22_production_mailbox.py:MailboxBackend",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "target": "class:inspiration/claude-code-from-scratch/s22_production_mailbox.py:RedisMailbox",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "target": "class:inspiration/claude-code-from-scratch/s22_production_mailbox.py:QueueMailbox",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "target": "function:inspiration/claude-code-from-scratch/s22_production_mailbox.py:initialize_mailbox",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "target": "function:inspiration/claude-code-from-scratch/s22_production_mailbox.py:teammate_worker_loop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "target": "function:inspiration/claude-code-from-scratch/s22_production_mailbox.py:lead_orchestration_loop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "target": "function:inspiration/claude-code-from-scratch/s22_production_mailbox.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "target": "class:inspiration/claude-code-from-scratch/s22_production_mailbox.py:MailboxBackend",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "target": "class:inspiration/claude-code-from-scratch/s22_production_mailbox.py:RedisMailbox",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "target": "class:inspiration/claude-code-from-scratch/s22_production_mailbox.py:QueueMailbox",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "target": "function:inspiration/claude-code-from-scratch/s22_production_mailbox.py:initialize_mailbox",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "target": "function:inspiration/claude-code-from-scratch/s22_production_mailbox.py:teammate_worker_loop",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "target": "function:inspiration/claude-code-from-scratch/s22_production_mailbox.py:lead_orchestration_loop",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "target": "function:inspiration/claude-code-from-scratch/s22_production_mailbox.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:inspiration/claude-code-from-scratch/s22_production_mailbox.py:RedisMailbox",
+      "target": "class:inspiration/claude-code-from-scratch/s22_production_mailbox.py:MailboxBackend",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "class:inspiration/claude-code-from-scratch/s22_production_mailbox.py:QueueMailbox",
+      "target": "class:inspiration/claude-code-from-scratch/s22_production_mailbox.py:MailboxBackend",
+      "type": "inherits",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s22_production_mailbox.py:teammate_worker_loop",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:async_bash",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "class:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:WTask",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:_git",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:get_current_branch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:list_active_worktrees",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:prune_stale_worktrees",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:setup_isolated_worktree",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:teardown_worktree",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:analyze_parallel_conflicts",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:run_agent_in_worktree",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:orchestrate_parallel_tasks",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "class:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:WTask",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:get_current_branch",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:list_active_worktrees",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:prune_stale_worktrees",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:setup_isolated_worktree",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:teardown_worktree",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:analyze_parallel_conflicts",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:run_agent_in_worktree",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:orchestrate_parallel_tasks",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "target": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:inspiration/claude-code-from-scratch/s23_worktree_advanced.py:run_agent_in_worktree",
+      "target": "function:inspiration/claude-code-from-scratch/core.py:dispatch_tools",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s01_perception_action_loop.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s02_tool_use.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s03_todo_write.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s04_subagent.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s06_context_compact.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s07_task_system.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s08_background_tasks.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s09_agent_teams.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s10_team_protocols.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s13_streaming.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s14_tools_extended.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s15_permissions.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s17_session_management.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s19_interrupts.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "config:inspiration/claude-code-from-scratch/config/permissions.yaml",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "config:inspiration/claude-code-from-scratch/config/mcp_config.yaml",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "document:inspiration/claude-code-from-scratch/skills/agent-builder/SKILL.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "document:inspiration/claude-code-from-scratch/skills/code-review/SKILL.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "document:inspiration/claude-code-from-scratch/skills/pdf/SKILL.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "config:inspiration/claude-code-from-scratch/litellm_config.yaml",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "config:inspiration/claude-code-from-scratch/.env.example",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/README.md",
+      "target": "document:inspiration/claude-code-from-scratch/requirements.txt",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "config:inspiration/claude-code-from-scratch/.env.example",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:inspiration/claude-code-from-scratch/.env.example",
+      "target": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:inspiration/claude-code-from-scratch/litellm_config.yaml",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:inspiration/claude-code-from-scratch/litellm_config.yaml",
+      "target": "config:inspiration/claude-code-from-scratch/.env.example",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/requirements.txt",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/requirements.txt",
+      "target": "file:inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/requirements.txt",
+      "target": "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "config:inspiration/claude-code-from-scratch/config/mcp_config.yaml",
+      "target": "file:inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:inspiration/claude-code-from-scratch/config/permissions.yaml",
+      "target": "file:inspiration/claude-code-from-scratch/s15_permissions.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:inspiration/claude-code-from-scratch/config/permissions.yaml",
+      "target": "file:inspiration/claude-code-from-scratch/s16_event_bus.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/skills/agent-builder/SKILL.md",
+      "target": "file:inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/skills/agent-builder/SKILL.md",
+      "target": "file:inspiration/claude-code-from-scratch/core.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/skills/code-review/SKILL.md",
+      "target": "file:inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:inspiration/claude-code-from-scratch/skills/pdf/SKILL.md",
+      "target": "file:inspiration/claude-code-from-scratch/s05_skill_loading.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ],
+  "layers": [
+    {
+      "id": "layer:claude-code-from-scratch--noyau-harness",
+      "name": "[claude-code-from-scratch] Noyau du harness",
+      "description": "Bibliothèque centrale core.py importée par les 23 sessions : client Anthropic, schémas d'outils (BASIC_TOOLS, EXTENDED_TOOLS), dispatch maps, gouvernance des permissions et boucle d'agent en streaming.",
+      "nodeIds": [
+        "file:inspiration/claude-code-from-scratch/core.py"
+      ]
+    },
+    {
+      "id": "layer:claude-code-from-scratch--fondamentaux",
+      "name": "[claude-code-from-scratch] Fondamentaux de l'agent",
+      "description": "Sessions 1 à 7 posant les bases du harness engineering : boucle perception-action, dispatch map d'outils, planification par todos, sous-agents éphémères, chargement de skills à la demande, compaction de contexte et graphe de tâches persistant.",
+      "nodeIds": [
+        "file:inspiration/claude-code-from-scratch/s01_perception_action_loop.py",
+        "file:inspiration/claude-code-from-scratch/s02_tool_use.py",
+        "file:inspiration/claude-code-from-scratch/s03_todo_write.py",
+        "file:inspiration/claude-code-from-scratch/s04_subagent.py",
+        "file:inspiration/claude-code-from-scratch/s05_skill_loading.py",
+        "file:inspiration/claude-code-from-scratch/s06_context_compact.py",
+        "file:inspiration/claude-code-from-scratch/s07_task_system.py"
+      ]
+    },
+    {
+      "id": "layer:claude-code-from-scratch--multi-agents",
+      "name": "[claude-code-from-scratch] Orchestration multi-agents",
+      "description": "Sessions 8 à 12 consacrées à la coordination de plusieurs agents : tâches d'arrière-plan en threads, équipes avec mailboxes JSONL, protocoles à machine à états, réclamation autonome de tâches et isolation par git worktree.",
+      "nodeIds": [
+        "file:inspiration/claude-code-from-scratch/s08_background_tasks.py",
+        "file:inspiration/claude-code-from-scratch/s09_agent_teams.py",
+        "file:inspiration/claude-code-from-scratch/s10_team_protocols.py",
+        "file:inspiration/claude-code-from-scratch/s11_autonomous_agents.py",
+        "file:inspiration/claude-code-from-scratch/s12_worktree_task_isolation.py"
+      ]
+    },
+    {
+      "id": "layer:claude-code-from-scratch--fonctionnalites-production",
+      "name": "[claude-code-from-scratch] Fonctionnalités de production",
+      "description": "Sessions 13 à 17 ajoutant les capacités attendues d'un agent en production : streaming de tokens, arsenal d'outils étendu et réversible, gouvernance des permissions par règles YAML, event bus à hooks et persistance/forking des sessions.",
+      "nodeIds": [
+        "file:inspiration/claude-code-from-scratch/s13_streaming.py",
+        "file:inspiration/claude-code-from-scratch/s14_tools_extended.py",
+        "file:inspiration/claude-code-from-scratch/s15_permissions.py",
+        "file:inspiration/claude-code-from-scratch/s16_event_bus.py",
+        "file:inspiration/claude-code-from-scratch/s17_session_management.py"
+      ]
+    },
+    {
+      "id": "layer:claude-code-from-scratch--runtime-avance",
+      "name": "[claude-code-from-scratch] Runtime avancé",
+      "description": "Sessions 18 à 23, aboutissement de la série : exécution parallèle d'outils avec prompt caching Anthropic, interruptions douces via Ctrl+C, runtime client MCP, mailboxes Redis Pub/Sub et worktrees git de qualité production avec détection de conflits.",
+      "nodeIds": [
+        "file:inspiration/claude-code-from-scratch/s18_parallel_tools.py",
+        "file:inspiration/claude-code-from-scratch/s19_interrupts.py",
+        "file:inspiration/claude-code-from-scratch/s20_cache_optimization.py",
+        "file:inspiration/claude-code-from-scratch/s21_mcp_runtime.py",
+        "file:inspiration/claude-code-from-scratch/s22_production_mailbox.py",
+        "file:inspiration/claude-code-from-scratch/s23_worktree_advanced.py"
+      ]
+    },
+    {
+      "id": "layer:claude-code-from-scratch--configuration",
+      "name": "[claude-code-from-scratch] Configuration",
+      "description": "Fichiers de configuration et de dépendances pilotant les sessions : variables d'environnement, proxy LiteLLM multi-fournisseur, serveurs MCP pour s21, règles de permissions pour s15/s16, manifeste pip annoté par session et réglages de l'outillage d'analyse.",
+      "nodeIds": [
+        "config:inspiration/claude-code-from-scratch/.env.example",
+        "config:inspiration/claude-code-from-scratch/litellm_config.yaml",
+        "config:inspiration/claude-code-from-scratch/config/mcp_config.yaml",
+        "config:inspiration/claude-code-from-scratch/config/permissions.yaml",
+        "config:inspiration/claude-code-from-scratch/.understand-anything/config.json",
+        "file:inspiration/claude-code-from-scratch/.understand-anything/.understandignore",
+        "document:inspiration/claude-code-from-scratch/requirements.txt"
+      ]
+    },
+    {
+      "id": "layer:claude-code-from-scratch--documentation-skills",
+      "name": "[claude-code-from-scratch] Documentation et skills",
+      "description": "Documentation du projet (README présentant le harness engineering et les six phases pédagogiques) et skills SKILL.md chargées à la demande par s05 : construction d'agents, revue de code et manipulation de PDF.",
+      "nodeIds": [
+        "document:inspiration/claude-code-from-scratch/README.md",
+        "document:inspiration/claude-code-from-scratch/skills/agent-builder/SKILL.md",
+        "document:inspiration/claude-code-from-scratch/skills/code-review/SKILL.md",
+        "document:inspiration/claude-code-from-scratch/skills/pdf/SKILL.md"
+      ]
+    }
+  ],
+  "tour": []
+}

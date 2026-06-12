@@ -17,7 +17,7 @@ import mcp_runtime
 import sessions
 import tasks
 import worktree
-from core import DEFAULT_SYSTEM, emit, paint
+from core import DEFAULT_SYSTEM, emit, paint, text_of
 from loop import CACHE, INTERRUPTS, agent_loop_async
 from mailbox import get_mailbox
 
@@ -45,10 +45,6 @@ def build_system() -> str:
                  + context.skills_index())
     parts.append("For multi-step work, write a plan with todo_write first and keep it updated.")
     return "\n\n".join(parts)
-
-
-def _text_of(message) -> str:
-    return "".join(b.text for b in message.content if hasattr(b, "text"))
 
 
 def _repair(messages: list) -> None:
@@ -143,7 +139,7 @@ async def repl(args) -> None:
             try:
                 final = await agent_loop_async(state["messages"], system=system,
                                                parallel=not args.seq, cache=not args.no_cache)
-                emit("assistant_message", {"text": _text_of(final)})
+                emit("assistant_message", {"text": text_of(final)})
             except KeyboardInterrupt:
                 print(paint("\n[interrompu] tour abandonné — l'historique reste cohérent", "red"))
                 _repair(state["messages"])
