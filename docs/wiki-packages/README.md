@@ -29,9 +29,9 @@ packages/
 │   ├── base.py              agent_loop(), dispatch_tools()
 │   └── main.py              REPL + bootstrap import mekillm
 └── mekichat/                → voir mekichat.md
-    ├── app.py               page NiceGUI "/" ; ui.run(port=8080)
-    ├── sessions.py          load/save/new_session_id ; JSON sous .sessions/ (racine)
-    ├── views.py             render_message(), build_ui()
+    ├── app.py               page NiceGUI "/" (index + _refresh) ; ui.run(port=8080)
+    ├── sessions.py          SessionStore.create/save/load/list ; JSON sous .sessions/ (racine)
+    ├── views.py             render_message(), render_session_item()
     └── static/
         └── mekichat.css     thème cyberpunk Phosphore
 ```
