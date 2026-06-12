@@ -147,14 +147,23 @@ def index() -> None:
                 return
             gen = run_agent(current.messages, llm, TOOLS, DISPATCH)
             handles: dict = {}
+            disconnected = False
             while True:
                 ev = await run.io_bound(next, gen, _DONE)
                 if ev is _DONE or isinstance(ev, events.RunFinished):
                     break
-                _render_event(ev, handles)
-            _clear_thinking()
-            store.save(current)
-            _refresh_sidebar()
+                try:
+                    _render_event(ev, handles)
+                except RuntimeError as exc:  # onglet/client fermé pendant le run : on cesse de rendre
+                    if "deleted" not in str(exc):
+                        raise
+                    disconnected = True
+                    break
+            if not disconnected:
+                _clear_thinking()
+            store.save(current)              # persiste la conversation même si l'onglet a été fermé
+            if not disconnected:
+                _refresh_sidebar()
         finally:
             state["busy"] = False
 
