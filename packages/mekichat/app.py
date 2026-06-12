@@ -21,9 +21,6 @@ FONTS = (
     '<link href="https://fonts.googleapis.com/css2?'
     'family=Chakra+Petch:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">'
 )
-PALETTES = [("phosphor", "PHOSPHORE"), ("blade", "BLADE RUNNER"),
-            ("orange", "ORANGE/TEAL"), ("acid", "ACIDE")]
-
 _store: sessions_mod.SessionStore | None = None
 
 
@@ -57,9 +54,6 @@ def index() -> None:
     # mais le timer (créé UNE seule fois plus bas) le relit ici → pas d'empilement de timers.
     clock_ref: dict[str, object] = {"label": None}
 
-    def switch_theme(key: str) -> None:
-        ui.run_javascript(f"document.body.setAttribute('data-theme','{key}')")
-
     def open_session(session_id: str) -> None:
         nonlocal current
         store = _get_store()
@@ -86,13 +80,12 @@ def index() -> None:
         if label is not None:
             label.set_text(_now_hms())
 
-    # ---- barre d'outils palettes ----
-    with ui.element("div").classes("toolbar"):
-        ui.label("PALETTE //").classes("lbl")
-        for key, label in PALETTES:
-            ui.button(label, on_click=lambda _, k=key: switch_theme(k)).props("flat no-caps").classes("sw")
-        ui.element("div").classes("spacer")
-        ui.label("phase 1 · UI statique").classes("meta")
+    # ---- fond animé (décoratif, plein écran derrière l'UI) ----
+    ui.html(
+        '<div class="bg"><div class="grid"></div><div class="vig"></div>'
+        '<div class="scan"></div><div class="noise"></div><div class="sweep"></div>'
+        '<div class="mosh"></div><div class="mosh b"></div></div>'
+    )
 
     # ---- coquille principale (grille latérale + main) ----
     app_root = ui.element("div").classes("app")

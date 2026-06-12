@@ -61,7 +61,9 @@
   .toolbar .meta{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.1em}
 
   /* ── LAYOUT ── */
-  .app{flex:1;min-height:0;position:relative;z-index:1;display:grid;grid-template-columns:272px 1fr}
+  /* .app détaché du flux : les wrappers NiceGUI (.q-layout/.q-page/.nicegui-content)
+     ne s'étendent pas au viewport, donc on remplit l'écran via position:fixed. */
+  .app{position:fixed;inset:0;z-index:1;display:grid;grid-template-columns:272px 1fr}
 
   /* ── SIDEBAR ── */
   .sidebar{background:var(--panel);backdrop-filter:blur(8px);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;position:relative}
@@ -162,6 +164,14 @@
   .input-wrap:focus-within{border-color:var(--p1);box-shadow:0 0 0 1px var(--p1),0 0 20px color-mix(in srgb,var(--p1) 30%,transparent)}
   .input-wrap textarea{flex:1;background:none;border:none;outline:none;resize:none;color:var(--text);font-family:var(--ui);font-size:14.5px;line-height:1.5;padding:7px 0;max-height:160px}
   .input-wrap textarea::placeholder{color:var(--faint)}
+  /* NiceGUI enveloppe le textarea dans un q-field : on fait remplir le wrapper (.ta)
+     et on retire le chrome Quasar (padding / min-height / zone basse) pour une saisie pleine largeur. */
+  .input-wrap .ta{flex:1;min-width:0}
+  .input-wrap .ta .q-field__control,
+  .input-wrap .ta .q-field__control-container{padding:0;min-height:0;background:none}
+  .input-wrap .ta .q-field__native{padding:7px 0;min-height:0}
+  .input-wrap .ta .q-field__bottom,
+  .input-wrap .ta .q-field__marginal{display:none}
   .send{width:44px;height:44px;flex:none;clip-path:var(--clip-sm);border:none;cursor:pointer;background:var(--p1);color:#02080a;font-size:18px;display:grid;place-items:center;box-shadow:var(--p1-glow);transition:transform .1s,filter .2s;font-weight:700}
   .send:hover{transform:translateY(-1px) scale(1.04);filter:brightness(1.2)}
   .hint{display:flex;justify-content:space-between;margin-top:10px;padding:0 4px;font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.06em}
