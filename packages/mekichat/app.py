@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 
@@ -56,10 +55,6 @@ def _ensure_current() -> sessions_mod.Session:
     return store.load(metas[0].id) if metas else store.create(model=DEFAULT_MODEL, system=SYSTEM)
 
 
-def _now_hms() -> str:
-    return datetime.now().strftime("%H:%M:%S")
-
-
 @ui.page("/")
 def index() -> None:
     ui.add_head_html(FONTS)
@@ -67,7 +62,6 @@ def index() -> None:
     ui.query("body").props('data-theme=phosphor')
 
     current = _ensure_current()
-    clock_ref: dict[str, object] = {"label": None}
     thread_ref: dict[str, object] = {"inner": None}
     thinking_ref: dict[str, object] = {"el": None}
     stream_ref: dict[str, object] = {"body": None, "lbl": None, "text": ""}
@@ -192,11 +186,6 @@ def index() -> None:
         finally:
             state["busy"] = False
 
-    def _tick() -> None:
-        label = clock_ref["label"]
-        if label is not None:
-            label.set_text(_now_hms())
-
     ui.html(_BG)  # fond animé plein écran (derrière l'UI)
 
     app_root = ui.element("div").classes("app")
@@ -214,7 +203,9 @@ def index() -> None:
                 with ui.element("div"):
                     ui.html('<div class="glitch" data-t="MEKICHAT">MEKICHAT</div>')
                     ui.label("// harness v0.1 :: ROOT").classes("ver")
-            ui.button("+ nouvelle session", on_click=lambda _: new_session()).props("flat no-caps").classes("new-btn")
+            with ui.element("button").classes("new-btn").on("click", lambda _: new_session()):
+                ui.label("+ nouvelle session")
+                ui.html("<kbd>⌘N</kbd>")
             metas = store.list()
             with ui.element("div").classes("sec-label"):
                 ui.label("SESSIONS")
@@ -245,7 +236,6 @@ def index() -> None:
                     _chip("MODEL", current.model, "model")
                     _chip("SID", current.id, "sid")
                     _chip("TOK", "0↑ 0↓", "")
-                    clock_ref["label"] = _chip("⌚", _now_hms(), "")
             with ui.element("div").classes("thread"):
                 inner = ui.element("div").classes("thread-inner")
                 thread_ref["inner"] = inner
@@ -271,17 +261,19 @@ def index() -> None:
 
                         ui.button("▸", on_click=_flush).props("flat").classes("send")
                         box.on("keydown.enter", _on_enter, args=["shiftKey"])
+                    with ui.element("div").classes("hint"):
+                        ui.html("<span><kbd>Entrée</kbd> envoyer · <kbd>Maj+Entrée</kbd> ligne</span>")
+                        ui.html('<span class="haz">⚠ STREAM ON · TOOLS: BASH</span>')
         _scroll_bottom()
 
     _refresh()
-    ui.timer(1.0, _tick)
     ui.timer(0.2, _scroll_bottom, once=True)   # scroll initial une fois le client connecté
 
 
 def _chip(key: str, value: str, extra: str):
     with ui.element("div").classes(f"chip {extra}"):
         ui.label(key).classes("k")
-        lbl = ui.label(value)
+        lbl = ui.label(value).classes("v")
     return lbl
 
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 
 from nicegui import ui
 
@@ -29,6 +30,7 @@ def _msg_shell(role: str):
             with ui.element("div").classes("head"):
                 ui.label(_WHO[role]).classes("who")
                 ui.label(_TAG[role]).classes("tag")
+                ui.label(datetime.now().strftime("%H:%M:%S")).classes("time")
     return row, col
 
 

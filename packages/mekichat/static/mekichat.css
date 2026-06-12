@@ -102,8 +102,8 @@
   .channel .sub{font-size:12px;color:var(--muted);font-family:var(--mono)}
   .chips{display:flex;align-items:center;gap:8px}
   .chip{font-family:var(--mono);font-size:11px;letter-spacing:.04em;padding:6px 11px;clip-path:var(--clip-sm);background:var(--panel-2);border:1px solid var(--line);color:var(--muted);display:flex;align-items:center;gap:7px;white-space:nowrap}
-  .chip .k{color:var(--faint)} .chip b{color:var(--text);font-weight:400}
-  .chip.model b{color:var(--p1);text-shadow:var(--p1-glow)} .chip.sid b{color:var(--p2);text-shadow:var(--p2-glow)}
+  .chip .k{color:var(--faint)} .chip .v{color:var(--text);font-weight:400}
+  .chip.model .v{color:var(--p1);text-shadow:var(--p1-glow)} .chip.sid .v{color:var(--p2);text-shadow:var(--p2-glow)}
   .chip .led{width:6px;height:6px}
 
   .thread{flex:1;overflow-y:auto;padding:22px 0 8px;min-height:0}
@@ -120,6 +120,7 @@
   .who{font-family:var(--ui);font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase}
   .msg.user .who{color:var(--p2)} .msg.bot .who{color:var(--p1)}
   .tag{font-family:var(--mono);font-size:9.5px;color:var(--faint);border:1px solid var(--line-dim);padding:1px 6px;letter-spacing:.1em}
+  .time{font-family:var(--mono);font-size:11px;color:var(--faint);margin-left:auto}
   .body{font-size:14.5px;line-height:1.65;color:#c2d6de}
   .body.plain{white-space:pre-wrap;word-break:break-word}
   .body.streaming{white-space:pre-wrap;word-break:break-word}
@@ -182,6 +183,9 @@
   .input-wrap .ta .q-field__marginal{display:none}
   .send{width:44px;height:44px;flex:none;clip-path:var(--clip-sm);border:none;cursor:pointer;background:var(--p1);color:#02080a;font-size:18px;display:grid;place-items:center;box-shadow:var(--p1-glow);transition:transform .1s,filter .2s;font-weight:700}
   .send:hover{transform:translateY(-1px) scale(1.04);filter:brightness(1.2)}
+  .hint{display:flex;justify-content:space-between;margin-top:10px;padding:0 4px;font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.06em}
+  .hint .haz{color:var(--warn)}
+  .hint kbd{color:var(--muted);border:1px solid var(--line-dim);padding:1px 5px}
 
   ::-webkit-scrollbar{width:10px;height:10px}
   ::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--p1) 20%,transparent);border:2px solid transparent;background-clip:padding-box}
