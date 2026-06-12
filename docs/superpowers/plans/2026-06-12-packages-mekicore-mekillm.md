@@ -16,6 +16,21 @@
 
 Spec de référence : `docs/superpowers/specs/2026-06-12-packages-mekicore-mekillm-design.md`.
 
+**⚠️ Isolation des commits (working tree sale — règle globale) :** le repo contient du travail en
+cours de l'utilisateur (réorg wiki **déjà staged**, `.gitignore` racine modifié, `.env.example`
+racine supprimé) qu'il ne faut **jamais** embarquer. Donc, pour CHAQUE étape « Commit » du plan,
+ignorer la commande `git add`+`git commit` nue affichée et exécuter à la place, avec exactement le
+message indiqué :
+
+```bash
+git add <les fichiers de la tâche>
+git commit --only <les fichiers de la tâche> -m "<message du plan>"
+```
+
+`git commit --only <chemins>` ne commite que ces chemins et **ignore** le reste de l'index (le WIP
+wiki staged reste intact). Ne jamais lancer un `git commit` sans `--only`. Travailler sur `main`
+(accord explicite de l'utilisateur).
+
 ---
 
 ### Task 1 : mekillm/observability.py — CallRecord + 3 canaux
@@ -554,12 +569,19 @@ git commit -m "mekicore: REPL + bootstrap sys.path vers mekillm"
 
 ---
 
-### Task 7 : Config projet — requirements, .env.example, .gitignore
+### Task 7 : Config projet — requirements + fichiers autonomes packages/
+
+> **Isolation git (working tree sale)** : le repo a des changements en cours de l'utilisateur
+> (réorg wiki déjà *staged*, `.gitignore` racine modifié, `.env.example` racine supprimé). Pour
+> ne JAMAIS happer ce WIP : (1) on ne touche pas au `.env.example`/`.gitignore` racine — on crée à
+> la place des fichiers autonomes sous `packages/` ; (2) **tous** les commits du plan utilisent
+> `git commit --only <chemins>` (jamais `git add` suivi d'un `git commit` nu, qui embarquerait
+> l'index sale).
 
 **Files:**
-- Modify: `requirements.txt`
-- Modify: `.env.example`
-- Modify: `.gitignore`
+- Modify: `requirements.txt` (fichier propre, non modifié par l'utilisateur)
+- Create: `packages/.env.example`
+- Create: `packages/.gitignore`
 
 - [ ] **Step 1 : Ajouter la dépendance openai**
 
@@ -569,12 +591,11 @@ Ajoute cette ligne à la fin de `requirements.txt` :
 openai>=1.0                # SDK OpenAI — utilisé par packages/mekillm (backend OpenRouter)
 ```
 
-- [ ] **Step 2 : Compléter .env.example**
-
-Ajoute ce bloc à la fin de `.env.example` :
+- [ ] **Step 2 : Créer packages/.env.example (documentation des variables mekillm)**
 
 ```
-# --- packages/mekillm (provider OpenRouter via SDK openai) ---
+# packages/mekillm — variables lues depuis le .env racine (load_dotenv remonte jusqu'à lui).
+# Copier ces lignes dans le .env racine et remplir.
 OPENROUTER_API_KEY=sk-or-...
 MEKILLM_BASE_URL=https://openrouter.ai/api/v1
 MEKILLM_MODEL=openai/gpt-4o-mini
@@ -582,12 +603,11 @@ MEKILLM_MODEL=openai/gpt-4o-mini
 # MEKILLM_LOG_FILE=
 ```
 
-- [ ] **Step 3 : Ignorer les logs JSONL**
-
-Ajoute cette ligne à la fin de `.gitignore` :
+- [ ] **Step 3 : Créer packages/.gitignore (ignore les logs JSONL)**
 
 ```
-packages/mekillm/.logs/
+# Logs d'appels mekillm (générés à l'exécution)
+mekillm/.logs/
 ```
 
 - [ ] **Step 4 : Installer la dépendance (si environnement actif)**
@@ -595,12 +615,16 @@ packages/mekillm/.logs/
 Run: `pip install "openai>=1.0"`
 Expected: openai installé (ou « already satisfied »).
 
-- [ ] **Step 5 : Commit**
+- [ ] **Step 5 : Commit (isolé)**
 
 ```bash
-git add requirements.txt .env.example .gitignore
-git commit -m "config: dependance openai, vars MEKILLM dans .env.example, ignore .logs"
+git commit --only requirements.txt packages/.env.example packages/.gitignore -m "config: dependance openai + packages/.env.example + packages/.gitignore"
 ```
+
+> `git commit --only` ajoute lui-même les chemins indiqués depuis le working tree et ignore le
+> reste de l'index. Si git refuse un chemin non suivi avec `--only`, faire d'abord
+> `git add packages/.env.example packages/.gitignore` puis
+> `git commit --only requirements.txt packages/.env.example packages/.gitignore -m "..."`.
 
 ---
 
