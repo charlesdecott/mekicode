@@ -15,7 +15,10 @@ from pathlib import Path
 
 log = logging.getLogger("mekillm")
 
-_DEFAULT_LOG = Path(__file__).parent / ".logs" / "calls.jsonl"
+# Les données runtime (logs JSONL) vont à la RACINE du projet, jamais dans packages/
+# (packages/ = code seul). parents[2] = racine, depuis packages/mekillm/observability.py.
+# Surchargeable via la variable d'environnement MEKILLM_LOG_FILE.
+_DEFAULT_LOG = Path(__file__).resolve().parents[2] / ".logs" / "mekillm.jsonl"
 _HOOKS: list = []
 
 
