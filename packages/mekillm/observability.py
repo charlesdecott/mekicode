@@ -52,7 +52,7 @@ def add_hook(fn) -> None:
 
 
 def _log_file() -> Path | None:
-    """Chemin du JSONL : MEKILLM_LOG_FILE, défaut .logs/calls.jsonl, vide = désactivé."""
+    """Chemin du JSONL : MEKILLM_LOG_FILE, défaut .logs/mekillm.jsonl (racine), vide = désactivé."""
     raw = os.environ.get("MEKILLM_LOG_FILE", str(_DEFAULT_LOG))
     return Path(raw) if raw else None
 
