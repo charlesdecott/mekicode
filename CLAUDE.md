@@ -38,7 +38,8 @@ L'état d'avancement et la feuille de route sont dans **[`ROADMAP.md`](ROADMAP.m
   `python tests/smoke_packages.py` (mekillm + mekicore) et `python tests/smoke_mekichat.py` (mekichat).
 - `ROADMAP.md` (racine) — état d'avancement + features claude-code-from-scratch implémentées / restantes.
 - `docs/` — **documentation du projet** ; sommaire dans `docs/README.md`. Contient le wiki rédigé à la
-  main de `packages/` (`docs/wiki-packages/`) et les specs/plans (`docs/superpowers/`).
+  main de `packages/` (`docs/wiki-packages/`), les specs/plans (`docs/superpowers/`) et les **pistes de
+  refacto différées** (`docs/refacto-differe.md` — dédup/simplifications repérées mais pas faites).
 - `.understand-anything/` — graphes understand-anything du projet **+ tous les wikis et le viewer**
   (regroupés ici pour alléger la racine) :
   - `.understand-anything/wiki/` — wiki du projet d'inspiration learn-claude-code (vault Obsidian, ne pas modifier sauf demande)
