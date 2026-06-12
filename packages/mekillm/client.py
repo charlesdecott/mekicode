@@ -93,6 +93,66 @@ def _normalize(resp) -> LLMResponse:
     )
 
 
+def _consume_stream(chunks):
+    """Réassemble un flux de chunks SDK en LLMResponse. Générateur : yield chaque token de
+    texte, **return** le LLMResponse final (texte + tool_calls reconstruits + finish_reason)."""
+    text_parts: list[str] = []
+    tool_acc: dict = {}  # index -> {"id", "name", "args"}
+    finish_reason = ""
+    usage = Usage()
+    for chunk in chunks:
+        u = getattr(chunk, "usage", None)
+        if u:
+            usage = Usage(
+                prompt_tokens=getattr(u, "prompt_tokens", 0) or 0,
+                completion_tokens=getattr(u, "completion_tokens", 0) or 0,
+                total_tokens=getattr(u, "total_tokens", 0) or 0,
+            )
+        choices = getattr(chunk, "choices", None) or []
+        if not choices:
+            continue
+        choice = choices[0]
+        delta = choice.delta
+        if getattr(delta, "content", None):
+            text_parts.append(delta.content)
+            yield delta.content
+        for tc in (getattr(delta, "tool_calls", None) or []):
+            acc = tool_acc.setdefault(tc.index, {"id": "", "name": "", "args": ""})
+            if getattr(tc, "id", None):
+                acc["id"] = tc.id
+            fn = getattr(tc, "function", None)
+            if fn is not None:
+                if getattr(fn, "name", None):
+                    acc["name"] = fn.name
+                if getattr(fn, "arguments", None):
+                    acc["args"] += fn.arguments
+        if getattr(choice, "finish_reason", None):
+            finish_reason = choice.finish_reason
+
+    text = "".join(text_parts)
+    tool_calls = []
+    msg_tool_calls = []
+    for idx in sorted(tool_acc):
+        acc = tool_acc[idx]
+        try:
+            args = json.loads(acc["args"] or "{}")
+        except json.JSONDecodeError:
+            log.warning("arguments JSON invalides (stream) pour l'outil %s", acc["name"])
+            args = {}
+        tool_calls.append(ToolCall(id=acc["id"], name=acc["name"], arguments=args))
+        msg_tool_calls.append({
+            "id": acc["id"], "type": "function",
+            "function": {"name": acc["name"], "arguments": acc["args"]},
+        })
+    message = {"role": "assistant", "content": text}
+    if msg_tool_calls:
+        message["tool_calls"] = msg_tool_calls
+    return LLMResponse(
+        text=text, tool_calls=tool_calls, finish_reason=finish_reason,
+        usage=usage, message=message, raw=None,
+    )
+
+
 class LLM:
     """Provider LLM réutilisable. Lit la config depuis .env, surchargeable par args."""
 
@@ -116,6 +176,44 @@ class LLM:
         try:
             resp = self._client.chat.completions.create(**params)
             out = _normalize(resp)
+            rec["finish_reason"], rec["usage"] = out.finish_reason, out.usage
+            return out
+        except Exception as e:
+            rec["status"], rec["error"] = "error", str(e)
+            raise
+        finally:
+            emit(
+                CallRecord(
+                    ts=now_iso(),
+                    provider="openai",
+                    model=self.model,
+                    latency_ms=int((time.perf_counter() - start) * 1000),
+                    prompt_tokens=rec["usage"].prompt_tokens,
+                    completion_tokens=rec["usage"].completion_tokens,
+                    total_tokens=rec["usage"].total_tokens,
+                    finish_reason=rec["finish_reason"],
+                    status=rec["status"],
+                    error=rec["error"],
+                    n_messages=len(sent),
+                    n_tools=len(tools or []),
+                )
+            )
+
+    def stream(self, messages, tools=None, system=None, max_tokens=8000, **kwargs):
+        """Comme complete(), mais en flux : générateur de tokens de texte ; return le
+        LLMResponse final. Émet un CallRecord (usage à 0 en streaming). Réassemble les tool_calls."""
+        sent = list(messages)
+        if system:
+            sent = [{"role": "system", "content": system}] + sent
+        params = dict(model=self.model, messages=sent, max_tokens=max_tokens, stream=True, **kwargs)
+        if tools:
+            params["tools"] = tools
+
+        start = time.perf_counter()
+        rec = {"status": "ok", "error": None, "finish_reason": "", "usage": Usage()}
+        try:
+            chunks = self._client.chat.completions.create(**params)
+            out = yield from _consume_stream(chunks)
             rec["finish_reason"], rec["usage"] = out.finish_reason, out.usage
             return out
         except Exception as e:

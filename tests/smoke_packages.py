@@ -206,6 +206,57 @@ def test_run_agent_empty_tool_calls():
     assert "tool_calls vide" in evs[1].message
 
 
+def _drain(gen):
+    """Itère gen jusqu'au bout ; mémorise la valeur de return dans _drain.value."""
+    try:
+        while True:
+            yield next(gen)
+    except StopIteration as stop:
+        _drain.value = stop.value
+
+
+def test_consume_stream_text():
+    from mekillm.client import _consume_stream
+    chunks = [
+        NS(choices=[NS(delta=NS(content="Bon", tool_calls=None), finish_reason=None)], usage=None),
+        NS(choices=[NS(delta=NS(content="jour", tool_calls=None), finish_reason=None)], usage=None),
+        NS(choices=[NS(delta=NS(content=None, tool_calls=None), finish_reason="stop")], usage=None),
+    ]
+    gen = _consume_stream(iter(chunks))
+    tokens = []
+    try:
+        while True:
+            tokens.append(next(gen))
+    except StopIteration as stop:
+        resp = stop.value
+    assert tokens == ["Bon", "jour"]
+    assert resp.text == "Bonjour"
+    assert resp.finish_reason == "stop"
+    assert resp.tool_calls == []
+    assert resp.message == {"role": "assistant", "content": "Bonjour"}
+
+
+def test_consume_stream_tool_call():
+    from mekillm.client import _consume_stream
+    chunks = [
+        NS(choices=[NS(delta=NS(content=None, tool_calls=[
+            NS(index=0, id="call_1", function=NS(name="bash", arguments='{"comm'))]), finish_reason=None)], usage=None),
+        NS(choices=[NS(delta=NS(content=None, tool_calls=[
+            NS(index=0, id=None, function=NS(name=None, arguments='and": "ls"}'))]), finish_reason=None)], usage=None),
+        NS(choices=[NS(delta=NS(content=None, tool_calls=None), finish_reason="tool_calls")], usage=None),
+    ]
+    gen = _consume_stream(iter(chunks))
+    tokens = list(_drain(gen))
+    resp = _drain.value
+    assert tokens == []
+    assert resp.finish_reason == "tool_calls"
+    assert len(resp.tool_calls) == 1
+    assert resp.tool_calls[0].id == "call_1"
+    assert resp.tool_calls[0].name == "bash"
+    assert resp.tool_calls[0].arguments == {"command": "ls"}
+    assert resp.message["tool_calls"][0]["function"]["arguments"] == '{"command": "ls"}'
+
+
 def main():
     log_path = Path(tempfile.gettempdir()) / "mekillm_smoke.jsonl"
     if log_path.exists():
@@ -224,6 +275,8 @@ def main():
     test_run_agent_error()
     test_run_agent_unknown_tool()
     test_run_agent_empty_tool_calls()
+    test_consume_stream_text()
+    test_consume_stream_tool_call()
     print("OK - tous les smoke tests passent")
 
 
