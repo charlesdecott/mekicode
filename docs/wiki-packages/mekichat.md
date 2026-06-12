@@ -43,9 +43,11 @@ static/
 
 ## `static/mekichat.css` — thème Phosphore
 
-Variables CSS centralisées (`--phosphore-*`) : fond sombre, accent vert phosphorescente,
-typographie monospace. Stylise les bulles de messages (`.msg-user` / `.msg-assistant`),
-la barre de saisie, le conteneur de l'historique.
+Palette pilotée par variables CSS (`--p1` vert phosphore, `--p2` magenta, `--warn` jaune) et
+commutable via l'attribut `[data-theme]` (phosphor / blade / orange / acid). Look cyberpunk :
+coins biseautés (`clip-path`), glitch, scanlines, ticker HUD. Stylise les lignes de messages
+(`.msg.user` / `.msg.bot`), le bloc outil (`.tool`), la barre de saisie (`.input-wrap`) et le fil
+(`.thread`).
 
 ## `views.py` — helpers de rendu (deux fonctions)
 
