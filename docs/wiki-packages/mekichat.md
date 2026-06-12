@@ -62,6 +62,9 @@ coins biseautés (`clip-path`), glitch, scanlines, ticker HUD. Stylise les ligne
   l'élément, supprimé via `.delete()` à la réponse).
 - `render_thread(messages)` : rejoue tout un historique (texte + blocs `[bash]` appariés
   `tool_calls` ↔ messages `role:"tool"`) — chemin de rechargement de session.
+- `render_stream_bubble()` → `(body, lbl)` : bulle assistant en cours de **streaming** (texte brut
+  + caret clignotant) ; le label est mis à jour à chaque token.
+- `finalize_stream(body, text)` : remplace le texte streamé par le rendu **markdown** final (retire le caret).
 
 ## `app.py` — page NiceGUI
 
@@ -71,9 +74,10 @@ coins biseautés (`clip-path`), glitch, scanlines, ticker HUD. Stylise les ligne
   (re)construite par la closure `_refresh()` ; le fil d'une session rechargée est rejoué par
   `views.render_thread`.
 - **Envoi** (`send`, async) : ajoute le message user, persiste, puis pilote `base.run_agent`
-  **pas-à-pas** via `await run.io_bound(next, gen, _DONE)` (sans figer l'UI). Rend en direct :
-  `ThinkingStarted` → « PROCESSING… », `AssistantDone` → bulle, `ToolStarted`/`ToolFinished` →
-  bloc `[bash]`, `RunError` → bulle rouge. Persiste à la fin.
+  (en **`stream=True`**) **pas-à-pas** via `await run.io_bound(next, gen, _DONE)` (sans figer l'UI).
+  Rend en direct : `ThinkingStarted` → « PROCESSING… », `AssistantDelta` → bulle de **streaming**
+  (texte + caret), `AssistantDone` → **finalisation markdown**, `ToolStarted`/`ToolFinished` → bloc
+  `[bash]`, `RunError` → bulle rouge (et fige la bulle partielle). Persiste à la fin.
 - `state["busy"]` empêche envois/bascules concurrents ; le rendu cesse proprement si l'onglet se
   ferme en plein run (garde « client supprimé »).
 - Store et LLM en singletons **paresseux** (`_get_store` / `_get_llm`).
@@ -91,22 +95,20 @@ clé valide, l'envoi affiche une bulle d'erreur « LLM indisponible » (dégrada
 
 ## Statut
 
-**Phases 1 et 2 livrées.**
+**Phases 1, 2 et 3 livrées.**
 - Phase 1 : persistance des sessions JSON + UI statique (thème Phosphore).
-- Phase 2 : chat branché sur l'agent — `mekillm.LLM.complete` via `base.run_agent` à événements,
-  outil `bash` exécuté et affiché en blocs `[bash]`, indicateur « PROCESSING… », gestion d'erreur
-  (bulle rouge), persistance par tour. **Non-streaming.**
+- Phase 2 : chat branché sur l'agent (`base.run_agent` à événements sur `mekillm.LLM.complete`),
+  outil `bash` en blocs `[bash]`, indicateur « PROCESSING… », gestion d'erreur, persistance par tour.
+- Phase 3 : **streaming token par token** — `mekillm.LLM.stream`, événement `AssistantDelta`,
+  `run_agent(stream=True)` ; la bulle se construit en direct avec un **caret**, finalisée en markdown.
 
-Phase suivante :
-- **Phase 3** — streaming token par token (`LLM.stream`, `AssistantDelta`, caret).
-
-> Rendu **markdown** des réponses de l'agent (titres de tailles dégressives, listes, blocs de code,
-> retours-ligne). Les messages utilisateur restent en texte brut.
+> Rendu **markdown** des réponses de l'agent (titres dégressifs, listes, blocs de code, retours-ligne).
+> Les messages utilisateur restent en texte brut.
 
 ## Relations entrantes / sortantes
 
-- Dépend de [mekillm](mekillm.md) (`LLM.complete`) et de [mekicore](mekicore.md) (`base.run_agent`,
-  `events`, outil `bash`).
+- Dépend de [mekillm](mekillm.md) (`LLM.complete` / `LLM.stream`) et de [mekicore](mekicore.md)
+  (`base.run_agent`, `events`, outil `bash`).
 - Pendant de [mekicore](mekicore.md) : même agent, interface web au lieu du REPL terminal.
 - Non-régression réseau-free : `tests/smoke_mekichat.py` (sessions) + `tests/smoke_packages.py`
   (`run_agent`, événements).
