@@ -12,7 +12,7 @@ Deux bases de code parallèles, du plus pédagogique au plus réutilisable :
   importés depuis n'importe quel projet.
 
 > `src/` (ancienne refonte de learn-claude-code) a été **retirée** au profit de `src_scratch/` et
-> `packages/` ; son wiki d'archive reste sous `.understand-anything/wiki-src/`.
+> `packages/`.
 
 `src_scratch/` est documenté par un wiki understand-anything sous `.understand-anything/`
 (graphes de connaissance en français) ; `packages/` est documenté à la main dans **[`docs/`](docs/README.md)**.
@@ -38,7 +38,6 @@ L'état d'avancement et la feuille de route sont dans **[`ROADMAP.md`](ROADMAP.m
   (regroupés ici pour alléger la racine) :
   - `.understand-anything/wiki/` — wiki du projet d'inspiration learn-claude-code (vault Obsidian, ne pas modifier sauf demande)
   - `.understand-anything/wiki-ccfs/` — wiki du repo d'inspiration claude-code-from-scratch
-  - `.understand-anything/wiki-src/` — wiki d'**archive** de l'ancien code `src/` (retiré ; conservé pour référence)
   - `.understand-anything/wiki-src-scratch/` — wiki de NOTRE code src_scratch/ (conventions : `.understand-anything/wiki-src-scratch/_conventions.md`)
   - `.understand-anything/wiki-viewer/` — viewer navigateur multi-projets
   - `.understand-anything/lancer-wiki-viewer.ps1` — script de lancement : `.understand-anything/lancer-wiki-viewer.ps1 [port]` (défaut 8088)
