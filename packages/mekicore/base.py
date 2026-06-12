@@ -5,6 +5,8 @@ messages role:"tool" en sortie.
 """
 from __future__ import annotations
 
+from datetime import datetime
+
 
 def dispatch_tools(tool_calls, dispatch) -> list:
     """Exécute chaque ToolCall et renvoie les messages role:'tool' correspondants."""
@@ -35,7 +37,10 @@ def agent_loop(messages, llm, tools, dispatch) -> None:
         resp = llm.complete(messages, tools=tools)
         messages.append(resp.message)
         if resp.text:
-            print(resp.text)
+            # En-tête : heure de réception + modèle qui a répondu (celui renvoyé par
+            # le provider si dispo, sinon celui configuré sur le client).
+            model = getattr(resp.raw, "model", None) or getattr(llm, "model", "?")
+            print(f"\033[90m[{datetime.now().strftime('%H:%M:%S')} · {model}]\033[0m {resp.text}")
         if resp.finish_reason != "tool_calls":
             return
         messages += dispatch_tools(resp.tool_calls, dispatch)
