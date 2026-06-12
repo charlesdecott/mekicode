@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -35,24 +36,17 @@ _BG = (
 )
 _DONE = object()  # sentinelle de fin de générateur pour run.io_bound(next, gen, _DONE)
 
-_store: sessions_mod.SessionStore | None = None
-_llm = None
-
-
+@lru_cache(maxsize=1)
 def _get_store() -> sessions_mod.SessionStore:
     """Singleton paresseux : évite de créer .sessions/ au simple import du module."""
-    global _store
-    if _store is None:
-        _store = sessions_mod.SessionStore()
-    return _store
+    return sessions_mod.SessionStore()
 
 
+@lru_cache(maxsize=1)
 def _get_llm():
-    """Singleton paresseux du provider LLM (peut lever si pas de clé : géré à l'appel)."""
-    global _llm
-    if _llm is None:
-        _llm = mekillm.LLM()
-    return _llm
+    """Singleton paresseux du provider LLM. Peut lever si pas de clé (géré à l'appel) ; une
+    construction qui échoue n'est pas mise en cache (Python ≥3.9) → réessai au prochain appel."""
+    return mekillm.LLM()
 
 
 def _ensure_current() -> sessions_mod.Session:
@@ -97,11 +91,9 @@ def index() -> None:
         nonlocal current
         if state["busy"]:
             return
-        store = _get_store()
-        store.delete(session_id)
+        _get_store().delete(session_id)
         if current.id == session_id:               # session courante supprimée → basculer
-            metas = store.list()
-            current = store.load(metas[0].id) if metas else store.create(model=DEFAULT_MODEL, system=SYSTEM)
+            current = _ensure_current()             # plus récente restante, ou une nouvelle
         _refresh()
 
     def _scroll_bottom() -> None:
@@ -265,22 +257,19 @@ def index() -> None:
                         box = ui.textarea(placeholder="// message à mekicore (l'agent peut lancer des commandes bash)")
                         box.props("borderless autogrow").classes("ta")
 
-                        async def _do_send(_=None) -> None:
-                            value = box.value
-                            box.set_value("")
-                            await send(value)
-
-                        async def _on_enter(e) -> None:
-                            # Maj+Entrée → nouvelle ligne (laisser le défaut) ; Entrée seule → envoyer.
-                            # shiftKey vient de l'événement ; la valeur depuis box.value (synchronisée
-                            # via l'event input, qui précède le keydown dans le websocket ordonné).
-                            if isinstance(e.args, dict) and e.args.get("shiftKey"):
-                                return
+                        async def _flush(_=None) -> None:
+                            # lit la valeur (box.value est synchronisée via l'event input, qui précède
+                            # le keydown dans le websocket ordonné), la vide, puis envoie.
                             value = box.value or ""
                             box.set_value("")
                             await send(value)
 
-                        ui.button("▸", on_click=_do_send).props("flat").classes("send")
+                        async def _on_enter(e) -> None:
+                            # Entrée seule → envoyer ; Maj+Entrée → nouvelle ligne (comportement par défaut).
+                            if not (isinstance(e.args, dict) and e.args.get("shiftKey")):
+                                await _flush()
+
+                        ui.button("▸", on_click=_flush).props("flat").classes("send")
                         box.on("keydown.enter", _on_enter, args=["shiftKey"])
         _scroll_bottom()
 

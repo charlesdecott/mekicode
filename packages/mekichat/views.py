@@ -8,31 +8,47 @@ from nicegui import ui
 _AVATARS = {"user": ("user", "CD"), "assistant": ("bot", "M")}
 _WHO = {"user": "charles", "assistant": "mekicore"}
 _TAG = {"user": "//USER", "assistant": "//AGENT"}
+_MD_EXTRAS = ["fenced-code-blocks", "tables", "break-on-newline"]
+
+
+def _md(text: str) -> None:
+    """Rendu markdown d'une réponse (titres, listes, code, retours-ligne)."""
+    ui.markdown(text, extras=_MD_EXTRAS)
+
+
+def _msg_shell(role: str):
+    """Squelette d'une ligne de message (avatar + en-tête). Renvoie (ligne, colonne) :
+    l'appelant ajoute le corps dans `colonne`. Partagé par message et bulle de streaming."""
+    kind, initials = _AVATARS[role]
+    row = ui.element("div").classes(f"msg {kind}")
+    with row:
+        with ui.element("div").classes(f"avatar {kind}"):
+            ui.label(initials)
+        col = ui.element("div")
+        with col:
+            with ui.element("div").classes("head"):
+                ui.label(_WHO[role]).classes("who")
+                ui.label(_TAG[role]).classes("tag")
+    return row, col
 
 
 def render_message(msg: dict) -> None:
     """Affiche une ligne de message (avatar + en-tête + corps), façon Discord."""
     role = msg.get("role", "assistant")
     if role not in ("user", "assistant"):
-        return  # system / tool non affichés en phase 1
-    kind, initials = _AVATARS[role]
-    with ui.element("div").classes(f"msg {kind}"):
-        with ui.element("div").classes(f"avatar {kind}"):
-            ui.label(initials)
-        with ui.element("div"):
-            with ui.element("div").classes("head"):
-                ui.label(_WHO[role]).classes("who")
-                ui.label(_TAG[role]).classes("tag")
-            content = msg.get("content", "")
-            if role == "assistant":
-                # réponses de l'agent : rendu markdown (titres, listes, code, retours-ligne)
-                with ui.element("div").classes("body"):
-                    ui.markdown(content, extras=["fenced-code-blocks", "tables", "break-on-newline"])
-            else:
-                # messages utilisateur : texte brut, retours-ligne préservés (pas de markdown
-                # pour ne pas mâcher les commandes/globs avec * ou _)
-                with ui.element("div").classes("body plain"):
-                    ui.label(content)
+        return  # system / tool non affichés directement
+    _, col = _msg_shell(role)
+    content = msg.get("content", "")
+    with col:
+        if role == "assistant":
+            # réponses de l'agent : rendu markdown (titres, listes, code, retours-ligne)
+            with ui.element("div").classes("body"):
+                _md(content)
+        else:
+            # messages utilisateur : texte brut, retours-ligne préservés (pas de markdown
+            # pour ne pas mâcher les commandes/globs avec * ou _)
+            with ui.element("div").classes("body plain"):
+                ui.label(content)
 
 
 def render_session_item(meta, *, active: bool, on_click, on_delete) -> None:
@@ -100,16 +116,11 @@ def render_thread(messages: list) -> None:
 def render_stream_bubble():
     """Bulle assistant en cours de streaming. Renvoie (conteneur_body, label_texte) :
     on met à jour le label à chaque token, puis on finalise via finalize_stream()."""
-    with ui.element("div").classes("msg bot"):
-        with ui.element("div").classes("avatar bot"):
-            ui.label("M")
-        with ui.element("div"):
-            with ui.element("div").classes("head"):
-                ui.label("mekicore").classes("who")
-                ui.label("//AGENT").classes("tag")
-            body = ui.element("div").classes("body streaming")
-            with body:
-                lbl = ui.label("")
+    _, col = _msg_shell("assistant")
+    with col:
+        body = ui.element("div").classes("body streaming")
+        with body:
+            lbl = ui.label("")
     return body, lbl
 
 
@@ -118,4 +129,4 @@ def finalize_stream(body, text: str) -> None:
     body.classes(remove="streaming")
     body.clear()
     with body:
-        ui.markdown(text, extras=["fenced-code-blocks", "tables", "break-on-newline"])
+        _md(text)

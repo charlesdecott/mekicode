@@ -304,6 +304,36 @@ def test_run_agent_streaming():
     assert msgs[-1]["content"] == "Salut"
 
 
+def test_llm_wrappers_stub():
+    # instance LLM sans __init__ (pas de clé requise) + client SDK stubé → vérifie complete()/stream()
+    llm = mekillm.LLM.__new__(mekillm.LLM)
+    llm.model = "stub-model"
+    sdk_resp = NS(
+        choices=[NS(message=NS(content="ok", tool_calls=None), finish_reason="stop")],
+        usage=NS(prompt_tokens=1, completion_tokens=2, total_tokens=3),
+    )
+    chunks = [NS(choices=[NS(delta=NS(content="ok", tool_calls=None), finish_reason="stop")], usage=None)]
+
+    class _Completions:
+        def create(self, **params):
+            return chunks if params.get("stream") else sdk_resp
+
+    llm._client = NS(chat=NS(completions=_Completions()))
+
+    seen = []
+    observe.add_hook(seen.append)
+
+    out = llm.complete([{"role": "user", "content": "hi"}])
+    assert out.text == "ok" and out.finish_reason == "stop" and out.usage.total_tokens == 3
+
+    toks = list(_drain(llm.stream([{"role": "user", "content": "hi"}])))
+    sout = _drain.value
+    assert toks == ["ok"] and sout.text == "ok" and sout.finish_reason == "stop"
+
+    # un CallRecord émis par complete ET par stream (le _observe_call partagé)
+    assert len([r for r in seen if r.model == "stub-model"]) == 2
+
+
 def main():
     log_path = Path(tempfile.gettempdir()) / "mekillm_smoke.jsonl"
     if log_path.exists():
@@ -327,6 +357,7 @@ def main():
     test_consume_stream_empty()
     test_consume_stream_text_then_tool()
     test_run_agent_streaming()
+    test_llm_wrappers_stub()
     print("OK - tous les smoke tests passent")
 
 

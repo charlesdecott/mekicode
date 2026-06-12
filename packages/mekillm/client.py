@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -61,6 +62,17 @@ def _message_dict(msg) -> dict:
     return d
 
 
+def _usage_from(u) -> Usage:
+    """Construit un Usage depuis l'objet usage du SDK (0 partout si absent)."""
+    if not u:
+        return Usage()
+    return Usage(
+        prompt_tokens=getattr(u, "prompt_tokens", 0) or 0,
+        completion_tokens=getattr(u, "completion_tokens", 0) or 0,
+        total_tokens=getattr(u, "total_tokens", 0) or 0,
+    )
+
+
 def _normalize(resp) -> LLMResponse:
     """Transforme une réponse SDK openai en LLMResponse normalisé."""
     choice = resp.choices[0]
@@ -73,16 +85,7 @@ def _normalize(resp) -> LLMResponse:
             log.warning("arguments JSON invalides pour l'outil %s", tc.function.name)
             args = {}
         tool_calls.append(ToolCall(id=tc.id, name=tc.function.name, arguments=args))
-    u = resp.usage
-    usage = (
-        Usage(
-            prompt_tokens=getattr(u, "prompt_tokens", 0) or 0,
-            completion_tokens=getattr(u, "completion_tokens", 0) or 0,
-            total_tokens=getattr(u, "total_tokens", 0) or 0,
-        )
-        if u
-        else Usage()
-    )
+    usage = _usage_from(resp.usage)
     return LLMResponse(
         text=msg.content or "",
         tool_calls=tool_calls,
@@ -103,11 +106,7 @@ def _consume_stream(chunks):
     for chunk in chunks:
         u = getattr(chunk, "usage", None)
         if u:
-            usage = Usage(
-                prompt_tokens=getattr(u, "prompt_tokens", 0) or 0,
-                completion_tokens=getattr(u, "completion_tokens", 0) or 0,
-                total_tokens=getattr(u, "total_tokens", 0) or 0,
-            )
+            usage = _usage_from(u)
         choices = getattr(chunk, "choices", None) or []
         if not choices:
             continue
@@ -158,6 +157,30 @@ def _consume_stream(chunks):
     )
 
 
+@contextmanager
+def _observe_call(model, n_messages, n_tools):
+    """Mesure le temps et émet un CallRecord en sortie (succès ou erreur). yield le dict `rec`
+    où l'appelant pose `finish_reason`/`usage` ; le statut passe à 'error' si une exception sort.
+    Partagé par complete() et stream() (qui ne diffèrent que par l'appel SDK)."""
+    start = time.perf_counter()
+    rec = {"status": "ok", "error": None, "finish_reason": "", "usage": Usage()}
+    try:
+        yield rec
+    except Exception as e:
+        rec["status"], rec["error"] = "error", str(e)
+        raise
+    finally:
+        emit(CallRecord(
+            ts=now_iso(), provider="openai", model=model,
+            latency_ms=int((time.perf_counter() - start) * 1000),
+            prompt_tokens=rec["usage"].prompt_tokens,
+            completion_tokens=rec["usage"].completion_tokens,
+            total_tokens=rec["usage"].total_tokens,
+            finish_reason=rec["finish_reason"], status=rec["status"], error=rec["error"],
+            n_messages=n_messages, n_tools=n_tools,
+        ))
+
+
 class LLM:
     """Provider LLM réutilisable. Lit la config depuis .env, surchargeable par args."""
 
@@ -167,77 +190,27 @@ class LLM:
         self.base_url = cfg["base_url"]
         self._client = OpenAI(api_key=cfg["api_key"], base_url=cfg["base_url"])
 
-    def complete(self, messages, tools=None, system=None, max_tokens=8000, **kwargs) -> LLMResponse:
-        """Un tour de complétion. Émet un CallRecord (succès comme erreur)."""
-        sent = list(messages)
-        if system:
-            sent = [{"role": "system", "content": system}] + sent
+    def _prepare(self, messages, system, tools, max_tokens, **kwargs):
+        """Construit (messages envoyés, params SDK) — partagé par complete() et stream()."""
+        sent = ([{"role": "system", "content": system}] + list(messages)) if system else list(messages)
         params = dict(model=self.model, messages=sent, max_tokens=max_tokens, **kwargs)
         if tools:
             params["tools"] = tools
+        return sent, params
 
-        start = time.perf_counter()
-        rec = {"status": "ok", "error": None, "finish_reason": "", "usage": Usage()}
-        try:
-            resp = self._client.chat.completions.create(**params)
-            out = _normalize(resp)
+    def complete(self, messages, tools=None, system=None, max_tokens=8000, **kwargs) -> LLMResponse:
+        """Un tour de complétion. Émet un CallRecord (succès comme erreur)."""
+        sent, params = self._prepare(messages, system, tools, max_tokens, **kwargs)
+        with _observe_call(self.model, len(sent), len(tools or [])) as rec:
+            out = _normalize(self._client.chat.completions.create(**params))
             rec["finish_reason"], rec["usage"] = out.finish_reason, out.usage
             return out
-        except Exception as e:
-            rec["status"], rec["error"] = "error", str(e)
-            raise
-        finally:
-            emit(
-                CallRecord(
-                    ts=now_iso(),
-                    provider="openai",
-                    model=self.model,
-                    latency_ms=int((time.perf_counter() - start) * 1000),
-                    prompt_tokens=rec["usage"].prompt_tokens,
-                    completion_tokens=rec["usage"].completion_tokens,
-                    total_tokens=rec["usage"].total_tokens,
-                    finish_reason=rec["finish_reason"],
-                    status=rec["status"],
-                    error=rec["error"],
-                    n_messages=len(sent),
-                    n_tools=len(tools or []),
-                )
-            )
 
     def stream(self, messages, tools=None, system=None, max_tokens=8000, **kwargs):
-        """Comme complete(), mais en flux : générateur de tokens de texte ; return le
-        LLMResponse final. Émet un CallRecord (usage à 0 en streaming). Réassemble les tool_calls."""
-        sent = list(messages)
-        if system:
-            sent = [{"role": "system", "content": system}] + sent
-        params = dict(model=self.model, messages=sent, max_tokens=max_tokens, stream=True, **kwargs)
-        if tools:
-            params["tools"] = tools
-
-        start = time.perf_counter()
-        rec = {"status": "ok", "error": None, "finish_reason": "", "usage": Usage()}
-        try:
-            chunks = self._client.chat.completions.create(**params)
-            out = yield from _consume_stream(chunks)
+        """Comme complete(), mais en flux : générateur de tokens ; **return** le LLMResponse final.
+        Émet un CallRecord (usage à 0 en streaming, sans stream_options). Réassemble les tool_calls."""
+        sent, params = self._prepare(messages, system, tools, max_tokens, stream=True, **kwargs)
+        with _observe_call(self.model, len(sent), len(tools or [])) as rec:
+            out = yield from _consume_stream(self._client.chat.completions.create(**params))
             rec["finish_reason"], rec["usage"] = out.finish_reason, out.usage
             return out
-        except Exception as e:
-            rec["status"], rec["error"] = "error", str(e)
-            raise
-        finally:
-            emit(
-                CallRecord(
-                    ts=now_iso(),
-                    provider="openai",
-                    model=self.model,
-                    latency_ms=int((time.perf_counter() - start) * 1000),
-                    prompt_tokens=rec["usage"].prompt_tokens,
-                    completion_tokens=rec["usage"].completion_tokens,
-                    total_tokens=rec["usage"].total_tokens,
-                    finish_reason=rec["finish_reason"],
-                    status=rec["status"],
-                    error=rec["error"],
-                    n_messages=len(sent),
-                    n_tools=len(tools or []),
-                )
-            )

@@ -120,12 +120,10 @@
   .who{font-family:var(--ui);font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase}
   .msg.user .who{color:var(--p2)} .msg.bot .who{color:var(--p1)}
   .tag{font-family:var(--mono);font-size:9.5px;color:var(--faint);border:1px solid var(--line-dim);padding:1px 6px;letter-spacing:.1em}
-  .time{font-family:var(--mono);font-size:11px;color:var(--faint);margin-left:auto}
   .body{font-size:14.5px;line-height:1.65;color:#c2d6de}
   .body.plain{white-space:pre-wrap;word-break:break-word}
   .body.streaming{white-space:pre-wrap;word-break:break-word}
   .body.streaming::after{content:"";display:inline-block;width:8px;height:1.05em;vertical-align:text-bottom;margin-left:2px;background:var(--p1);box-shadow:var(--p1-glow);animation:cblink 1s steps(1) infinite}
-  code.inline{font-family:var(--mono);font-size:12.5px;color:var(--p1);background:var(--raise);border:1px solid var(--line);padding:1px 6px}
   /* ── rendu markdown des réponses (titres dégressifs, listes, code, citations) ── */
   .body h1,.body h2,.body h3,.body h4,.body h5,.body h6{font-family:var(--ui);line-height:1.25;color:#fff}
   .body h1{font-size:1.7em;font-weight:800;margin:.5em 0 .3em;letter-spacing:-.01em}
@@ -184,9 +182,6 @@
   .input-wrap .ta .q-field__marginal{display:none}
   .send{width:44px;height:44px;flex:none;clip-path:var(--clip-sm);border:none;cursor:pointer;background:var(--p1);color:#02080a;font-size:18px;display:grid;place-items:center;box-shadow:var(--p1-glow);transition:transform .1s,filter .2s;font-weight:700}
   .send:hover{transform:translateY(-1px) scale(1.04);filter:brightness(1.2)}
-  .hint{display:flex;justify-content:space-between;margin-top:10px;padding:0 4px;font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.06em}
-  .hint .haz{color:var(--warn)}
-  .hint kbd{color:var(--muted);border:1px solid var(--line-dim);padding:1px 5px}
 
   ::-webkit-scrollbar{width:10px;height:10px}
   ::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--p1) 20%,transparent);border:2px solid transparent;background-clip:padding-box}
