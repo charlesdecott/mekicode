@@ -1,27 +1,42 @@
 #!/usr/bin/env python3
-"""app.py — front mekichat (NiceGUI). Phase 1 : sessions + UI statique (sans LLM)."""
+"""app.py — front mekichat (NiceGUI). Phase 2 : chat + outils (bash), non-streaming."""
 from __future__ import annotations
 
 import sys
 from datetime import datetime
 from pathlib import Path
 
-# Lancement direct : rend `import sessions, views` résoluble (comme mekicore/main.py).
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))                      # import sessions, views
+sys.path.insert(0, str(HERE.parent))               # import mekillm (packages/)
+sys.path.insert(0, str(HERE.parent / "mekicore"))  # import base, tools, events
 
-from nicegui import ui  # noqa: E402
+from nicegui import run, ui  # noqa: E402
 
+import events  # noqa: E402
+import mekillm  # noqa: E402
 import sessions as sessions_mod  # noqa: E402
 import views  # noqa: E402
+from base import run_agent  # noqa: E402
+from tools import DISPATCH, TOOLS  # noqa: E402
 
-STATIC = Path(__file__).resolve().parent / "static"
-DEFAULT_MODEL = "gpt-4o-mini"
+STATIC = HERE / "static"
+DEFAULT_MODEL = mekillm.config.resolve()["model"]
+SYSTEM = f"You are a coding agent at {Path.cwd()}. Use the bash tool to act. Be concise."
 FONTS = (
     '<link rel="preconnect" href="https://fonts.googleapis.com">'
     '<link href="https://fonts.googleapis.com/css2?'
     'family=Chakra+Petch:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">'
 )
+_BG = (
+    '<div class="bg"><div class="grid"></div><div class="vig"></div>'
+    '<div class="scan"></div><div class="noise"></div><div class="sweep"></div>'
+    '<div class="mosh"></div><div class="mosh b"></div></div>'
+)
+_DONE = object()  # sentinelle de fin de générateur pour run.io_bound(next, gen, _DONE)
+
 _store: sessions_mod.SessionStore | None = None
+_llm = None
 
 
 def _get_store() -> sessions_mod.SessionStore:
@@ -32,11 +47,19 @@ def _get_store() -> sessions_mod.SessionStore:
     return _store
 
 
+def _get_llm():
+    """Singleton paresseux du provider LLM (peut lever si pas de clé : géré à l'appel)."""
+    global _llm
+    if _llm is None:
+        _llm = mekillm.LLM()
+    return _llm
+
+
 def _ensure_current() -> sessions_mod.Session:
-    """Charge la session la plus récente, ou en crée une."""
+    """Charge la session la plus récente, ou en crée une (avec prompt système)."""
     store = _get_store()
     metas = store.list()
-    return store.load(metas[0].id) if metas else store.create(model=DEFAULT_MODEL)
+    return store.load(metas[0].id) if metas else store.create(model=DEFAULT_MODEL, system=SYSTEM)
 
 
 def _now_hms() -> str:
@@ -50,54 +73,106 @@ def index() -> None:
     ui.query("body").props('data-theme=phosphor')
 
     current = _ensure_current()
-    # Référence vivante vers le label horloge courant : recréé à chaque _refresh(),
-    # mais le timer (créé UNE seule fois plus bas) le relit ici → pas d'empilement de timers.
     clock_ref: dict[str, object] = {"label": None}
+    thread_ref: dict[str, object] = {"inner": None}
+    thinking_ref: dict[str, object] = {"el": None}
+    state = {"busy": False}
 
     def open_session(session_id: str) -> None:
         nonlocal current
-        store = _get_store()
-        current = store.load(session_id)
+        if state["busy"]:
+            return
+        current = _get_store().load(session_id)
         _refresh()
 
     def new_session() -> None:
         nonlocal current
-        store = _get_store()
-        current = store.create(model=DEFAULT_MODEL)
+        if state["busy"]:
+            return
+        current = _get_store().create(model=DEFAULT_MODEL, system=SYSTEM)
         _refresh()
 
-    def send(text: str) -> None:
-        text = text.strip()
-        if not text:
+    def _clear_thinking() -> None:
+        el = thinking_ref["el"]
+        if el is not None:
+            el.delete()
+            thinking_ref["el"] = None
+
+    def _render_error(message: str) -> None:
+        with ui.element("div").classes("run-error"):
+            ui.label(f"⚠ {message}")
+
+    def _render_event(ev, handles: dict) -> None:
+        inner = thread_ref["inner"]
+        if isinstance(ev, events.ThinkingStarted):
+            _clear_thinking()
+            with inner:
+                thinking_ref["el"] = views.render_thinking()
             return
-        store = _get_store()
-        current.add("user", text)         # phase 1 : pas de réponse LLM
-        store.save(current)
-        _refresh()
+        _clear_thinking()
+        with inner:
+            if isinstance(ev, events.AssistantDone):
+                if ev.text:
+                    views.render_message({"role": "assistant", "content": ev.text})
+            elif isinstance(ev, events.ToolStarted):
+                cmd = str(ev.args.get("command", "")) if isinstance(ev.args, dict) else ""
+                handles[ev.id] = views.render_tool(cmd)
+            elif isinstance(ev, events.ToolFinished):
+                handle = handles.get(ev.id)
+                ok = not ev.output.startswith("Error")
+                if handle is not None:
+                    views.fill_tool(handle, ev.output, ok=ok)
+                else:
+                    views.render_tool("", output=ev.output, status="DONE")
+            elif isinstance(ev, events.RunError):
+                _render_error(ev.message)
+
+    async def send(text: str) -> None:
+        text = text.strip()
+        if not text or state["busy"]:
+            return
+        state["busy"] = True
+        try:
+            store = _get_store()
+            current.add("user", text)
+            store.save(current)
+            inner = thread_ref["inner"]
+            with inner:
+                views.render_message({"role": "user", "content": text})
+            try:
+                llm = _get_llm()
+            except Exception as e:  # pas de clé / config invalide
+                with inner:
+                    _render_error(f"LLM indisponible : {e}")
+                return
+            gen = run_agent(current.messages, llm, TOOLS, DISPATCH)
+            handles: dict = {}
+            while True:
+                ev = await run.io_bound(next, gen, _DONE)
+                if ev is _DONE or isinstance(ev, events.RunFinished):
+                    break
+                _render_event(ev, handles)
+            _clear_thinking()
+            store.save(current)
+            _refresh_sidebar()
+        finally:
+            state["busy"] = False
 
     def _tick() -> None:
         label = clock_ref["label"]
         if label is not None:
             label.set_text(_now_hms())
 
-    # ---- fond animé (décoratif, plein écran derrière l'UI) ----
-    ui.html(
-        '<div class="bg"><div class="grid"></div><div class="vig"></div>'
-        '<div class="scan"></div><div class="noise"></div><div class="sweep"></div>'
-        '<div class="mosh"></div><div class="mosh b"></div></div>'
-    )
+    ui.html(_BG)  # fond animé plein écran (derrière l'UI)
 
-    # ---- coquille principale (grille latérale + main) ----
     app_root = ui.element("div").classes("app")
     with app_root:
         sidebar = ui.element("aside").classes("sidebar")
         main = ui.element("section").classes("main")
 
-    def _refresh() -> None:
-        """Reconstruit barre latérale + zone principale pour la session courante."""
+    def _refresh_sidebar() -> None:
         store = _get_store()
         sidebar.clear()
-        main.clear()
         with sidebar:
             with ui.element("div").classes("brand"):
                 with ui.element("div").classes("glyph"):
@@ -120,8 +195,11 @@ def index() -> None:
                 ui.element("span").classes("led")
                 ui.label("OPENROUTER :: LINK_OK")
 
+    def _refresh() -> None:
+        thinking_ref["el"] = None
+        _refresh_sidebar()
+        main.clear()
         with main:
-            # en-tête
             with ui.element("header").classes("topbar"):
                 with ui.element("div").classes("channel"):
                     ui.label("[#]").classes("br")
@@ -130,24 +208,27 @@ def index() -> None:
                 with ui.element("div").classes("chips"):
                     _chip("MODEL", current.model, "model")
                     _chip("SID", current.id, "sid")
-                    _chip("TOK", "0↑ 0↓", "")          # placeholder phase 1
+                    _chip("TOK", "0↑ 0↓", "")
                     clock_ref["label"] = _chip("⌚", _now_hms(), "")
-            # fil
             with ui.element("div").classes("thread"):
-                with ui.element("div").classes("thread-inner"):
-                    for msg in current.messages:
-                        views.render_message(msg)
-            # composer
+                inner = ui.element("div").classes("thread-inner")
+                thread_ref["inner"] = inner
+                with inner:
+                    views.render_thread(current.messages)
             with ui.element("div").classes("composer"):
                 with ui.element("div").classes("composer-inner"):
                     with ui.element("div").classes("input-wrap"):
-                        box = ui.textarea(placeholder="// message à mekicore (phase 1 : pas encore de réponse)")
+                        box = ui.textarea(placeholder="// message à mekicore (l'agent peut lancer des commandes bash)")
                         box.props("borderless autogrow").classes("ta")
-                        ui.button("▸", on_click=lambda _: (send(box.value), box.set_value(""))).props("flat").classes("send")
+
+                        async def _do_send(_=None) -> None:
+                            value = box.value
+                            box.set_value("")
+                            await send(value)
+
+                        ui.button("▸", on_click=_do_send).props("flat").classes("send")
 
     _refresh()
-    # Timer horloge créé UNE seule fois (hors _refresh) → met à jour le label courant
-    # via clock_ref ; aucun empilement de timers lors des reconstructions.
     ui.timer(1.0, _tick)
 
 
