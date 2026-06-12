@@ -1,7 +1,7 @@
-"""_smoke.py — non-régression réseau-free de packages/ (mekillm + mekicore).
+"""smoke_packages.py — non-régression réseau-free de packages/ (mekillm + mekicore).
 
 Aucune dépendance réseau ni clé API : on stubbe la réponse SDK et le provider.
-Lancer : python packages/_smoke.py
+Lancer depuis la racine du projet : python tests/smoke_packages.py
 """
 import os
 import sys
@@ -9,9 +9,10 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace as NS
 
-ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT))                  # packages/         → import mekillm
-sys.path.insert(0, str(ROOT / "mekicore"))     # packages/mekicore → import base, tools
+ROOT = Path(__file__).resolve().parent.parent      # racine du projet (tests/ → ..)
+PKG = ROOT / "packages"
+sys.path.insert(0, str(PKG))                        # packages/         → import mekillm
+sys.path.insert(0, str(PKG / "mekicore"))           # packages/mekicore → import base, tools
 
 import mekillm  # noqa: E402
 from mekillm import Usage  # noqa: E402
@@ -134,7 +135,7 @@ def main():
     test_dispatch_tools()
     test_dispatch_unknown_tool()
     test_agent_loop_with_stub()
-    print("OK — tous les smoke tests passent")
+    print("OK - tous les smoke tests passent")
 
 
 if __name__ == "__main__":
