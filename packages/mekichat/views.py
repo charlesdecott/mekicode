@@ -1,6 +1,8 @@
 """views.py — helpers de rendu NiceGUI (mappés sur les classes CSS de la maquette)."""
 from __future__ import annotations
 
+import json
+
 from nicegui import ui
 
 _AVATARS = {"user": ("user", "CD"), "assistant": ("bot", "M")}
@@ -33,3 +35,54 @@ def render_session_item(meta, *, active: bool, on_click) -> None:
             ui.label(">_").classes("mk")
             ui.label(meta.title)
         ui.label(f"{meta.id} · {meta.n_messages} msg").classes("s-meta")
+
+
+def render_tool(command: str, output: str = "", status: str = "RUN"):
+    """Bloc [bash] : commande + sortie + statut. Renvoie (label_statut, label_sortie)
+    pour pouvoir remplir la sortie plus tard (chemin live)."""
+    with ui.element("div").classes("tool"):
+        with ui.element("div").classes("tool-head"):
+            ui.label("▣ PROC :: bash").classes("ic")
+            ui.label(command).classes("cmd")
+            st = ui.label(status).classes("st done" if status == "DONE" else "st")
+        out = ui.label(output).classes("tool-out")
+    return st, out
+
+
+def fill_tool(handle, output: str, ok: bool = True) -> None:
+    """Remplit un bloc [bash] créé en statut RUN (chemin live)."""
+    st, out = handle
+    st.set_text("DONE" if ok else "ERR")
+    st.classes(replace="st done" if ok else "st")
+    out.set_text(output)
+
+
+def render_thinking():
+    """Indicateur animé « PROCESSING… » affiché pendant un appel LLM.
+    Renvoie l'élément ligne (l'appelant le supprime via .delete() quand le tour répond)."""
+    row = ui.element("div").classes("msg bot")
+    with row:
+        with ui.element("div").classes("avatar bot"):
+            ui.label("M")
+        with ui.element("div"):
+            ui.html('<div class="thinking"><span class="bars"><i></i><i></i><i></i><i></i></span> PROCESSING…</div>')
+    return row
+
+
+def render_thread(messages: list) -> None:
+    """Rejoue tout un historique : texte (user/assistant) + blocs [bash] appariés
+    (assistant.tool_calls ↔ messages role:'tool'). Chemin de rechargement de session."""
+    outputs = {m.get("tool_call_id"): m.get("content", "")
+               for m in messages if m.get("role") == "tool"}
+    for m in messages:
+        role = m.get("role")
+        if role in ("user", "assistant") and m.get("content"):
+            render_message(m)
+        if role == "assistant":
+            for tc in m.get("tool_calls") or []:
+                fn = tc.get("function", {})
+                try:
+                    cmd = json.loads(fn.get("arguments") or "{}").get("command", "")
+                except (json.JSONDecodeError, AttributeError):
+                    cmd = str(fn.get("arguments", ""))
+                render_tool(cmd, output=outputs.get(tc.get("id"), ""), status="DONE")
