@@ -61,6 +61,10 @@
 - **Cacher le CSS au niveau module** (`app.py`, au lieu de le relire à chaque page) : perd le
   rechargement CSS « live » pratique en dev (un simple rafraîchissement applique les changements).
 
+## E. Ré-exports / migrations de modules
+
+- `packages/mekichat/sessions.py` est désormais un ré-export de `mekihub.session` ; suppression du shim possible une fois tous les imports migrés vers `mekihub`.
+
 ## D. Idées d'amélioration (UX / features différées)
 
 1. **Afficher le markdown EN DIRECT pendant le streaming.** Aujourd'hui la bulle de streaming montre

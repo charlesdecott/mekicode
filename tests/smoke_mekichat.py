@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "packages" / "mekichat"))  # import sessions
+sys.path.insert(0, str(ROOT / "packages"))               # import mekihub
 
 import sessions as S  # noqa: E402
 
@@ -96,6 +97,13 @@ def test_delete():
         store.delete("inexistante")                     # pas d'erreur si absente
 
 
+def test_sessions_reexport_from_mekihub():
+    """Vérifie que sessions.py est un ré-export de mekihub.session (même classe, pas une copie)."""
+    import sessions as chat_sessions
+    from mekihub import session as hub_session
+    assert chat_sessions.SessionStore is hub_session.SessionStore   # même classe (ré-export)
+
+
 def main():
     test_create_and_load()
     test_title_set_from_first_user_message()
@@ -105,6 +113,7 @@ def main():
     test_list_ignores_missing_id_files()
     test_unicode_round_trip()
     test_delete()
+    test_sessions_reexport_from_mekihub()
     print("OK - smoke mekichat passe")
 
 

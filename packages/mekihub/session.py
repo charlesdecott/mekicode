@@ -56,6 +56,15 @@ class Session:
             self.title = first_line[:48] or _DEFAULT_TITLE
         return idx
 
+    def add(self, role: str, content: str, **extra) -> dict:
+        """Ajoute un message générique (compat historique mekichat). Renseigne le titre au 1er user."""
+        msg = {"role": role, "content": content, **extra}
+        self.messages.append(msg)
+        if role == "user" and self.title == _DEFAULT_TITLE:
+            first_line = (content.strip().splitlines() or [""])[0]
+            self.title = first_line[:48] or _DEFAULT_TITLE
+        return msg
+
 
 @dataclass
 class SessionMeta:
