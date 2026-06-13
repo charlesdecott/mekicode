@@ -229,3 +229,35 @@ def finalize_stream(body, text: str) -> None:
     body.clear()
     with body:
         _md(text)
+
+
+def render_presence(present):
+    """Affiche les pastilles de présence (un chip par participant, couleur de l'auteur).
+    `present` : list[Author]. Renvoie le conteneur (l'appelant le remplace à chaque maj)."""
+    box = ui.element("div").classes("presence")
+    with box:
+        for a in present:
+            ui.label(a.name).classes("pres-chip").style(f"--ac:{a.color}")
+    return box
+
+
+def render_queue_item(item_id, name, color, text, on_delete):
+    """Affiche une ligne de file d'attente (auteur + texte + bouton ✕). Renvoie la ligne.
+    `on_delete(item_id)` est appelé au clic sur ✕ (suppression d'un item en attente)."""
+    row = ui.element("div").classes("qitem").style(f"--ac:{color}")
+    with row:
+        ui.label(name).classes("q-author").style(f"--ac:{color}")
+        ui.label(text).classes("q-text")
+        btn = ui.button("✕").props("flat dense").classes("q-del")
+        btn.on("click", lambda _: on_delete(item_id))
+    return row
+
+
+def render_user_message(text, name, color):
+    """Affiche un message utilisateur attribué (avatar + en-tête avec nom/couleur d'auteur).
+    Variante de render_message : l'auteur n'est pas figé (multi-utilisateur)."""
+    _, col = _msg_shell("user")
+    with col:
+        with ui.element("div").classes("body plain attrib"):
+            ui.label(name).classes("msg-author").style(f"--ac:{color}")
+            ui.label(text)

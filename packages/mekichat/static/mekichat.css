@@ -213,3 +213,23 @@
 /* neutralise le conteneur par défaut de NiceGUI pour reprendre la pleine page */
 .nicegui-content { padding: 0 !important; gap: 0 !important; max-width: none !important; }
 .q-page, .q-layout { min-height: 0 !important; }
+
+/* ── PRÉSENCE (pastilles des participants connectés) ── */
+.presence{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0}
+.pres-chip{font-family:var(--mono);font-size:10.5px;padding:1px 7px;border:1px solid var(--ac);
+  color:var(--ac);border-radius:2px;text-transform:uppercase;letter-spacing:.1em}
+
+/* ── FILE D'ATTENTE (items en attente d'un run, supprimables) ── */
+.queue-bar{flex:none;max-width:880px;width:100%;margin:0 auto;padding:0 28px}
+.queue-bar:has(.queue:empty){display:none}
+.queue:not(:empty){padding:8px 0 2px}
+.qitem{display:flex;align-items:center;gap:8px;padding:4px 8px;border-left:2px solid var(--ac,#6c8595);
+  background:rgba(0,0,0,.35);margin:2px 0}
+.q-author{color:var(--ac);font-weight:700;font-size:11px;font-family:var(--mono);flex:none}
+.q-text{color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.q-del{color:#ff6b6b !important;min-width:0 !important}
+
+/* ── MESSAGE UTILISATEUR ATTRIBUÉ (multi-utilisateur : nom + couleur d'auteur) ── */
+.msg.user .body.attrib .msg-author,
+.msg.user.attrib .msg-author{color:var(--ac);font-weight:700;font-size:11px;margin-right:6px;
+  font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em}

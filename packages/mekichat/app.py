@@ -15,9 +15,12 @@ from nicegui import run, ui  # noqa: E402
 
 import events  # noqa: E402
 import mekillm  # noqa: E402
+import realtime  # noqa: E402
 import sessions as sessions_mod  # noqa: E402
 import views  # noqa: E402
-from base import run_agent  # noqa: E402
+from base import run_agent  # noqa: E402  (conservé : compat / rejouage direct, plus piloté ici)
+from mekihub.hub import SessionHub  # noqa: E402
+from mekihub.session import SessionStore as _HubSessionStore  # noqa: E402
 from tools import DISPATCH, TOOLS  # noqa: E402
 
 STATIC = HERE / "static"
@@ -51,6 +54,31 @@ def _get_llm():
     return mekillm.LLM()
 
 
+def _llm_factory():
+    """Fabrique le provider LLM consommé par le SessionHub. Si MEKICHAT_FAKE_LLM est posée,
+    renvoie un FakeLLM déterministe (validation Playwright réseau-free, runs lents observables)."""
+    import os
+    if os.environ.get("MEKICHAT_FAKE_LLM"):
+        sys.path.insert(0, str(HERE.parent.parent / "tests"))   # tests/ (fakes)
+        from fakes import FakeLLM
+        return FakeLLM(reply="reponse simulee lente", delay=0.6)
+    return mekillm.LLM()
+
+
+_HUB = None
+
+
+def _get_hub() -> SessionHub:
+    """SessionHub partagé au niveau module (un seul pour tous les clients/onglets).
+    Câblé sur le LLM (réel ou factice) + les outils de mekicore. Paresseux : pas de
+    construction au simple import."""
+    global _HUB
+    if _HUB is None:
+        _HUB = SessionHub(store=_HubSessionStore(), llm_factory=_llm_factory,
+                          tools=TOOLS, dispatch=DISPATCH)
+    return _HUB
+
+
 def _ensure_current() -> sessions_mod.Session:
     """Charge la session la plus récente, ou en crée une (avec prompt système)."""
     store = _get_store()
@@ -68,6 +96,11 @@ def index() -> None:
     thread_ref: dict[str, object] = {"inner": None}
     thinking_ref: dict[str, object] = {"el": None}
     stream_ref: dict[str, object] = {"body": None, "lbl": None, "text": ""}
+    # conteneurs live (présence + file), reconstruits à chaque _refresh / Snapshot
+    bars_ref: dict[str, object] = {"presence": None, "queue": None}
+    # lignes de file indexées par item_id (pour QueueItemDeleted) ; tâche d'abonnement courante
+    queue_rows: dict[str, object] = {}
+    sub_ref: dict[str, object] = {"timer": None}
     state = {"busy": False}
 
     def open_session(session_id: str) -> None:
@@ -109,91 +142,177 @@ def index() -> None:
         with ui.element("div").classes("run-error"):
             ui.label(f"⚠ {message}")
 
-    def _render_event(ev, handles: dict) -> None:
+    def _delete_pending(item_id: str) -> None:
+        """Clic sur ✕ d'un item en file : demande la suppression au hub (broadcast)."""
+        _get_hub().delete_pending(current.id, item_id)
+
+    def _rebuild_queue(items) -> None:
+        """Reconstruit l'affichage de la file depuis une liste de QueueItem (Snapshot)."""
+        box = bars_ref["queue"]
+        if box is None:
+            return
+        box.clear()
+        queue_rows.clear()
+        with box:
+            for it in items:
+                row = views.render_queue_item(it.item_id, it.author.name, it.author.color,
+                                              it.text, _delete_pending)
+                queue_rows[it.item_id] = row
+
+    def _set_presence(present) -> None:
+        """Reconstruit les pastilles de présence dans leur conteneur dédié."""
+        box = bars_ref["presence"]
+        if box is None:
+            return
+        box.clear()
+        with box:
+            for a in present:
+                ui.label(a.name).classes("pres-chip").style(f"--ac:{a.color}")
+
+    def _render_hub_event(event, handles: dict) -> None:
+        """Rend un événement du SessionHub dans le contexte du client courant.
+
+        Discrimine par nom de type (les events viennent de mekihub.events ; comparaison robuste).
+        Les mutations d'UI sont poussées au bon client car cette coroutine tourne dans son slot."""
+        name = type(event).__name__
         inner = thread_ref["inner"]
-        if isinstance(ev, events.ThinkingStarted):
+
+        if name == "Snapshot":
+            # rejoue le fil + la file + la présence depuis l'instantané partagé
+            state_ = event.state
+            queue_rows.clear()
+            inner.clear()
+            with inner:
+                views.render_thread(state_.messages)
+            _rebuild_queue(getattr(state_, "queue", []) or [])
+            _set_presence(getattr(state_, "presence", []) or [])
+            stream_ref["body"] = None
+            return
+
+        if name == "PresenceChanged":
+            _set_presence(event.present)
+            return
+
+        if name == "QueueEnqueued":
+            box = bars_ref["queue"]
+            if box is not None:
+                with box:
+                    row = views.render_queue_item(event.item_id, event.author_name, event.color,
+                                                  event.text, _delete_pending)
+                    queue_rows[event.item_id] = row
+            return
+
+        if name == "QueueItemDeleted":
+            row = queue_rows.pop(event.item_id, None)
+            if row is not None:
+                row.delete()
+            return
+
+        if name == "RunStarted":
+            # un item quitte la file pour devenir le run courant → retirer sa ligne d'attente
+            row = queue_rows.pop(event.item_id, None)
+            if row is not None:
+                row.delete()
             _clear_thinking()
             with inner:
                 thinking_ref["el"] = views.render_thinking()
             return
-        _clear_thinking()
-        with inner:
-            if isinstance(ev, events.AssistantDelta):
+
+        if name == "MessagePosted":
+            _clear_thinking()
+            with inner:
+                views.render_user_message(event.text, event.author_name, event.color)
+            return
+
+        if name == "AgentDelta":
+            _clear_thinking()
+            with inner:
                 if stream_ref["body"] is None:
                     body, lbl = views.render_stream_bubble()
                     stream_ref["body"], stream_ref["lbl"], stream_ref["text"] = body, lbl, ""
-                stream_ref["text"] = stream_ref["text"] + ev.text
+                stream_ref["text"] = stream_ref["text"] + event.text
                 stream_ref["lbl"].set_text(stream_ref["text"])
-            elif isinstance(ev, events.AssistantDone):
+            return
+
+        if name == "AgentDone":
+            _clear_thinking()
+            with inner:
                 if stream_ref["body"] is not None:
-                    views.finalize_stream(stream_ref["body"], ev.text)
+                    views.finalize_stream(stream_ref["body"], event.text)
                     stream_ref["body"] = None
-                elif ev.text:
-                    views.render_message({"role": "assistant", "content": ev.text})
-            elif isinstance(ev, events.ToolStarted):
-                args = ev.args if isinstance(ev.args, dict) else {}
-                old = args.get("old") if ev.name == "edit" else None
-                new = args.get("new") if ev.name == "edit" else None
-                handles[ev.id] = views.render_tool(ev.name, views.tool_summary(ev.args),
-                                                    old=old, new=new)
-            elif isinstance(ev, events.ToolFinished):
-                handle = handles.get(ev.id)
-                ok = not ev.output.startswith("Error")
-                out_text = "" if (ev.name == "edit" and ok) else ev.output   # edit OK : le diff suffit
+                elif event.text:
+                    views.render_message({"role": "assistant", "content": event.text})
+            return
+
+        if name == "ToolStarted":
+            _clear_thinking()
+            with inner:
+                args = event.args if isinstance(event.args, dict) else {}
+                old = args.get("old") if event.name == "edit" else None
+                new = args.get("new") if event.name == "edit" else None
+                handles[event.id] = views.render_tool(event.name, views.tool_summary(event.args),
+                                                      old=old, new=new)
+            return
+
+        if name == "ToolFinished":
+            with inner:
+                handle = handles.get(event.id)
+                ok = not event.output.startswith("Error")
+                out_text = "" if (event.name == "edit" and ok) else event.output
                 if handle is not None:
-                    views.fill_tool(handle, out_text, ok=ok, name=ev.name)
+                    views.fill_tool(handle, out_text, ok=ok, name=event.name)
                 else:
-                    h = views.render_tool(ev.name, "", output=out_text, status="DONE" if ok else "ERR")
-                    if ev.name != "edit":
-                        h[2].set_text(views.tool_metric(ev.name, ev.output))
-            elif isinstance(ev, events.RunError):
+                    h = views.render_tool(event.name, "", output=out_text,
+                                          status="DONE" if ok else "ERR")
+                    if event.name != "edit":
+                        h[2].set_text(views.tool_metric(event.name, event.output))
+            return
+
+        if name == "RunError":
+            _clear_thinking()
+            with inner:
                 if stream_ref["body"] is not None:   # fige la bulle partielle (retire le caret)
                     views.finalize_stream(stream_ref["body"], stream_ref["text"])
                     stream_ref["body"] = None
-                _render_error(ev.message)
-
-    async def send(text: str) -> None:
-        text = text.strip()
-        if not text or state["busy"]:
+                _render_error(event.message)
             return
-        state["busy"] = True
-        stream_ref["body"] = None
+
+        if name in ("RunFinished", "Idle"):
+            _clear_thinking()
+            stream_ref["body"] = None
+            _refresh_sidebar()
+            return
+
+    async def _subscribe_loop() -> None:
+        """Boucle d'abonnement live du client courant : join la salle, rend chaque event,
+        leave à la sortie. Lancée via ui.timer one-shot → tourne dans le contexte du client,
+        donc les mutations d'UI sont poussées par websocket au bon onglet."""
+        author = realtime.author_for_client()
+        hub = _get_hub()
+        sid = current.id
+        hub.join(sid, author)
+        handles: dict = {}
         try:
-            store = _get_store()
-            current.add("user", text)
-            store.save(current)
-            inner = thread_ref["inner"]
-            with inner:
-                views.render_message({"role": "user", "content": text})
-            _scroll_bottom()
-            try:
-                llm = _get_llm()
-            except Exception as e:  # pas de clé / config invalide
-                with inner:
-                    _render_error(f"LLM indisponible : {e}")
-                return
-            gen = run_agent(current.messages, llm, TOOLS, DISPATCH, stream=True)
-            handles: dict = {}
-            disconnected = False
-            while True:
-                ev = await run.io_bound(next, gen, _DONE)
-                if ev is _DONE or isinstance(ev, events.RunFinished):
+            async for event in hub.subscribe(sid):
+                if current.id != sid:            # l'utilisateur a changé de session → arrêter
                     break
                 try:
-                    _render_event(ev, handles)
+                    _render_hub_event(event, handles)
                     _scroll_bottom()
-                except RuntimeError as exc:  # onglet/client fermé pendant le run : on cesse de rendre
-                    if "deleted" not in str(exc):
-                        raise
-                    disconnected = True
-                    break
-            if not disconnected:
-                _clear_thinking()
-            store.save(current)              # persiste la conversation même si l'onglet a été fermé
-            if not disconnected:
-                _refresh_sidebar()
+                except RuntimeError as exc:      # onglet fermé pendant le run
+                    if "deleted" in str(exc):
+                        break
+                    raise
         finally:
-            state["busy"] = False
+            hub.leave(sid, author)
+
+    async def send(text: str) -> None:
+        """Envoi : on soumet au hub partagé. AUCUN rendu local (cohérence inter-clients) :
+        le message user, la réponse et les outils arrivent via la boucle d'abonnement."""
+        text = text.strip()
+        if not text:
+            return
+        _get_hub().submit(current.id, text, author=realtime.author_for_client())
 
     ui.html(_BG)  # fond animé plein écran (derrière l'UI)
 
@@ -244,7 +363,11 @@ def index() -> None:
                 with ui.element("div").classes("chips"):
                     _chip("MODEL", current.model, "model")
                     _chip("SID", current.id, "sid")
-                    _chip("TOK", "0↑ 0↓", "")
+                    bars_ref["presence"] = ui.element("div").classes("presence")
+            # barre de file d'attente (au-dessus du fil, hors de thread-inner pour survivre
+            # à la reconstruction du fil sur Snapshot)
+            with ui.element("div").classes("queue-bar"):
+                bars_ref["queue"] = ui.element("div").classes("queue")
             with ui.element("div").classes("thread"):
                 inner = ui.element("div").classes("thread-inner")
                 thread_ref["inner"] = inner
@@ -273,6 +396,14 @@ def index() -> None:
                     with ui.element("div").classes("hint"):
                         ui.html("<span><kbd>Entrée</kbd> envoyer · <kbd>Maj+Entrée</kbd> ligne</span>")
                         ui.html('<span class="haz">⚠ STREAM ON · 6 TOOLS</span>')
+        # abonnement live de CE client à la session courante (broadcast multi-onglet).
+        # ui.timer one-shot → la coroutine tourne dans le contexte du client : ses mutations
+        # d'UI sont poussées par websocket au bon onglet.
+        try:
+            sub_ref["timer"] = ui.timer(0.1, _subscribe_loop, once=True)
+        except RuntimeError:
+            # slot du client supprimé entre l'event et le rebuild (onglet fermé) : rien à abonner
+            sub_ref["timer"] = None
         _scroll_bottom()
 
     _refresh()
@@ -287,4 +418,6 @@ def _chip(key: str, value: str, extra: str):
 
 
 if __name__ in {"__main__", "__mp_main__"}:   # garde requise par NiceGUI (reload/multiprocessing)
-    ui.run(title="mekichat", port=8080, dark=True, reload=False, show=True)
+    # storage_secret : requis par app.storage.user (identité éphémère par navigateur, cf. realtime.py)
+    ui.run(title="mekichat", port=8080, dark=True, reload=False, show=True,
+           storage_secret="mekichat-dev")
