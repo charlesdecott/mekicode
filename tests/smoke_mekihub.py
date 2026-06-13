@@ -162,6 +162,14 @@ def test_discord_adapter_with_fake_client():
     asyncio.run(scenario())
 
 
+def test_main_importable():
+    """Vérifie que main.py est importable sans effet de bord (pas de serveur, pas de boucle)."""
+    import importlib
+    sys.path.insert(0, str(ROOT / "packages" / "mekihub"))
+    m = importlib.import_module("main")
+    assert hasattr(m, "build_hub") and hasattr(m, "main")
+
+
 if __name__ == "__main__":
     test_author_and_queueitem()
     test_session_authors_separate_from_messages()
@@ -170,4 +178,5 @@ if __name__ == "__main__":
     test_hub_submit_run_and_subscribe()
     test_two_subscribers_and_queue_delete()
     test_discord_adapter_with_fake_client()
+    test_main_importable()
     print("OK - tous les smoke mekihub passent")

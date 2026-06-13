@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""main.py — entrypoint mekihub : hub + adaptateurs activés par .env (front/discord on/off).
+
+MEKIHUB_FRONT=on|off   lance le front NiceGUI (in-process)
+MEKIHUB_DISCORD=on|off lance l'adaptateur Discord (nécessite DISCORD_BOT_TOKEN)
+Headless possible : MEKIHUB_FRONT=off MEKIHUB_DISCORD=on
+"""
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))                 # session, events, hub
+sys.path.insert(0, str(HERE.parent))          # packages/ (mekillm, mekihub)
+sys.path.insert(0, str(HERE.parent / "mekicore"))  # base, tools, events de mekicore
+
+
+def build_hub():
+    """Construit un SessionHub câblé sur mekillm + les outils de mekicore."""
+    import mekillm
+    from tools import DISPATCH, TOOLS
+    from hub import SessionHub
+    from session import SessionStore
+    return SessionHub(store=SessionStore(), llm_factory=mekillm.LLM, tools=TOOLS, dispatch=DISPATCH)
+
+
+def main() -> None:
+    front = os.environ.get("MEKIHUB_FRONT", "on").lower() != "off"
+    discord_on = os.environ.get("MEKIHUB_DISCORD", "off").lower() == "on"
+    if discord_on and not front:
+        # headless : boucle asyncio Discord seule
+        import asyncio
+        from adapters.discord import DiscordAdapter
+        hub = build_hub()
+        token = os.environ["DISCORD_BOT_TOKEN"]
+        mapping = {}  # à renseigner via DISCORD_CHANNEL_SESSION_MAP (clé=canal, val=session)
+        adapter = DiscordAdapter(hub=hub, client=None, channel_session=mapping)
+        asyncio.run(adapter.connect_real(token))
+        return
+    # front activé : déléguer à l'app NiceGUI (qui crée son propre hub module-level)
+    sys.path.insert(0, str(HERE.parent / "mekichat"))
+    import app  # noqa: F401  (app.py appelle ui.run sous son garde __main__)
+    print("mekihub: front mekichat — lancer via `python packages/mekichat/app.py`")
+
+
+if __name__ in {"__main__", "__mp_main__"}:
+    main()
