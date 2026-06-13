@@ -53,9 +53,53 @@ def test_pending_queue_fifo_and_delete():
     asyncio.run(scenario())
 
 
+def test_hub_submit_run_and_subscribe():
+    sys.path.insert(0, str(ROOT / "tests"))
+    from fakes import FakeLLM
+    from mekihub.hub import SessionHub
+
+    async def scenario():
+        store = SessionStore(directory=str(ROOT / ".sessions"))
+        sess = store.create(model="fake/model", system="sys")
+        hub = SessionHub(store=store, llm_factory=lambda: FakeLLM(reply="bonjour le monde"),
+                         tools=[], dispatch={})
+        alice = Author(id="c1", name="alice", color="#39ff14")
+
+        received = []
+        sub = hub.subscribe(sess.id)
+        first = await sub.__anext__()                      # Snapshot d'amorçage
+        assert isinstance(first, hub_events.Snapshot)
+
+        async def collect():
+            async for e in sub:
+                received.append(e)
+                if isinstance(e, hub_events.Idle):
+                    break
+        task = asyncio.create_task(collect())
+        await asyncio.sleep(0.05)
+        hub.submit(sess.id, "salut", author=alice)
+        await asyncio.wait_for(task, timeout=5)
+
+        kinds = [type(e).__name__ for e in received]
+        assert "QueueEnqueued" in kinds
+        assert "RunStarted" in kinds
+        assert "MessagePosted" in kinds
+        assert "AgentDone" in kinds
+        assert "RunFinished" in kinds
+        assert kinds[-1] == "Idle"
+        # la session a bien le message user + la réponse assistant, sans champ auteur dans messages
+        s2 = store.load(sess.id)
+        assert {"role": "user", "content": "salut"} in s2.messages
+        assert any(m.get("role") == "assistant" for m in s2.messages)
+        assert all("author" not in m for m in s2.messages)
+        store.delete(sess.id)
+    asyncio.run(scenario())
+
+
 if __name__ == "__main__":
     test_author_and_queueitem()
     test_session_authors_separate_from_messages()
     test_events_exist()
     test_pending_queue_fifo_and_delete()
+    test_hub_submit_run_and_subscribe()
     print("OK - session")

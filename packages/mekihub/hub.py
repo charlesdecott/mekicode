@@ -5,7 +5,12 @@ import asyncio
 import uuid
 
 from session import Author, QueueItem, Session, SessionState, SessionStore, now_iso  # noqa: F401
-import events as ev  # noqa: F401
+
+# Événements de salle mekihub (Snapshot, QueueEnqueued, ...). On importe le sous-module DU PACKAGE
+# (`mekihub.events`) plutôt qu'un `import events` nu : ce dernier résout, selon l'ordre des insertions
+# de sys.path posées par __init__.py, le module homonyme de mekicore (mekicore/events.py). Passer par
+# le package garantit le bon module ET l'identité de classe partagée avec ce qu'importent les tests.
+from mekihub import events as ev  # noqa: F401
 
 
 class PendingQueue:
@@ -46,3 +51,140 @@ class PendingQueue:
             while not self._items:
                 await self._cond.wait()
             return self._items.pop(0)
+
+
+_DONE = object()
+
+
+class _Room:
+    """État runtime d'une session : worker, file, abonnés, présence."""
+
+    def __init__(self):
+        self.queue = PendingQueue()
+        self.running: QueueItem | None = None
+        self.presence: dict[str, Author] = {}      # author.id -> Author
+        self.subscribers: set[asyncio.Queue] = set()
+        self.worker: asyncio.Task | None = None
+
+
+class SessionHub:
+    """Bus de conversation à état partagé. Agnostique du transport (ni NiceGUI ni HTTP)."""
+
+    def __init__(self, store: SessionStore, llm_factory, tools, dispatch):
+        self.store = store
+        self.llm_factory = llm_factory          # () -> objet avec .complete/.stream/.model
+        self.tools = tools
+        self.dispatch = dispatch
+        self._rooms: dict[str, _Room] = {}
+
+    def _room(self, session_id: str) -> _Room:
+        room = self._rooms.get(session_id)
+        if room is None:
+            room = _Room()
+            self._rooms[session_id] = room
+        return room
+
+    def _publish(self, session_id: str, event) -> None:
+        room = self._room(session_id)
+        for q in list(room.subscribers):
+            q.put_nowait(event)
+
+    def snapshot(self, session_id: str) -> SessionState:
+        sess = self.store.load(session_id)
+        room = self._room(session_id)
+        return SessionState(id=sess.id, title=sess.title, messages=list(sess.messages),
+                            authors=dict(sess.authors), queue=room.queue.pending(),
+                            running=room.running, presence=list(room.presence.values()))
+
+    def join(self, session_id: str, author: Author) -> None:
+        room = self._room(session_id)
+        room.presence[author.id] = author
+        self._publish(session_id, ev.PresenceChanged(present=list(room.presence.values())))
+
+    def leave(self, session_id: str, author: Author) -> None:
+        room = self._room(session_id)
+        room.presence.pop(author.id, None)
+        self._publish(session_id, ev.PresenceChanged(present=list(room.presence.values())))
+
+    def submit(self, session_id: str, text: str, author: Author) -> str:
+        room = self._room(session_id)
+        item = QueueItem(item_id=uuid.uuid4().hex[:8], author=author, text=text, ts=now_iso())
+        room.queue.enqueue(item)
+        self._publish(session_id, ev.QueueEnqueued(item_id=item.item_id, author_name=author.name,
+                                                   color=author.color, text=text, ts=item.ts))
+        self._ensure_worker(session_id)
+        return item.item_id
+
+    def delete_pending(self, session_id: str, item_id: str) -> bool:
+        room = self._room(session_id)
+        ok = room.queue.delete(item_id)
+        if ok:
+            self._publish(session_id, ev.QueueItemDeleted(item_id=item_id))
+        return ok
+
+    async def subscribe(self, session_id: str):
+        room = self._room(session_id)
+        q: asyncio.Queue = asyncio.Queue()
+        room.subscribers.add(q)
+        try:
+            yield ev.Snapshot(state=self.snapshot(session_id))
+            while True:
+                yield await q.get()
+        finally:
+            room.subscribers.discard(q)
+
+    def _ensure_worker(self, session_id: str) -> None:
+        room = self._room(session_id)
+        if room.worker is None or room.worker.done():
+            room.worker = asyncio.create_task(self._run_worker(session_id))
+
+    async def _run_worker(self, session_id: str) -> None:
+        from base import run_agent  # mekicore (sys.path posé par __init__)
+        room = self._room(session_id)
+        llm = self.llm_factory()
+        while room.queue.pending():
+            item = await room.queue.pop_next()
+            room.running = item
+            self._publish(session_id, ev.RunStarted(item_id=item.item_id))
+            sess = self.store.load(session_id)
+            idx = sess.add_user(item.text, author=item.author)
+            self.store.save(sess)
+            self._publish(session_id, ev.MessagePosted(index=idx, author_name=item.author.name,
+                                                       color=item.author.color, text=item.text))
+            gen = run_agent(sess.messages, llm, self.tools, self.dispatch, stream=True)
+            try:
+                while True:
+                    e = await asyncio.to_thread(next, gen, _DONE)
+                    if e is _DONE:
+                        break
+                    self._publish(session_id, self._translate(e))
+            except Exception as exc:  # never-raise : le run d'une session ne tue pas le hub
+                self._publish(session_id, ev.RunError(str(exc)))
+            self.store.save(sess)
+            room.running = None
+        self._publish(session_id, ev.Idle())
+
+    @staticmethod
+    def _translate(e):
+        """Traduit un event mekicore en event mekihub.
+
+        Discrimine par `type(e).__name__` (chaîne) et NON par isinstance : mekihub/events.py et
+        mekicore/events.py ont le même nom de module, donc isinstance serait ambigu selon l'ordre
+        de résolution de sys.path.
+        """
+        name = type(e).__name__
+        if name == "AssistantDelta":
+            return ev.AgentDelta(text=e.text)
+        if name == "AssistantDone":
+            return ev.AgentDone(text=e.text)
+        if name == "ToolStarted":
+            return ev.ToolStarted(id=e.id, name=e.name, args=e.args)
+        if name == "ToolFinished":
+            return ev.ToolFinished(id=e.id, name=e.name, output=e.output)
+        if name == "RunFinished":
+            return ev.RunFinished()
+        if name == "RunError":
+            return ev.RunError(message=e.message)
+        if name == "ThinkingStarted":
+            return ev.RunStarted(item_id="")     # déjà couvert ; mappe sans casser
+        return ev.RunFinished()
