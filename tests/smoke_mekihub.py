@@ -96,10 +96,54 @@ def test_hub_submit_run_and_subscribe():
     asyncio.run(scenario())
 
 
+def test_two_subscribers_and_queue_delete():
+    sys.path.insert(0, str(ROOT / "tests"))
+    from fakes import FakeLLM
+    from mekihub.hub import SessionHub
+
+    async def scenario():
+        store = SessionStore(directory=str(ROOT / ".sessions"))
+        sess = store.create(model="fake/model", system="sys")
+        # delay > 0 : le 1er run dure, on a le temps d'empiler puis supprimer
+        hub = SessionHub(store=store, llm_factory=lambda: FakeLLM(reply="ok", delay=0.2),
+                         tools=[], dispatch={})
+        alice = Author(id="c1", name="alice", color="#39ff14")
+        bob = Author(id="c2", name="bob", color="#ff2bd6")
+
+        sub_a = hub.subscribe(sess.id); await sub_a.__anext__()
+        sub_b = hub.subscribe(sess.id); await sub_b.__anext__()
+        got_a, got_b = [], []
+
+        async def drain(sub, acc):
+            async for e in sub:
+                acc.append(type(e).__name__)
+                if acc.count("Idle") >= 1:
+                    break
+
+        ta = asyncio.create_task(drain(sub_a, got_a))
+        tb = asyncio.create_task(drain(sub_b, got_b))
+        await asyncio.sleep(0.02)
+        hub.submit(sess.id, "premier", author=alice)       # démarre le run (lent)
+        await asyncio.sleep(0.02)
+        qid2 = hub.submit(sess.id, "deuxieme", author=bob)  # s'empile (run en cours)
+        await asyncio.sleep(0.02)
+        assert hub.delete_pending(sess.id, qid2) is True    # supprime l'item EN ATTENTE
+        await asyncio.wait_for(asyncio.gather(ta, tb), timeout=5)
+
+        # les DEUX abonnés ont reçu le broadcast (QueueEnqueued + QueueItemDeleted + AgentDone)
+        for got in (got_a, got_b):
+            assert "QueueEnqueued" in got
+            assert "QueueItemDeleted" in got
+            assert "AgentDone" in got
+        store.delete(sess.id)
+    asyncio.run(scenario())
+
+
 if __name__ == "__main__":
     test_author_and_queueitem()
     test_session_authors_separate_from_messages()
     test_events_exist()
     test_pending_queue_fifo_and_delete()
     test_hub_submit_run_and_subscribe()
-    print("OK - session")
+    test_two_subscribers_and_queue_delete()
+    print("OK - tous les smoke mekihub passent")
