@@ -378,6 +378,8 @@ def test_edit_unique_and_ambiguous():
         assert tools.read_file("f.py") == "a = 1\nb = 3\na = 1\n"
         assert tools.edit_file("f.py", "a = 1", "a = 9").startswith("Error")  # 2 occurrences → ambigu
         assert tools.edit_file("f.py", "zzz", "x").startswith("Error")        # introuvable
+        (Path(d) / "bin.dat").write_bytes(b"\xff\xfe\x00binary")
+        assert tools.edit_file("bin.dat", "x", "y").startswith("Error")   # non-UTF-8 → Error, pas de crash
 
 
 def test_grep_and_glob():
@@ -392,6 +394,7 @@ def test_grep_and_glob():
         files = tools.glob_files("pkg/*.py").replace("\\", "/")
         assert "pkg/a.py" in files and "pkg/b.py" in files and "notes.txt" not in files
         assert tools.glob_files("**/*.py").count("\n") >= 1            # récursif
+        assert tools.glob_files("../*") == "(aucun fichier)"   # confinement : pas de fuite hors workspace
 
 
 def test_tools_registered():

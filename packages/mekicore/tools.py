@@ -81,13 +81,19 @@ def edit_file(path: str, old: str, new: str) -> str:
         return f"Error: {e}"
     if not p.is_file():
         return f"Error: fichier introuvable : {path}"
-    content = p.read_text(encoding="utf-8")
+    try:
+        content = p.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as e:
+        return f"Error: {e}"
     count = content.count(old)
     if count == 0:
         return "Error: texte introuvable (old)"
     if count > 1:
         return f"Error: texte ambigu ({count} occurrences) — ajoute du contexte"
-    p.write_text(content.replace(old, new, 1), encoding="utf-8")
+    try:
+        p.write_text(content.replace(old, new, 1), encoding="utf-8")
+    except OSError as e:
+        return f"Error: {e}"
     return f"édité {path}"
 
 
@@ -123,15 +129,20 @@ def grep_files(pattern: str, path: str = ".") -> str:
 
 
 def glob_files(pattern: str) -> str:
-    """Liste les fichiers correspondant au motif (ex. **/*.py) sous le workspace, chemins relatifs."""
+    """Liste les fichiers correspondant au motif (ex. **/*.py) sous le workspace, chemins relatifs.
+    Ignore les correspondances qui s'échappent du workspace (motifs avec ../, absolus)."""
     ws = _workspace()
+    matches: list[str] = []
     try:
-        matches = sorted(str(p.relative_to(ws)) for p in ws.glob(pattern) if p.is_file())
-    except ValueError as e:
+        for p in ws.glob(pattern):
+            rp = p.resolve()
+            if p.is_file() and (rp == ws or ws in rp.parents):
+                matches.append(str(rp.relative_to(ws)))
+    except (ValueError, NotImplementedError) as e:
         return f"Error: motif invalide : {e}"
     if not matches:
         return "(aucun fichier)"
-    return "\n".join(matches[:1000])
+    return "\n".join(sorted(matches)[:1000])
 
 
 def _tool(name: str, desc: str, props: dict, required: list) -> dict:
