@@ -139,6 +139,29 @@ def test_two_subscribers_and_queue_delete():
     asyncio.run(scenario())
 
 
+def test_discord_adapter_with_fake_client():
+    sys.path.insert(0, str(ROOT / "tests"))
+    from fakes import FakeLLM
+    from mekihub.hub import SessionHub
+    from mekihub.adapters.discord import DiscordAdapter, FakeDiscordClient, FakeMessage
+
+    async def scenario():
+        store = SessionStore(directory=str(ROOT / ".sessions"))
+        sess = store.create(model="fake/model", system="sys")
+        hub = SessionHub(store=store, llm_factory=lambda: FakeLLM(reply="salut discord"),
+                         tools=[], dispatch={})
+        client = FakeDiscordClient()
+        adapter = DiscordAdapter(hub=hub, client=client, channel_session={"chan1": sess.id})
+        await adapter.handle_message(FakeMessage(channel_id="chan1", author_name="dom",
+                                                 author_id="42", is_bot=False, content="coucou"))
+        await asyncio.sleep(0.3)
+        await adapter.flush()                      # laisse la tâche d'abonnement rendre
+        # le client factice a posté/édité au moins un message contenant la réponse de l'agent
+        assert any("salut discord" in m for m in client.sent_texts())
+        store.delete(sess.id)
+    asyncio.run(scenario())
+
+
 if __name__ == "__main__":
     test_author_and_queueitem()
     test_session_authors_separate_from_messages()
@@ -146,4 +169,5 @@ if __name__ == "__main__":
     test_pending_queue_fifo_and_delete()
     test_hub_submit_run_and_subscribe()
     test_two_subscribers_and_queue_delete()
+    test_discord_adapter_with_fake_client()
     print("OK - tous les smoke mekihub passent")
