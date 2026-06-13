@@ -157,7 +157,9 @@ class SessionHub:
                     e = await asyncio.to_thread(next, gen, _DONE)
                     if e is _DONE:
                         break
-                    self._publish(session_id, self._translate(e))
+                    translated = self._translate(e)
+                    if translated is not None:      # ThinkingStarted/non mappé → ignoré
+                        self._publish(session_id, translated)
             except Exception as exc:  # never-raise : le run d'une session ne tue pas le hub
                 self._publish(session_id, ev.RunError(str(exc)))
             self.store.save(sess)
@@ -185,6 +187,7 @@ class SessionHub:
             return ev.RunFinished()
         if name == "RunError":
             return ev.RunError(message=e.message)
-        if name == "ThinkingStarted":
-            return ev.RunStarted(item_id="")     # déjà couvert ; mappe sans casser
-        return ev.RunFinished()
+        # ThinkingStarted (et tout event mekicore non mappé) : ignoré. Le worker publie déjà son
+        # propre RunStarted ; re-publier ici créerait des RunStarted parasites (double send côté
+        # adaptateurs). Renvoyer None → le worker filtre.
+        return None
