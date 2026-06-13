@@ -161,10 +161,12 @@
   .tool-head .ic{color:var(--tc);text-shadow:0 0 9px color-mix(in srgb,var(--tc) 60%,transparent);font-size:13px;min-width:20px;text-align:center;flex:none}
   .tool-head .tname{color:var(--tc);font-weight:700;letter-spacing:.13em;text-transform:uppercase;flex:none}
   .tool-head .cmd{color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tool-head .meta{color:var(--faint);font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;flex:none}
+  .tool-head .meta:empty{display:none}
   .tool-head .st{font-size:9.5px;letter-spacing:.1em;padding:2px 9px;border:1px solid;color:var(--tc);border-color:color-mix(in srgb,var(--tc) 40%,transparent)}
   .tool-head .st.done{color:var(--green);border-color:color-mix(in srgb,var(--green) 40%,transparent)}
   .tool-head .st.err{color:#ff6b6b;border-color:color-mix(in srgb,#ff4d4d 45%,transparent)}
-  .tool-head .chev{color:var(--faint);transition:transform .2s} .tool.collapsed .chev{transform:rotate(-90deg)} .tool.collapsed .tool-out,.tool.collapsed .diff{display:none}
+  .tool-head .chev{color:var(--faint);transition:transform .2s;font-size:10px;flex:none} .tool.collapsed .chev{transform:rotate(-90deg)} .tool.collapsed .tool-out,.tool.collapsed .diff{display:none}
   .tool-out{font-family:var(--mono);font-size:12px;line-height:1.6;color:var(--muted);padding:12px 14px;border-top:1px solid color-mix(in srgb,var(--tc) 18%,transparent);background:rgba(0,0,0,.45);white-space:pre-wrap;max-height:210px;overflow:auto}
   .tool-out:empty{display:none}
   .tool-out .g{color:var(--p2)}

@@ -141,9 +141,11 @@ def index() -> None:
                 ok = not ev.output.startswith("Error")
                 out_text = "" if (ev.name == "edit" and ok) else ev.output   # edit OK : le diff suffit
                 if handle is not None:
-                    views.fill_tool(handle, out_text, ok=ok)
+                    views.fill_tool(handle, out_text, ok=ok, name=ev.name)
                 else:
-                    views.render_tool(ev.name, "", output=out_text, status="DONE" if ok else "ERR")
+                    h = views.render_tool(ev.name, "", output=out_text, status="DONE" if ok else "ERR")
+                    if ev.name != "edit":
+                        h[2].set_text(views.tool_metric(ev.name, ev.output))
             elif isinstance(ev, events.RunError):
                 if stream_ref["body"] is not None:   # fige la bulle partielle (retire le caret)
                     views.finalize_stream(stream_ref["body"], stream_ref["text"])

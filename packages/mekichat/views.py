@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 
 from nicegui import ui
@@ -91,30 +92,82 @@ def _render_diff(old: str, new: str) -> None:
             ui.label(f"+ {line}").classes("dl add")
 
 
+def _line_count(text: str) -> int:
+    """Nombre de lignes du texte (sans la newline finale)."""
+    t = (text or "").rstrip("\n")
+    return len(t.splitlines()) if t else 0
+
+
+def _edit_metric(old: str, new: str) -> str:
+    """Métrique d'un `edit` : lignes ajoutées / retirées."""
+    return f"+{_line_count(new)} -{_line_count(old)}"
+
+
+def tool_metric(name: str, output: str) -> str:
+    """Info compacte affichée dans l'en-tête (surtout utile quand le bloc est replié)."""
+    if not output:
+        return ""
+    if output.startswith("Error"):
+        return "erreur"
+    if name in ("read", "bash"):
+        return "—" if output == "(no output)" else f"{_line_count(output)} lignes"
+    if name == "write":
+        m = re.search(r"\d+", output)                 # "écrit N caractères dans ..."
+        return f"{m.group()} car." if m else ""
+    if name == "grep":
+        return "0 résultat" if output.startswith("(aucun") else f"{_line_count(output)} résultats"
+    if name == "glob":
+        return "0 fichier" if output.startswith("(aucun") else f"{_line_count(output)} fichiers"
+    return ""
+
+
 def render_tool(name: str, summary: str = "", output: str = "", status: str = "RUN",
                 *, old: str | None = None, new: str | None = None):
-    """Bloc d'outil : glyphe + NOM (couleur par outil) + résumé + statut. Pour `edit`, affiche le
-    diff `---`/`+++` (depuis old/new). Renvoie (label_statut, label_sortie) pour remplissage différé."""
+    """Bloc d'outil **replié par défaut** (clic sur l'en-tête → ouvre/ferme). En-tête : glyphe + NOM
+    (couleur par outil) + résumé + métrique compacte + statut + chevron. Pour `edit`, le corps est le
+    diff `---`/`+++`. Renvoie (label_statut, label_sortie, label_métrique) pour remplissage différé."""
     glyph = _TOOL_GLYPH.get(name, "▣")
-    cls = f"tool t-{name}" if name in _TOOL_GLYPH else "tool"
-    with ui.element("div").classes(cls):
-        with ui.element("div").classes("tool-head"):
+    base = f"tool t-{name}" if name in _TOOL_GLYPH else "tool"
+    tool = ui.element("div").classes(f"{base} collapsed")
+    with tool:
+        head = ui.element("div").classes("tool-head")
+        with head:
             ui.label(glyph).classes("ic")
             ui.label(name).classes("tname")
             ui.label(summary).classes("cmd")
+            meta = ui.label("").classes("meta")
             st = ui.label(status).classes(_ST_CLASS.get(status, "st"))
+            ui.label("▾").classes("chev")
         if name == "edit" and old is not None:
             _render_diff(old, new or "")
         out = ui.label(output).classes("tool-out")
-    return st, out
+
+    state = {"open": False}
+
+    def _toggle(_=None, t=tool, s=state):
+        s["open"] = not s["open"]
+        if s["open"]:
+            t.classes(remove="collapsed")
+        else:
+            t.classes("collapsed")
+
+    head.on("click", _toggle)
+    if name == "edit" and old is not None:
+        meta.set_text("erreur" if status == "ERR" else _edit_metric(old, new or ""))
+    return st, out, meta
 
 
-def fill_tool(handle, output: str, ok: bool = True) -> None:
-    """Remplit un bloc d'outil créé en statut RUN (chemin live)."""
-    st, out = handle
+def fill_tool(handle, output: str, ok: bool = True, name: str = "") -> None:
+    """Remplit un bloc d'outil créé en statut RUN (statut DONE/ERR + sortie + métrique compacte)."""
+    st, out, meta = handle
     st.set_text("DONE" if ok else "ERR")
     st.classes(replace="st done" if ok else "st err")
     out.set_text(output)
+    if name == "edit":
+        if not ok:
+            meta.set_text("erreur")          # le diff montrait le changement tenté
+    else:
+        meta.set_text(tool_metric(name, output))
 
 
 def render_thinking():
@@ -153,7 +206,10 @@ def render_thread(messages: list) -> None:
                 if name == "edit":
                     old, new = args.get("old"), args.get("new")
                     out = "" if status == "DONE" else raw   # succès : le diff suffit
-                render_tool(name, tool_summary(args), output=out, status=status, old=old, new=new)
+                handle = render_tool(name, tool_summary(args), output=out, status=status,
+                                     old=old, new=new)
+                if name != "edit":
+                    handle[2].set_text(tool_metric(name, raw))
 
 
 def render_stream_bubble():
