@@ -68,7 +68,7 @@ def write_file(path: str, content: str) -> str:
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content, encoding="utf-8")
-    except OSError as e:
+    except (OSError, ValueError) as e:
         return f"Error: {e}"
     return f"écrit {len(content)} caractères dans {path}"
 
@@ -107,11 +107,17 @@ def grep_files(pattern: str, path: str = ".") -> str:
     except re.error as e:
         return f"Error: regex invalide : {e}"
     ws = _workspace()
-    candidates = [root] if root.is_file() else sorted(root.rglob("*"))
+    try:
+        candidates = [root] if root.is_file() else sorted(root.rglob("*"))
+    except (OSError, ValueError) as e:
+        return f"Error: {e}"
     results: list[str] = []
     for f in candidates:
         if not f.is_file():
             continue
+        rf = f.resolve()
+        if rf != ws and ws not in rf.parents:
+            continue  # symlink qui s'échappe du workspace : on saute
         try:
             text = f.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):

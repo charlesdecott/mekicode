@@ -369,6 +369,7 @@ def test_write_read_roundtrip():
         assert tools.read_file("sub/a.txt") == "café ☕"
         assert tools.read_file("absent.txt").startswith("Error")
         assert tools.write_file("../escape.txt", "x").startswith("Error")     # confiné
+        assert tools.write_file("bad\x00name.txt", "x").startswith("Error")  # null byte → Error, pas de crash
 
 
 def test_edit_unique_and_ambiguous():
@@ -395,6 +396,7 @@ def test_grep_and_glob():
         assert "pkg/a.py" in files and "pkg/b.py" in files and "notes.txt" not in files
         assert tools.glob_files("**/*.py").count("\n") >= 1            # récursif
         assert tools.glob_files("../*") == "(aucun fichier)"   # confinement : pas de fuite hors workspace
+        assert tools.grep_files("x", "bad\x00dir").startswith("Error")  # null byte → Error, pas de crash
 
 
 def test_tools_registered():
