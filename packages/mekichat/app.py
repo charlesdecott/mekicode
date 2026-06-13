@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""app.py — front mekichat (NiceGUI). Phase 2 : chat + outils (bash), non-streaming."""
+"""app.py — front mekichat (NiceGUI). Chat + outils (bash/read/write/edit/grep/glob), streaming."""
 from __future__ import annotations
 
 import sys
@@ -22,7 +22,10 @@ from tools import DISPATCH, TOOLS  # noqa: E402
 
 STATIC = HERE / "static"
 DEFAULT_MODEL = mekillm.config.resolve()["model"]
-SYSTEM = f"You are a coding agent at {Path.cwd()}. Use the bash tool to act. Be concise."
+SYSTEM = (
+    f"You are a coding agent at {Path.cwd()}. Tools: bash, read, write, edit (str-replace), "
+    "grep, glob (file tools are confined to the workspace). Be concise."
+)
 FONTS = (
     '<link rel="preconnect" href="https://fonts.googleapis.com">'
     '<link href="https://fonts.googleapis.com/css2?'
@@ -128,15 +131,21 @@ def index() -> None:
                 elif ev.text:
                     views.render_message({"role": "assistant", "content": ev.text})
             elif isinstance(ev, events.ToolStarted):
-                cmd = str(ev.args.get("command", "")) if isinstance(ev.args, dict) else ""
-                handles[ev.id] = views.render_tool(cmd)
+                args = ev.args if isinstance(ev.args, dict) else {}
+                old = args.get("old") if ev.name == "edit" else None
+                new = args.get("new") if ev.name == "edit" else None
+                handles[ev.id] = views.render_tool(ev.name, views.tool_summary(ev.args),
+                                                    old=old, new=new)
             elif isinstance(ev, events.ToolFinished):
                 handle = handles.get(ev.id)
                 ok = not ev.output.startswith("Error")
+                out_text = "" if (ev.name == "edit" and ok) else ev.output   # edit OK : le diff suffit
                 if handle is not None:
-                    views.fill_tool(handle, ev.output, ok=ok)
+                    views.fill_tool(handle, out_text, ok=ok, name=ev.name)
                 else:
-                    views.render_tool("", output=ev.output, status="DONE")
+                    h = views.render_tool(ev.name, "", output=out_text, status="DONE" if ok else "ERR")
+                    if ev.name != "edit":
+                        h[2].set_text(views.tool_metric(ev.name, ev.output))
             elif isinstance(ev, events.RunError):
                 if stream_ref["body"] is not None:   # fige la bulle partielle (retire le caret)
                     views.finalize_stream(stream_ref["body"], stream_ref["text"])
@@ -263,7 +272,7 @@ def index() -> None:
                         box.on("keydown.enter", _on_enter, args=["shiftKey"])
                     with ui.element("div").classes("hint"):
                         ui.html("<span><kbd>Entrée</kbd> envoyer · <kbd>Maj+Entrée</kbd> ligne</span>")
-                        ui.html('<span class="haz">⚠ STREAM ON · TOOLS: BASH</span>')
+                        ui.html('<span class="haz">⚠ STREAM ON · 6 TOOLS</span>')
         _scroll_bottom()
 
     _refresh()

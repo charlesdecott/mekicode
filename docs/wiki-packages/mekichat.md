@@ -2,7 +2,8 @@
 
 Interface web in-process pour dialoguer avec l'agent, construite avec [NiceGUI](https://nicegui.io).
 Mode conversation type « Discord » : historique scrollable, bulle par message, saisie en bas.
-Couche présentation de [mekicore](mekicore.md) : son front visuel (l'agent + l'outil `bash`), à la place du REPL terminal.
+Couche présentation de [mekicore](mekicore.md) : son front visuel (l'agent + ses outils : `bash`,
+`read`, `write`, `edit`, `grep`, `glob`), à la place du REPL terminal.
 
 > Numéros de ligne indicatifs (source = vérité).
 
@@ -55,14 +56,26 @@ coins biseautés (`clip-path`), glitch, scanlines, ticker HUD. Stylise les ligne
 - `render_message(msg)` : une **ligne de message** façon Discord. Les réponses **assistant** sont
   rendues en **markdown** (`ui.markdown` : titres dégressifs h1-h3, listes, code, retours-ligne) ;
   les messages **user** en texte brut (retours-ligne préservés, pas de markdown).
-- `render_session_item(meta, *, active, on_click)` : un **item de la barre latérale**.
-- `render_tool(command, output, status)` : un **bloc `[bash]`** (commande + sortie + statut) ;
-  renvoie `(label_statut, label_sortie)` pour remplissage différé.
-- `fill_tool(handle, output, ok)` : remplit un bloc `[bash]` créé en statut `RUN` (chemin live).
+- `render_session_item(meta, *, active, on_click, on_delete)` : un **item de la barre latérale**.
+- `tool_summary(args)` : extrait le **résumé** d'un appel d'outil pour l'affichage (1er de
+  `command` / `path` / `pattern`, sinon 1er argument).
+- `_render_diff(old, new)` : pour l'outil `edit`, affiche le changement en **diff** — `--- ancien`
+  (lignes `-`, rouge) puis `+++ nouveau` (lignes `+`, vert), multi-lignes.
+- `tool_metric(name, output)` : **info compacte d'en-tête** (visible surtout quand le bloc est replié) —
+  `N lignes` (read/bash), `N car.` (write), `N résultats` (grep), `N fichiers` (glob) ; `edit` →
+  `+ajoutées -retirées` (depuis `old`/`new`).
+- `render_tool(name, summary, output, status, *, old, new)` : un **bloc d'outil** `<glyphe> <NOM>`
+  **coloré par outil** (`_TOOL_GLYPH` : `❯_`/`▤`/`✎`/`±`/`⌕`/`✲` ; couleur via la classe CSS `t-<nom>`),
+  **replié par défaut** (clic sur l'en-tête → ouvre/ferme, classe `collapsed` + chevron). En-tête :
+  glyphe + NOM + résumé + métrique + statut. Pour `edit`, le corps est le diff (depuis `old`/`new`).
+  Renvoie `(label_statut, label_sortie, label_métrique)` pour remplissage différé.
+- `fill_tool(handle, output, ok, name)` : remplit un bloc créé en statut `RUN` (statut `DONE`/`ERR`,
+  sortie, et **métrique** calculée via `tool_metric`).
 - `render_thinking()` : l'indicateur animé **« PROCESSING… »** pendant un appel LLM (renvoie
   l'élément, supprimé via `.delete()` à la réponse).
-- `render_thread(messages)` : rejoue tout un historique (texte + blocs `[bash]` appariés
-  `tool_calls` ↔ messages `role:"tool"`) — chemin de rechargement de session.
+- `render_thread(messages)` : rejoue tout un historique (texte + blocs d'outils appariés
+  `tool_calls` ↔ messages `role:"tool"`, nom + résumé via `tool_summary`) — chemin de rechargement
+  de session.
 - `render_stream_bubble()` → `(body, lbl)` : bulle assistant en cours de **streaming** (texte brut
   + caret clignotant) ; le label est mis à jour à chaque token.
 - `finalize_stream(body, text)` : remplace le texte streamé par le rendu **markdown** final (retire le caret).
@@ -78,7 +91,7 @@ coins biseautés (`clip-path`), glitch, scanlines, ticker HUD. Stylise les ligne
   (en **`stream=True`**) **pas-à-pas** via `await run.io_bound(next, gen, _DONE)` (sans figer l'UI).
   Rend en direct : `ThinkingStarted` → « PROCESSING… », `AssistantDelta` → bulle de **streaming**
   (texte + caret), `AssistantDone` → **finalisation markdown**, `ToolStarted`/`ToolFinished` → bloc
-  `[bash]`, `RunError` → bulle rouge (et fige la bulle partielle). Persiste à la fin.
+  d'outil générique `▣ <nom>`, `RunError` → bulle rouge (et fige la bulle partielle). Persiste à la fin.
 - `state["busy"]` empêche envois/bascules concurrents ; le rendu cesse proprement si l'onglet se
   ferme en plein run (garde « client supprimé »).
 - Store et LLM en singletons **paresseux** (`_get_store` / `_get_llm`).
@@ -108,10 +121,15 @@ clé valide, l'envoi affiche une bulle d'erreur « LLM indisponible » (dégrada
 > Rendu **markdown** des réponses de l'agent (titres dégressifs, listes, blocs de code, retours-ligne).
 > Les messages utilisateur restent en texte brut.
 
+> **Outils étendus** (post-phase-3) : l'agent dispose désormais de `read`/`write`/`edit`/`grep`/`glob`
+> en plus de `bash` (cf. [mekicore](mekicore.md)). Le front les affiche via un **bloc d'outil coloré
+> par outil** (`<glyphe> <NOM>` + couleur dédiée : bash=ambre, read=cyan, write=vert, edit=magenta,
+> grep=violet, glob=bleu) ; l'outil `edit` montre son changement en **diff** `---`/`+++` (rouge/vert).
+
 ## Relations entrantes / sortantes
 
 - Dépend de [mekillm](mekillm.md) (`LLM.complete` / `LLM.stream`) et de [mekicore](mekicore.md)
-  (`base.run_agent`, `events`, outil `bash`).
+  (`base.run_agent`, `events`, outils `bash`/`read`/`write`/`edit`/`grep`/`glob`).
 - Pendant de [mekicore](mekicore.md) : même agent, interface web au lieu du REPL terminal.
 - Non-régression réseau-free : `tests/smoke_mekichat.py` (sessions) + `tests/smoke_packages.py`
   (`run_agent`, événements).

@@ -18,19 +18,49 @@ base.py  ── run_agent(messages, llm, tools, dispatch, stream=False)  ── 
    │        agent_loop(...)  ── réexprimé sur run_agent (REPL : rend les événements en print)
    ▼
 events.py ── événements consommés par le REPL ou le front mekichat
-tools.py  ── DISPATCH["bash"] ─▶ run_bash() ; TOOLS = schéma function-calling OpenAI
+tools.py  ── DISPATCH[nom] ─▶ run_bash()/read_file()/… ; TOOLS = schémas function-calling OpenAI
+            outils fichiers confinés au workspace via _safe_path ; bash non confiné
 ```
 
-## `tools.py` — l'outil et son schéma
-- `_ALWAYS_BLOCK` (l.8) : fragments de commande interdits (`rm -rf /`, `sudo`, fork bomb, …).
-- `run_bash(command) -> str` (l.11) : `subprocess.run(shell=True)`, timeout 120 s, sortie
-  `stdout+stderr` tronquée à 50k ; renvoie un message d'erreur (jamais d'exception) si bloqué/timeout.
-- `TOOLS` (l.29) : **schéma au format function-calling OpenAI** —
-  `[{"type":"function","function":{"name":"bash","description":...,"parameters":{json schema}}}]`.
-  C'est ce que `LLM.complete` transmet au modèle.
-- `DISPATCH` (l.45) : table `nom d'outil → handler(args: dict) -> str`. Ici `{"bash": ... run_bash(args["command"])}`.
+## `tools.py` — les outils et leurs schémas
+**Six outils** : `bash` + cinq outils de fichiers (`read`/`write`/`edit`/`grep`/`glob`). Les outils de
+fichiers sont **confinés à un workspace** ; `bash` reste l'échappatoire non confinée. Tous renvoient
+**une chaîne** (jamais d'exception qui remonte) ; en cas de problème, une chaîne `Error: …` que l'agent
+voit et peut corriger.
 
-`TOOLS` (ce que le modèle voit) et `DISPATCH` (ce qu'on exécute) sont les deux faces d'un même outil.
+**Confinement (l.17-28).**
+- `_workspace() -> Path` (l.17) : racine du workspace, **lue à chaque appel** (pas figée à l'import,
+  pour la testabilité) — `MEKICORE_WORKSPACE` sinon `cwd`.
+- `_safe_path(p) -> Path` (l.22) : résout `p` (relatif **ou** absolu) sous la racine ; lève
+  `ValueError` s'il s'en échappe (`../…`, chemin absolu hors racine). Utilisé par les 5 outils
+  fichiers, **pas** par `bash`.
+
+**`bash`.**
+- `_ALWAYS_BLOCK` (l.13) : fragments interdits (`rm -rf /`, `sudo`, fork bomb, …).
+- `run_bash(command) -> str` (l.31) : `subprocess.run(shell=True)`, timeout 120 s, sortie
+  `stdout+stderr` tronquée à 50k ; message d'erreur (jamais d'exception) si bloqué/timeout. **Non
+  confiné** (`cwd` du process).
+
+**Outils de fichiers (confinés).**
+- `read_file(path)` (l.48) : lit un fichier texte (`errors="replace"`, tronqué à 50k) ; `Error` si
+  introuvable / hors workspace.
+- `write_file(path, content)` (l.62) : crée les dossiers parents puis écrit/écrase ; renvoie
+  `écrit N caractères dans <path>`.
+- `edit_file(path, old, new)` (l.76) : **str-replace** d'un fragment **exact et unique** ; `Error` si
+  0 occurrence (introuvable), 2+ (ambigu), ou fichier non-UTF-8 / illisible.
+- `grep_files(pattern, path=".")` (l.100) : regex sur les fichiers texte sous `path` ; lignes
+  `relpath:ligne: contenu` (≤ 200, binaires sautés) ; `Error: regex invalide` sinon.
+- `glob_files(pattern)` (l.131) : liste les fichiers d'un motif (`**/*.py`…) sous la racine, chemins
+  relatifs triés (≤ 1000) ; **ignore les correspondances qui s'échappent** du workspace (`../`, absolus).
+
+**Enregistrement.**
+- `_tool(name, desc, props, required)` (l.148) : fabrique un schéma function-calling OpenAI.
+- `TOOLS` (l.157) : la liste des **six** schémas (ce que le modèle voit).
+- `DISPATCH` (l.173) : table `nom → handler(args: dict) -> str` (les six handlers).
+
+`TOOLS` (ce que le modèle voit) et `DISPATCH` (ce qu'on exécute) sont les deux faces des outils.
+`run_agent` (base.py) dispatche **génériquement par nom** : ajouter un outil = l'ajouter ici, rien
+d'autre à toucher.
 
 ## `events.py` — événements de la boucle agent
 Dataclasses émises par `run_agent`, consommées par le REPL (`agent_loop`) ou le front
@@ -66,7 +96,9 @@ Détail du cycle multi-tours : voir [architecture.md](architecture.md).
 - **Bootstrap** (l.9) : `sys.path.insert(0, parent.parent)` ajoute `packages/` au path pour rendre
   `import mekillm` résoluble en lancement direct ; `base` et `tools` sont importables car leur
   dossier (`mekicore/`) est déjà `sys.path[0]`.
-- `SYSTEM` (l.15) : prompt système (`"You are a coding agent at <cwd>. ... Act, don't explain."`).
+- `SYSTEM` (l.15) : prompt système — annonce les outils disponibles (`"You are a coding agent at
+  <cwd>. Tools: bash, read, write, edit (str-replace), grep, glob. The file tools are confined to the
+  workspace. Act, don't explain."`).
 - `main()` (l.18) : instancie `mekillm.LLM()` une fois, démarre l'historique avec le message
   `system`, puis REPL : prompt `mekicore >>`, append du message `user`, `agent_loop`, affichage,
   sortie propre sur `q`/`exit`/`quit` ou `Ctrl-C`/`Ctrl-D`.
@@ -80,5 +112,5 @@ Nécessite une clé dans le `.env` racine (voir `.env.example` : `OPENROUTER_API
 ## Relations entrantes / sortantes
 - Dépend de [mekillm](mekillm.md) (`LLM.complete`/`stream`, types `LLMResponse`/`ToolCall`).
 - `run_agent` + `events.py` sont consommés par le front [mekichat](mekichat.md) (rendu en direct des
-  bulles, blocs `[bash]`, streaming).
+  bulles, blocs d'outils génériques `▣ <nom>`, streaming).
 - Non-régression réseau-free : `tests/smoke_packages.py` (`run_agent`, événements, streaming).

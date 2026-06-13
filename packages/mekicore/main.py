@@ -12,7 +12,10 @@ import mekillm  # noqa: E402
 from base import agent_loop  # noqa: E402
 from tools import DISPATCH, TOOLS  # noqa: E402
 
-SYSTEM = f"You are a coding agent at {Path.cwd()}. Use tools to solve tasks. Act, don't explain."
+SYSTEM = (
+    f"You are a coding agent at {Path.cwd()}. Tools: bash, read, write, edit (str-replace), "
+    "grep, glob. The file tools are confined to the workspace. Act, don't explain."
+)
 
 
 def main() -> None:

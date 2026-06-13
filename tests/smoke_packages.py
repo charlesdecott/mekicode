@@ -3,6 +3,7 @@
 Aucune dépendance réseau ni clé API : on stubbe la réponse SDK et le provider.
 Lancer depuis la racine du projet : python tests/smoke_packages.py
 """
+import contextlib
 import os
 import sys
 import tempfile
@@ -21,6 +22,20 @@ from mekillm.client import LLMResponse, ToolCall, _normalize  # noqa: E402
 
 import base  # noqa: E402
 import tools  # noqa: E402
+
+
+@contextlib.contextmanager
+def _ws(d):
+    """Pointe MEKICORE_WORKSPACE sur d le temps du bloc (restauré ensuite)."""
+    old = os.environ.get("MEKICORE_WORKSPACE")
+    os.environ["MEKICORE_WORKSPACE"] = str(d)
+    try:
+        yield
+    finally:
+        if old is None:
+            os.environ.pop("MEKICORE_WORKSPACE", None)
+        else:
+            os.environ["MEKICORE_WORKSPACE"] = old
 
 
 def test_normalize_text():
@@ -334,6 +349,66 @@ def test_llm_wrappers_stub():
     assert len([r for r in seen if r.model == "stub-model"]) == 2
 
 
+def test_safe_path_confine():
+    with tempfile.TemporaryDirectory() as d, _ws(d):
+        root = Path(d).resolve()
+        assert tools._safe_path("a/b.txt") == root / "a" / "b.txt"   # relatif → OK
+        assert tools._safe_path(".") == root                          # la racine elle-même
+        for bad in ["../escape.txt", "../../etc/passwd"]:
+            try:
+                tools._safe_path(bad)
+                assert False, f"aurait dû refuser {bad}"
+            except ValueError:
+                pass
+
+
+def test_write_read_roundtrip():
+    with tempfile.TemporaryDirectory() as d, _ws(d):
+        assert tools.write_file("sub/a.txt", "café ☕").startswith("écrit")   # crée le dossier parent
+        assert (Path(d) / "sub" / "a.txt").is_file()
+        assert tools.read_file("sub/a.txt") == "café ☕"
+        assert tools.read_file("absent.txt").startswith("Error")
+        assert tools.write_file("../escape.txt", "x").startswith("Error")     # confiné
+        assert tools.write_file("bad\x00name.txt", "x").startswith("Error")  # null byte → Error, pas de crash
+
+
+def test_edit_unique_and_ambiguous():
+    with tempfile.TemporaryDirectory() as d, _ws(d):
+        tools.write_file("f.py", "a = 1\nb = 2\na = 1\n")
+        assert tools.edit_file("f.py", "b = 2", "b = 3") == "édité f.py"
+        assert tools.read_file("f.py") == "a = 1\nb = 3\na = 1\n"
+        assert tools.edit_file("f.py", "a = 1", "a = 9").startswith("Error")  # 2 occurrences → ambigu
+        assert tools.edit_file("f.py", "zzz", "x").startswith("Error")        # introuvable
+        (Path(d) / "bin.dat").write_bytes(b"\xff\xfe\x00binary")
+        assert tools.edit_file("bin.dat", "x", "y").startswith("Error")   # non-UTF-8 → Error, pas de crash
+
+
+def test_grep_and_glob():
+    with tempfile.TemporaryDirectory() as d, _ws(d):
+        tools.write_file("pkg/a.py", "import os\ndef hello():\n    return 42\n")
+        tools.write_file("pkg/b.py", "x = 1\n")
+        tools.write_file("notes.txt", "rien\n")
+        g = tools.grep_files(r"def \w+", "pkg").replace("\\", "/")
+        assert "a.py:2" in g and "def hello" in g
+        assert tools.grep_files("zzznope", ".") == "(aucun résultat)"
+        assert tools.grep_files("(", ".").startswith("Error")          # regex invalide
+        files = tools.glob_files("pkg/*.py").replace("\\", "/")
+        assert "pkg/a.py" in files and "pkg/b.py" in files and "notes.txt" not in files
+        assert tools.glob_files("**/*.py").count("\n") >= 1            # récursif
+        assert tools.glob_files("../*") == "(aucun fichier)"   # confinement : pas de fuite hors workspace
+        assert tools.grep_files("x", "bad\x00dir").startswith("Error")  # null byte → Error, pas de crash
+
+
+def test_tools_registered():
+    names = {t["function"]["name"] for t in tools.TOOLS}
+    assert names == {"bash", "read", "write", "edit", "grep", "glob"}
+    assert set(tools.DISPATCH) == names
+    with tempfile.TemporaryDirectory() as d, _ws(d):
+        assert tools.DISPATCH["write"]({"path": "x.txt", "content": "hi"}).startswith("écrit")
+        assert tools.DISPATCH["read"]({"path": "x.txt"}) == "hi"
+        assert tools.DISPATCH["glob"]({"pattern": "*.txt"}) == "x.txt"
+
+
 def main():
     log_path = Path(tempfile.gettempdir()) / "mekillm_smoke.jsonl"
     if log_path.exists():
@@ -358,6 +433,11 @@ def main():
     test_consume_stream_text_then_tool()
     test_run_agent_streaming()
     test_llm_wrappers_stub()
+    test_safe_path_confine()
+    test_write_read_roundtrip()
+    test_edit_unique_and_ambiguous()
+    test_grep_and_glob()
+    test_tools_registered()
     print("OK - tous les smoke tests passent")
 
 

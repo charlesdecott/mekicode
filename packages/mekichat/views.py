@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 
 from nicegui import ui
@@ -10,6 +11,8 @@ _AVATARS = {"user": ("user", "CD"), "assistant": ("bot", "M")}
 _WHO = {"user": "charles", "assistant": "mekicore"}
 _TAG = {"user": "//USER", "assistant": "//AGENT"}
 _MD_EXTRAS = ["fenced-code-blocks", "tables", "break-on-newline"]
+# Glyphe cyberpunk par outil (la couleur est portée par la classe CSS `t-<nom>`).
+_TOOL_GLYPH = {"bash": "❯_", "read": "▤", "write": "✎", "edit": "±", "grep": "⌕", "glob": "✲"}
 
 
 def _md(text: str) -> None:
@@ -64,24 +67,107 @@ def render_session_item(meta, *, active: bool, on_click, on_delete) -> None:
         ui.label(f"{meta.id} · {meta.n_messages} msg").classes("s-meta")
 
 
-def render_tool(command: str, output: str = "", status: str = "RUN"):
-    """Bloc [bash] : commande + sortie + statut. Renvoie (label_statut, label_sortie)
-    pour pouvoir remplir la sortie plus tard (chemin live)."""
-    with ui.element("div").classes("tool"):
-        with ui.element("div").classes("tool-head"):
-            ui.label("▣ PROC :: bash").classes("ic")
-            ui.label(command).classes("cmd")
-            st = ui.label(status).classes("st done" if status == "DONE" else "st")
+def tool_summary(args) -> str:
+    """Résumé d'un appel d'outil pour l'affichage : la commande / le chemin / le motif."""
+    if not isinstance(args, dict):
+        return ""
+    for k in ("command", "path", "pattern"):
+        if k in args:
+            return str(args[k])
+    # aucun argument connu → 1er argument (cas inattendu ; .cmd tronque si trop long)
+    return str(next(iter(args.values()), ""))
+
+
+_ST_CLASS = {"DONE": "st done", "ERR": "st err"}
+
+
+def _render_diff(old: str, new: str) -> None:
+    """Affiche le changement d'`edit` en diff : `--- ancien` (lignes `-`) / `+++ nouveau` (lignes `+`)."""
+    with ui.element("div").classes("diff"):
+        ui.label("--- ancien").classes("dh")
+        for line in (old.splitlines() or [""]):
+            ui.label(f"- {line}").classes("dl del")
+        ui.label("+++ nouveau").classes("dh")
+        for line in (new.splitlines() or [""]):
+            ui.label(f"+ {line}").classes("dl add")
+
+
+def _line_count(text: str) -> int:
+    """Nombre de lignes du texte (sans la newline finale)."""
+    t = (text or "").rstrip("\n")
+    return len(t.splitlines()) if t else 0
+
+
+def _edit_metric(old: str, new: str) -> str:
+    """Métrique d'un `edit` : lignes ajoutées / retirées."""
+    return f"+{_line_count(new)} -{_line_count(old)}"
+
+
+def tool_metric(name: str, output: str) -> str:
+    """Info compacte affichée dans l'en-tête (surtout utile quand le bloc est replié)."""
+    if not output:
+        return ""
+    if output.startswith("Error"):
+        return "erreur"
+    if name in ("read", "bash"):
+        return "—" if output == "(no output)" else f"{_line_count(output)} lignes"
+    if name == "write":
+        m = re.search(r"\d+", output)                 # "écrit N caractères dans ..."
+        return f"{m.group()} car." if m else ""
+    if name == "grep":
+        return "0 résultat" if output.startswith("(aucun") else f"{_line_count(output)} résultats"
+    if name == "glob":
+        return "0 fichier" if output.startswith("(aucun") else f"{_line_count(output)} fichiers"
+    return ""
+
+
+def render_tool(name: str, summary: str = "", output: str = "", status: str = "RUN",
+                *, old: str | None = None, new: str | None = None):
+    """Bloc d'outil **replié par défaut** (clic sur l'en-tête → ouvre/ferme). En-tête : glyphe + NOM
+    (couleur par outil) + résumé + métrique compacte + statut + chevron. Pour `edit`, le corps est le
+    diff `---`/`+++`. Renvoie (label_statut, label_sortie, label_métrique) pour remplissage différé."""
+    glyph = _TOOL_GLYPH.get(name, "▣")
+    base = f"tool t-{name}" if name in _TOOL_GLYPH else "tool"
+    tool = ui.element("div").classes(f"{base} collapsed")
+    with tool:
+        head = ui.element("div").classes("tool-head")
+        with head:
+            ui.label(glyph).classes("ic")
+            ui.label(name).classes("tname")
+            ui.label(summary).classes("cmd")
+            meta = ui.label("").classes("meta")
+            st = ui.label(status).classes(_ST_CLASS.get(status, "st"))
+            ui.label("▾").classes("chev")
+        if name == "edit" and old is not None:
+            _render_diff(old, new or "")
         out = ui.label(output).classes("tool-out")
-    return st, out
+
+    state = {"open": False}
+
+    def _toggle(_=None, t=tool, s=state):
+        s["open"] = not s["open"]
+        if s["open"]:
+            t.classes(remove="collapsed")
+        else:
+            t.classes("collapsed")
+
+    head.on("click", _toggle)
+    if name == "edit" and old is not None:
+        meta.set_text("erreur" if status == "ERR" else _edit_metric(old, new or ""))
+    return st, out, meta
 
 
-def fill_tool(handle, output: str, ok: bool = True) -> None:
-    """Remplit un bloc [bash] créé en statut RUN (chemin live)."""
-    st, out = handle
+def fill_tool(handle, output: str, ok: bool = True, name: str = "") -> None:
+    """Remplit un bloc d'outil créé en statut RUN (statut DONE/ERR + sortie + métrique compacte)."""
+    st, out, meta = handle
     st.set_text("DONE" if ok else "ERR")
-    st.classes(replace="st done" if ok else "st")
+    st.classes(replace="st done" if ok else "st err")
     out.set_text(output)
+    if name == "edit":
+        if not ok:
+            meta.set_text("erreur")          # le diff montrait le changement tenté
+    else:
+        meta.set_text(tool_metric(name, output))
 
 
 def render_thinking():
@@ -97,7 +183,7 @@ def render_thinking():
 
 
 def render_thread(messages: list) -> None:
-    """Rejoue tout un historique : texte (user/assistant) + blocs [bash] appariés
+    """Rejoue tout un historique : texte (user/assistant) + blocs d'outils appariés
     (assistant.tool_calls ↔ messages role:'tool'). Chemin de rechargement de session."""
     outputs = {m.get("tool_call_id"): m.get("content", "")
                for m in messages if m.get("role") == "tool"}
@@ -109,10 +195,21 @@ def render_thread(messages: list) -> None:
             for tc in m.get("tool_calls") or []:
                 fn = tc.get("function", {})
                 try:
-                    cmd = json.loads(fn.get("arguments") or "{}").get("command", "")
-                except (json.JSONDecodeError, AttributeError):
-                    cmd = str(fn.get("arguments", ""))
-                render_tool(cmd, output=outputs.get(tc.get("id"), ""), status="DONE")
+                    args = json.loads(fn.get("arguments") or "{}")
+                except json.JSONDecodeError:
+                    args = {}
+                name = fn.get("name", "tool")
+                raw = outputs.get(tc.get("id"), "")
+                status = "ERR" if raw.startswith("Error") else "DONE"
+                old = new = None
+                out = raw
+                if name == "edit":
+                    old, new = args.get("old"), args.get("new")
+                    out = "" if status == "DONE" else raw   # succès : le diff suffit
+                handle = render_tool(name, tool_summary(args), output=out, status=status,
+                                     old=old, new=new)
+                if name != "edit":
+                    handle[2].set_text(tool_metric(name, raw))
 
 
 def render_stream_bubble():

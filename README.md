@@ -32,7 +32,7 @@ Pour rester clair, le code est découpé en **3 paquets**, comme 3 organes :
 | Paquet | Analogie | Son job |
 |--------|----------|---------|
 | 🗣️ **`mekillm`** | la **voix & les oreilles** | parler aux modèles (OpenRouter, ollama, litellm…) et **traduire** leurs réponses dans un format unique |
-| 🧠 **`mekicore`** | le **cerveau & les mains** | la boucle *réfléchir → agir*, et l'outil **`bash`** pour agir pour de vrai |
+| 🧠 **`mekicore`** | le **cerveau & les mains** | la boucle *réfléchir → agir*, et ses **outils** (`bash` + `read`/`write`/`edit`/`grep`/`glob`) pour agir pour de vrai |
 | 🎭 **`mekichat`** | le **visage** | une **interface web** cyberpunk pour discuter avec l'agent |
 
 Chaque paquet ne connaît que celui d'en dessous : **`mekichat → mekicore → mekillm`**. On peut donc
@@ -62,10 +62,18 @@ Pas envie d'interface ? Le mode terminal :
 
 - 💬 **Discuter avec un agent qui peut agir** — il ne fait pas que répondre, il peut **lancer des
   commandes shell** (`bash`) pour aller chercher la réponse (compter des fichiers, lire du code, etc.).
+- 🛠️ **Lire, écrire et modifier des fichiers** — au-delà de `bash`, l'agent a cinq outils dédiés :
+  `read`, `write`, `edit` (remplacement chirurgical d'un fragment), `grep` (recherche regex) et `glob`
+  (liste par motif). Ces outils fichiers sont **confinés au dossier du projet** (garde-fou de sécurité ;
+  `bash`, lui, reste libre).
 - ⌨️ **Streaming** — les mots s'affichent **au fil de l'eau**, comme une vraie frappe, avec un curseur
   clignotant.
-- 🧱 **Blocs `[bash]`** — quand l'agent lance une commande, tu **vois** la commande et sa sortie, comme
-  dans un terminal intégré.
+- 🧱 **Blocs d'outils colorés & repliables** — quand l'agent utilise un outil, tu **vois** un bloc
+  `<glyphe> <NOM>` avec une **couleur dédiée par outil** (bash=ambre, read=cyan, write=vert,
+  edit=magenta, grep=violet, glob=bleu). Les blocs sont **repliés par défaut** (clic pour ouvrir) et
+  affichent une **info compacte** dans l'en-tête (nombre de lignes lues, commande, `+N -N` lignes
+  modifiées, nombre de résultats/fichiers…). L'outil **`edit` montre un diff** (`---` lignes retirées
+  en rouge, `+++` ajoutées en vert).
 - 💾 **Sessions sauvegardées** — chaque conversation est un fichier ; tu peux fermer, rouvrir,
   retrouver, supprimer.
 - 📝 **Markdown** — les réponses sont mises en forme (titres, listes, code).
@@ -96,7 +104,7 @@ La boucle perception-action au format OpenAI, branchée sur `mekillm`.
 
 | Fichier | À quoi ça sert |
 |---------|----------------|
-| `tools.py` | L'outil **`bash`** (avec garde-fous), son schéma `TOOLS` (ce que le modèle voit) et la table `DISPATCH` (ce qu'on exécute). |
+| `tools.py` | Les **six outils** : `bash` (avec garde-fous, non confiné) + `read`/`write`/`edit`/`grep`/`glob` **confinés au workspace** (`_safe_path`). Leurs schémas `TOOLS` (ce que le modèle voit) et la table `DISPATCH` (ce qu'on exécute). |
 | `events.py` | Les **événements** émis par la boucle : `ThinkingStarted`, `AssistantDelta` (streaming), `AssistantDone`, `ToolStarted`/`ToolFinished`, `RunFinished`, `RunError`. |
 | `base.py` | **`run_agent`** : la boucle qui *émet des événements* (consommée par le front) ; **`agent_loop`** : la même chose mais pour le terminal (rend les événements en `print`). |
 | `main.py` | Le **REPL** : tape une requête, l'agent boucle, recommence. |
@@ -107,7 +115,7 @@ Une interface web écrite **100 % en Python** (NiceGUI), qui tourne **dans le m�
 | Fichier | À quoi ça sert |
 |---------|----------------|
 | `sessions.py` | **Persistance** : un `SessionStore` qui crée / sauve / charge / supprime des sessions (un fichier JSON par conversation, sous `.sessions/`). Pur Python, testable seul. |
-| `views.py` | Les **briques de rendu** : une ligne de message (markdown), un bloc `[bash]`, l'indicateur « PROCESSING… », la bulle de streaming. |
+| `views.py` | Les **briques de rendu** : une ligne de message (markdown), un **bloc d'outil générique** `▣ <nom>` (read/write/edit/grep/glob, plus seulement bash), l'indicateur « PROCESSING… », la bulle de streaming. |
 | `app.py` | La **page** : barre latérale des sessions, en-tête (modèle / session), fil de discussion, zone de saisie. C'est elle qui pilote `run_agent` en streaming et affiche tout en direct. |
 | `static/mekichat.css` | Le **thème cyberpunk Phosphore** (variables CSS, glitch, scanlines, coins biseautés…). |
 | `__init__.py` | Les exports (`Session`, `SessionStore`…). |
@@ -148,3 +156,5 @@ inspiration/     les repos de référence (non versionnés)
 
 *Projet perso d'apprentissage : du « comment marche un agent » jusqu'à une appli de chat qui streame.
 Tout en français, tout fait main. 🛠️*
+
+hello world
