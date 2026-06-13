@@ -59,3 +59,14 @@
   `smoke_packages` qui pose `MEKILLM_LOG_FILE` au runtime avant d'émettre.
 - **Cacher le CSS au niveau module** (`app.py`, au lieu de le relire à chaque page) : perd le
   rechargement CSS « live » pratique en dev (un simple rafraîchissement applique les changements).
+
+## D. Idées d'amélioration (UX / features différées)
+
+1. **Afficher le markdown EN DIRECT pendant le streaming.** Aujourd'hui la bulle de streaming montre
+   le **texte brut** (+ caret), puis bascule en markdown rendu seulement à la fin (`AssistantDone` →
+   `views.finalize_stream`). But : rendre le **markdown au fil de l'eau** (titres / gras / listes /
+   code qui se forment pendant la frappe). *Délicat* : re-parser tout le markdown à chaque token est
+   coûteux et peut « flicker » ; prévoir un rendu **incrémental throttlé** (toutes les ~50-100 ms ou
+   tous les N tokens) et gérer proprement les blocs partiellement formés (code, listes). Concerne
+   `views.render_stream_bubble` / `finalize_stream` et la branche `AssistantDelta` de
+   `app.py:_render_event`.
