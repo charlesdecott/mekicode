@@ -5,6 +5,6 @@ services:
       - "8080:8080"
     env_file:
       - .env
-    environment:
-      MEKIHUB_FRONT: "on"
-      MEKIHUB_DISCORD: "off"
+    # Le conteneur lance le front mekichat (CMD du Dockerfile = packages/mekichat/app.py),
+    # qui crée son propre SessionHub in-process. Le mode headless Discord via mekihub/main.py
+    # (MEKIHUB_FRONT / MEKIHUB_DISCORD) n'est pas encore câblé dans l'image — cf. docs/refacto-differe.md.

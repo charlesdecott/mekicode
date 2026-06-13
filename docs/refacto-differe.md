@@ -75,3 +75,20 @@
    tous les N tokens) et gérer proprement les blocs partiellement formés (code, listes). Concerne
    `views.render_stream_bubble` / `finalize_stream` et la branche `AssistantDelta` de
    `app.py:_render_event`.
+
+## E. Hub temps réel (mekihub) — pistes repérées à la revue finale (2026-06-13)
+
+1. **Unifier l'entrypoint Docker/headless.** Le `Dockerfile` lance directement `packages/mekichat/app.py`
+   (le front, validé). Du coup `packages/mekihub/main.py` (qui lit `MEKIHUB_FRONT`/`MEKIHUB_DISCORD`) n'est
+   pas le point d'entrée du conteneur, et la branche FRONT=on de `main.py` ne fait qu'importer `app` sans
+   lancer `ui.run`. Piste : exposer un `serve()` dans `app.py` (appelé sous le garde `__main__` ET par
+   `main.py`), puis basculer le CMD du Dockerfile sur `main.py` → mode headless Discord atteignable via
+   conteneur. *Différé* : nécessite de valider `ui.run` appelé hors `__main__` (reload=False) et un vrai
+   token Discord pour tester le headless.
+2. **Boucle d'abonnement dormante au changement de session (front).** Dans `app.py`, la sortie de
+   `_subscribe_loop` (`if current.id != sid: break`) n'est évaluée qu'à l'arrivée d'un event. Quitter une
+   session **silencieuse** laisse l'ancienne boucle bloquée sur `await q.get()` jusqu'au prochain event
+   de l'ancienne salle (une nouvelle boucle tourne en parallèle entre-temps). Pas de corruption ni de
+   fuite permanente (nettoyée au prochain event via `finally: hub.leave`), mais des coroutines dormantes
+   peuvent s'accumuler en changeant de session à répétition. Piste : un jeton d'annulation par
+   abonnement (ou `task.cancel()` de l'ancienne boucle au changement de session).

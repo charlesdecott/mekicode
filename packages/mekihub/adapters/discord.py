@@ -85,6 +85,13 @@ class DiscordAdapter:
                 if msg_id is not None:
                     await self.client.edit(channel_id, msg_id, event.text)
                 msg_id = None
+            elif name == "RunError":
+                txt = f"⚠ erreur : {event.message}"
+                if msg_id is not None:
+                    await self.client.edit(channel_id, msg_id, txt)
+                else:
+                    await self.client.send(channel_id, txt)
+                msg_id = None
             elif name == "Idle":
                 break
 

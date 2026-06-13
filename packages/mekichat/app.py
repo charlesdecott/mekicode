@@ -13,7 +13,6 @@ sys.path.insert(0, str(HERE.parent / "mekicore"))  # import base, tools, events
 
 from nicegui import run, ui  # noqa: E402
 
-import events  # noqa: E402
 import mekillm  # noqa: E402
 import realtime  # noqa: E402
 import sessions as sessions_mod  # noqa: E402
