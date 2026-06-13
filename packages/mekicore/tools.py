@@ -91,6 +91,49 @@ def edit_file(path: str, old: str, new: str) -> str:
     return f"édité {path}"
 
 
+def grep_files(pattern: str, path: str = ".") -> str:
+    """Cherche une regex dans les fichiers texte sous `path` (confiné). Renvoie relpath:ligne: contenu."""
+    try:
+        root = _safe_path(path)
+        rx = re.compile(pattern)
+    except ValueError as e:
+        return f"Error: {e}"
+    except re.error as e:
+        return f"Error: regex invalide : {e}"
+    ws = _workspace()
+    candidates = [root] if root.is_file() else sorted(root.rglob("*"))
+    results: list[str] = []
+    for f in candidates:
+        if not f.is_file():
+            continue
+        try:
+            text = f.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue  # binaire / illisible : on saute
+        for i, line in enumerate(text.splitlines(), 1):
+            if rx.search(line):
+                results.append(f"{f.relative_to(ws)}:{i}: {line.strip()[:200]}")
+                if len(results) >= 200:
+                    break
+        if len(results) >= 200:
+            break
+    if not results:
+        return "(aucun résultat)"
+    return "\n".join(results)[:_MAX_OUT]
+
+
+def glob_files(pattern: str) -> str:
+    """Liste les fichiers correspondant au motif (ex. **/*.py) sous le workspace, chemins relatifs."""
+    ws = _workspace()
+    try:
+        matches = sorted(str(p.relative_to(ws)) for p in ws.glob(pattern) if p.is_file())
+    except ValueError as e:
+        return f"Error: motif invalide : {e}"
+    if not matches:
+        return "(aucun fichier)"
+    return "\n".join(matches[:1000])
+
+
 # Schéma au format function-calling OpenAI (lingua franca OpenRouter/ollama/litellm).
 TOOLS = [
     {

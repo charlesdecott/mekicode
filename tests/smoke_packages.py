@@ -380,6 +380,20 @@ def test_edit_unique_and_ambiguous():
         assert tools.edit_file("f.py", "zzz", "x").startswith("Error")        # introuvable
 
 
+def test_grep_and_glob():
+    with tempfile.TemporaryDirectory() as d, _ws(d):
+        tools.write_file("pkg/a.py", "import os\ndef hello():\n    return 42\n")
+        tools.write_file("pkg/b.py", "x = 1\n")
+        tools.write_file("notes.txt", "rien\n")
+        g = tools.grep_files(r"def \w+", "pkg").replace("\\", "/")
+        assert "a.py:2" in g and "def hello" in g
+        assert tools.grep_files("zzznope", ".") == "(aucun résultat)"
+        assert tools.grep_files("(", ".").startswith("Error")          # regex invalide
+        files = tools.glob_files("pkg/*.py").replace("\\", "/")
+        assert "pkg/a.py" in files and "pkg/b.py" in files and "notes.txt" not in files
+        assert tools.glob_files("**/*.py").count("\n") >= 1            # récursif
+
+
 def main():
     log_path = Path(tempfile.gettempdir()) / "mekillm_smoke.jsonl"
     if log_path.exists():
@@ -407,6 +421,7 @@ def main():
     test_safe_path_confine()
     test_write_read_roundtrip()
     test_edit_unique_and_ambiguous()
+    test_grep_and_glob()
     print("OK - tous les smoke tests passent")
 
 
