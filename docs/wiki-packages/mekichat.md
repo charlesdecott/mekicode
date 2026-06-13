@@ -59,10 +59,14 @@ coins biseautés (`clip-path`), glitch, scanlines, ticker HUD. Stylise les ligne
 - `render_session_item(meta, *, active, on_click, on_delete)` : un **item de la barre latérale**.
 - `tool_summary(args)` : extrait le **résumé** d'un appel d'outil pour l'affichage (1er de
   `command` / `path` / `pattern`, sinon 1er argument).
-- `render_tool(name, summary, output, status)` : un **bloc d'outil générique** `▣ <nom>` (résumé +
-  sortie + statut) — vaut pour n'importe quel outil (`bash`, `read`, `write`, `edit`, `grep`,
-  `glob`) ; renvoie `(label_statut, label_sortie)` pour remplissage différé.
-- `fill_tool(handle, output, ok)` : remplit un bloc d'outil créé en statut `RUN` (chemin live).
+- `_render_diff(old, new)` : pour l'outil `edit`, affiche le changement en **diff** — `--- ancien`
+  (lignes `-`, rouge) puis `+++ nouveau` (lignes `+`, vert), multi-lignes.
+- `render_tool(name, summary, output, status, *, old, new)` : un **bloc d'outil** `<glyphe> <NOM>`
+  **coloré par outil** (`_TOOL_GLYPH` : `❯_`/`▤`/`✎`/`±`/`⌕`/`✲` ; couleur via la classe CSS `t-<nom>`).
+  Pour `edit`, insère le diff (depuis `old`/`new`) à la place de la sortie. Renvoie
+  `(label_statut, label_sortie)` pour remplissage différé.
+- `fill_tool(handle, output, ok)` : remplit un bloc d'outil créé en statut `RUN` (chemin live ;
+  statut `DONE`/`ERR`).
 - `render_thinking()` : l'indicateur animé **« PROCESSING… »** pendant un appel LLM (renvoie
   l'élément, supprimé via `.delete()` à la réponse).
 - `render_thread(messages)` : rejoue tout un historique (texte + blocs d'outils appariés
@@ -114,8 +118,9 @@ clé valide, l'envoi affiche une bulle d'erreur « LLM indisponible » (dégrada
 > Les messages utilisateur restent en texte brut.
 
 > **Outils étendus** (post-phase-3) : l'agent dispose désormais de `read`/`write`/`edit`/`grep`/`glob`
-> en plus de `bash` (cf. [mekicore](mekicore.md)). Le front les affiche via un **bloc d'outil
-> générique** `▣ <nom> :: <résumé>` (`render_tool`/`tool_summary`), plus seulement `bash`.
+> en plus de `bash` (cf. [mekicore](mekicore.md)). Le front les affiche via un **bloc d'outil coloré
+> par outil** (`<glyphe> <NOM>` + couleur dédiée : bash=ambre, read=cyan, write=vert, edit=magenta,
+> grep=violet, glob=bleu) ; l'outil `edit` montre son changement en **diff** `---`/`+++` (rouge/vert).
 
 ## Relations entrantes / sortantes
 

@@ -68,8 +68,10 @@ Pas envie d'interface ? Le mode terminal :
   `bash`, lui, reste libre).
 - ⌨️ **Streaming** — les mots s'affichent **au fil de l'eau**, comme une vraie frappe, avec un curseur
   clignotant.
-- 🧱 **Blocs d'outils** — quand l'agent utilise un outil, tu **vois** le bloc `▣ <nom>` (la commande / le
-  chemin / le motif) et sa sortie, comme dans un terminal intégré.
+- 🧱 **Blocs d'outils colorés** — quand l'agent utilise un outil, tu **vois** un bloc `<glyphe> <NOM>`
+  avec une **couleur dédiée par outil** (bash=ambre, read=cyan, write=vert, edit=magenta, grep=violet,
+  glob=bleu) et sa sortie, comme dans un terminal intégré. L'outil **`edit` montre un diff** (`---`
+  lignes retirées en rouge, `+++` ajoutées en vert).
 - 💾 **Sessions sauvegardées** — chaque conversation est un fichier ; tu peux fermer, rouvrir,
   retrouver, supprimer.
 - 📝 **Markdown** — les réponses sont mises en forme (titres, listes, code).
@@ -152,3 +154,5 @@ inspiration/     les repos de référence (non versionnés)
 
 *Projet perso d'apprentissage : du « comment marche un agent » jusqu'à une appli de chat qui streame.
 Tout en français, tout fait main. 🛠️*
+
+hello world
