@@ -1,3 +1,4 @@
+import asyncio
 import sys
 from pathlib import Path
 
@@ -33,8 +34,28 @@ def test_session_authors_separate_from_messages():
     assert s.authors[idx] == {"name": "bob", "color": "#ff2bd6"}       # attribution séparée
 
 
+def test_pending_queue_fifo_and_delete():
+    from mekihub.hub import PendingQueue
+
+    async def scenario():
+        q = PendingQueue()
+        a = Author(id="c1", name="alice", color="#fff")
+        i1 = QueueItem("q1", a, "un", "t1")
+        i2 = QueueItem("q2", a, "deux", "t2")
+        q.enqueue(i1)
+        q.enqueue(i2)
+        assert [i.item_id for i in q.pending()] == ["q1", "q2"]
+        assert q.delete("q1") is True               # suppression d'un item en attente
+        assert [i.item_id for i in q.pending()] == ["q2"]
+        first = await q.pop_next()                  # pop l'item courant
+        assert first.item_id == "q2"
+        assert q.delete("q2") is False              # plus en attente (déjà poppé) → refus
+    asyncio.run(scenario())
+
+
 if __name__ == "__main__":
     test_author_and_queueitem()
     test_session_authors_separate_from_messages()
     test_events_exist()
+    test_pending_queue_fifo_and_delete()
     print("OK - session")
