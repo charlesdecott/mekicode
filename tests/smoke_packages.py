@@ -3,6 +3,7 @@
 Aucune dépendance réseau ni clé API : on stubbe la réponse SDK et le provider.
 Lancer depuis la racine du projet : python tests/smoke_packages.py
 """
+import contextlib
 import os
 import sys
 import tempfile
@@ -21,6 +22,20 @@ from mekillm.client import LLMResponse, ToolCall, _normalize  # noqa: E402
 
 import base  # noqa: E402
 import tools  # noqa: E402
+
+
+@contextlib.contextmanager
+def _ws(d):
+    """Pointe MEKICORE_WORKSPACE sur d le temps du bloc (restauré ensuite)."""
+    old = os.environ.get("MEKICORE_WORKSPACE")
+    os.environ["MEKICORE_WORKSPACE"] = str(d)
+    try:
+        yield
+    finally:
+        if old is None:
+            os.environ.pop("MEKICORE_WORKSPACE", None)
+        else:
+            os.environ["MEKICORE_WORKSPACE"] = old
 
 
 def test_normalize_text():
@@ -334,6 +349,19 @@ def test_llm_wrappers_stub():
     assert len([r for r in seen if r.model == "stub-model"]) == 2
 
 
+def test_safe_path_confine():
+    with tempfile.TemporaryDirectory() as d, _ws(d):
+        root = Path(d).resolve()
+        assert tools._safe_path("a/b.txt") == root / "a" / "b.txt"   # relatif → OK
+        assert tools._safe_path(".") == root                          # la racine elle-même
+        for bad in ["../escape.txt", "../../etc/passwd"]:
+            try:
+                tools._safe_path(bad)
+                assert False, f"aurait dû refuser {bad}"
+            except ValueError:
+                pass
+
+
 def main():
     log_path = Path(tempfile.gettempdir()) / "mekillm_smoke.jsonl"
     if log_path.exists():
@@ -358,6 +386,7 @@ def main():
     test_consume_stream_text_then_tool()
     test_run_agent_streaming()
     test_llm_wrappers_stub()
+    test_safe_path_confine()
     print("OK - tous les smoke tests passent")
 
 
