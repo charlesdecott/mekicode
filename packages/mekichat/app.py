@@ -22,7 +22,10 @@ from tools import DISPATCH, TOOLS  # noqa: E402
 
 STATIC = HERE / "static"
 DEFAULT_MODEL = mekillm.config.resolve()["model"]
-SYSTEM = f"You are a coding agent at {Path.cwd()}. Use the bash tool to act. Be concise."
+SYSTEM = (
+    f"You are a coding agent at {Path.cwd()}. Tools: bash, read, write, edit (str-replace), "
+    "grep, glob (file tools are confined to the workspace). Be concise."
+)
 FONTS = (
     '<link rel="preconnect" href="https://fonts.googleapis.com">'
     '<link href="https://fonts.googleapis.com/css2?'

@@ -134,21 +134,36 @@ def glob_files(pattern: str) -> str:
     return "\n".join(matches[:1000])
 
 
-# Schéma au format function-calling OpenAI (lingua franca OpenRouter/ollama/litellm).
+def _tool(name: str, desc: str, props: dict, required: list) -> dict:
+    """Construit un schéma function-calling OpenAI."""
+    return {"type": "function", "function": {
+        "name": name, "description": desc,
+        "parameters": {"type": "object", "properties": props, "required": required},
+    }}
+
+
+# Schémas au format function-calling OpenAI (ce que le modèle voit).
 TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "bash",
-            "description": "Run a shell command.",
-            "parameters": {
-                "type": "object",
-                "properties": {"command": {"type": "string"}},
-                "required": ["command"],
-            },
-        },
-    },
+    _tool("bash", "Run a shell command.", {"command": {"type": "string"}}, ["command"]),
+    _tool("read", "Read a text file (path relative to the workspace).",
+          {"path": {"type": "string"}}, ["path"]),
+    _tool("write", "Create or overwrite a text file (path relative to the workspace).",
+          {"path": {"type": "string"}, "content": {"type": "string"}}, ["path", "content"]),
+    _tool("edit", "Replace an exact, unique snippet in a file (str-replace).",
+          {"path": {"type": "string"}, "old": {"type": "string"}, "new": {"type": "string"}},
+          ["path", "old", "new"]),
+    _tool("grep", "Search a regex in files under a path (relative to the workspace).",
+          {"pattern": {"type": "string"}, "path": {"type": "string"}}, ["pattern"]),
+    _tool("glob", "List files matching a glob pattern (e.g. **/*.py) under the workspace.",
+          {"pattern": {"type": "string"}}, ["pattern"]),
 ]
 
-# Table de routage nom d'outil → handler(args: dict) -> str.
-DISPATCH = {"bash": lambda args: run_bash(args["command"])}
+# Routage nom d'outil → handler(args: dict) -> str.
+DISPATCH = {
+    "bash": lambda a: run_bash(a["command"]),
+    "read": lambda a: read_file(a["path"]),
+    "write": lambda a: write_file(a["path"], a["content"]),
+    "edit": lambda a: edit_file(a["path"], a["old"], a["new"]),
+    "grep": lambda a: grep_files(a["pattern"], a.get("path", ".")),
+    "glob": lambda a: glob_files(a["pattern"]),
+}

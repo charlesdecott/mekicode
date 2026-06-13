@@ -394,6 +394,16 @@ def test_grep_and_glob():
         assert tools.glob_files("**/*.py").count("\n") >= 1            # récursif
 
 
+def test_tools_registered():
+    names = {t["function"]["name"] for t in tools.TOOLS}
+    assert names == {"bash", "read", "write", "edit", "grep", "glob"}
+    assert set(tools.DISPATCH) == names
+    with tempfile.TemporaryDirectory() as d, _ws(d):
+        assert tools.DISPATCH["write"]({"path": "x.txt", "content": "hi"}).startswith("écrit")
+        assert tools.DISPATCH["read"]({"path": "x.txt"}) == "hi"
+        assert tools.DISPATCH["glob"]({"pattern": "*.txt"}) == "x.txt"
+
+
 def main():
     log_path = Path(tempfile.gettempdir()) / "mekillm_smoke.jsonl"
     if log_path.exists():
@@ -422,6 +432,7 @@ def main():
     test_write_read_roundtrip()
     test_edit_unique_and_ambiguous()
     test_grep_and_glob()
+    test_tools_registered()
     print("OK - tous les smoke tests passent")
 
 
