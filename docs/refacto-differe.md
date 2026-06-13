@@ -29,10 +29,11 @@
    contient déjà la chaîne accumulée ; on peut supprimer le champ `text` et lire `lbl.text` aux 2
    points de consommation (finalisation, gel sur `RunError`).
 
-5. **Extraire `_bash_cmd(args)` (la connaissance « le 1er arg de bash s'appelle `command` »).**
-   Dupliquée entre `app.py:_render_event` (dict `ev.args`) et `views.py:render_thread` (JSON string).
-   Plus profondément : `render_thread` ne devrait pas parser du JSON wire OpenAI — l'idéal serait que
-   l'appelant (ou `sessions.py`) fournisse des tool_calls déjà normalisés.
+5. ~~**Extraire `_bash_cmd(args)`**~~ **(fait — outils étendus, 2026-06-13)** : `views.tool_summary(args)`
+   centralise désormais l'extraction du résumé (1er de `command`/`path`/`pattern`), utilisé à la fois par
+   `app.py:_render_event` (dict `ev.args`) et `views.py:render_thread` (JSON décodé). **Reste ouvert** :
+   `render_thread` parse encore du JSON wire OpenAI — l'idéal serait que l'appelant (ou `sessions.py`)
+   fournisse des `tool_calls` déjà normalisés.
 
 ## B. Efficacité (utile quand ça montera en charge — pas critique en local mono-utilisateur)
 

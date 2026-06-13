@@ -5,7 +5,7 @@
 ```
 packages/
 ├── mekillm/   ← provider LLM généraliste, réutilisable, ne connaît PAS mekicore
-├── mekicore/  ← mini-harness (boucle agent à événements + outil bash) ; dépend de mekillm
+├── mekicore/  ← mini-harness (boucle agent à événements + outils bash/read/write/edit/grep/glob) ; dépend de mekillm
 └── mekichat/  ← front web NiceGUI (mode Discord) ; importe mekicore + mekillm en in-process
 ```
 
@@ -14,7 +14,7 @@ packages/
 - **mekicore** est le consommateur : une boucle perception-action **à événements** (`run_agent`,
   le s01 adapté) qui appelle mekillm et exécute des outils ; `agent_loop` (REPL) est réexprimé dessus.
 - **mekichat** est le **front web** (NiceGUI, mode Discord) : il importe mekicore + mekillm
-  **en in-process** et rend la conversation (streaming, blocs `[bash]`, markdown, sessions persistées).
+  **en in-process** et rend la conversation (streaming, blocs d'outils `▣ <nom>`, markdown, sessions persistées).
 
 La dépendance est **à sens unique** : `mekichat → mekicore → mekillm`. Chaque couche ne touche qu'à
 l'**interface publique** de la précédente — jamais à ses internes.
@@ -83,12 +83,14 @@ sur **`run_agent`**, un générateur qui **émet des événements** (`events.py`
 `ToolStarted`/`Finished`, `ThinkingStarted`, `RunFinished`, `RunError`) au lieu d'imprimer. Le front
 [mekichat](mekichat.md) consomme ce même `run_agent` — en **`stream=True`** (`llm.stream` →
 `AssistantDelta` token par token) — pour rendre la conversation **en direct** dans le navigateur
-(bulles markdown, blocs `[bash]`, caret de streaming), avec persistance des sessions.
+(bulles markdown, blocs d'outils génériques `▣ <nom>`, caret de streaming), avec persistance des sessions.
 
 ## Données runtime
 - mekillm écrit un **JSONL d'appels** dans `.logs/mekillm.jsonl` **à la racine du projet** (jamais
   dans `packages/`), surchargeable par `MEKILLM_LOG_FILE`. `packages/` ne contient que du code.
-- mekicore n'écrit rien en propre ; seul l'outil `bash` écrit là où l'agent le décide (`cwd`).
+- mekicore n'écrit rien en propre ; ce sont **ses outils** qui écrivent là où l'agent le décide :
+  `write`/`edit` **confinés au workspace** (défaut `cwd`, surchargeable par `MEKICORE_WORKSPACE`) ;
+  `bash` **non confiné** (`cwd` du process).
 - Config secrète : `.env` à la racine (lu par `load_dotenv` au moment de l'import de mekillm).
 
 ## Voir aussi
