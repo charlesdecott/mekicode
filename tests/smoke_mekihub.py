@@ -5,6 +5,17 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "packages"))
 
 from mekihub.session import Author, QueueItem, Session, SessionState, SessionStore  # noqa: E402
+from mekihub import events as hub_events  # noqa: E402
+
+
+def test_events_exist():
+    snap = hub_events.Snapshot(state=None)
+    delta = hub_events.AgentDelta(text="hi")
+    enq = hub_events.QueueEnqueued(item_id="q1", author_name="alice", color="#fff", text="hey", ts="t")
+    deleted = hub_events.QueueItemDeleted(item_id="q1")
+    posted = hub_events.MessagePosted(index=2, author_name="alice", color="#fff", text="hey")
+    assert delta.text == "hi" and enq.item_id == "q1" and deleted.item_id == "q1"
+    assert posted.index == 2 and snap.state is None
 
 
 def test_author_and_queueitem():
@@ -25,4 +36,5 @@ def test_session_authors_separate_from_messages():
 if __name__ == "__main__":
     test_author_and_queueitem()
     test_session_authors_separate_from_messages()
+    test_events_exist()
     print("OK - session")
