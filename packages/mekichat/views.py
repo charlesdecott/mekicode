@@ -64,13 +64,22 @@ def render_session_item(meta, *, active: bool, on_click, on_delete) -> None:
         ui.label(f"{meta.id} · {meta.n_messages} msg").classes("s-meta")
 
 
-def render_tool(command: str, output: str = "", status: str = "RUN"):
-    """Bloc [bash] : commande + sortie + statut. Renvoie (label_statut, label_sortie)
-    pour pouvoir remplir la sortie plus tard (chemin live)."""
+def tool_summary(args) -> str:
+    """Résumé d'un appel d'outil pour l'affichage : la commande / le chemin / le motif."""
+    if not isinstance(args, dict):
+        return ""
+    for k in ("command", "path", "pattern"):
+        if k in args:
+            return str(args[k])
+    return str(next(iter(args.values()), ""))
+
+
+def render_tool(name: str, summary: str = "", output: str = "", status: str = "RUN"):
+    """Bloc d'outil générique : ▣ <NOM> :: <résumé>. Renvoie (label_statut, label_sortie)."""
     with ui.element("div").classes("tool"):
         with ui.element("div").classes("tool-head"):
-            ui.label("▣ PROC :: bash").classes("ic")
-            ui.label(command).classes("cmd")
+            ui.label(f"▣ {name}").classes("ic")
+            ui.label(summary).classes("cmd")
             st = ui.label(status).classes("st done" if status == "DONE" else "st")
         out = ui.label(output).classes("tool-out")
     return st, out
@@ -109,10 +118,11 @@ def render_thread(messages: list) -> None:
             for tc in m.get("tool_calls") or []:
                 fn = tc.get("function", {})
                 try:
-                    cmd = json.loads(fn.get("arguments") or "{}").get("command", "")
-                except (json.JSONDecodeError, AttributeError):
-                    cmd = str(fn.get("arguments", ""))
-                render_tool(cmd, output=outputs.get(tc.get("id"), ""), status="DONE")
+                    args = json.loads(fn.get("arguments") or "{}")
+                except json.JSONDecodeError:
+                    args = {}
+                render_tool(fn.get("name", "tool"), tool_summary(args),
+                            output=outputs.get(tc.get("id"), ""), status="DONE")
 
 
 def render_stream_bubble():

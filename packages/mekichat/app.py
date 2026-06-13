@@ -131,15 +131,14 @@ def index() -> None:
                 elif ev.text:
                     views.render_message({"role": "assistant", "content": ev.text})
             elif isinstance(ev, events.ToolStarted):
-                cmd = str(ev.args.get("command", "")) if isinstance(ev.args, dict) else ""
-                handles[ev.id] = views.render_tool(cmd)
+                handles[ev.id] = views.render_tool(ev.name, views.tool_summary(ev.args))
             elif isinstance(ev, events.ToolFinished):
                 handle = handles.get(ev.id)
                 ok = not ev.output.startswith("Error")
                 if handle is not None:
                     views.fill_tool(handle, ev.output, ok=ok)
                 else:
-                    views.render_tool("", output=ev.output, status="DONE")
+                    views.render_tool(ev.name, "", output=ev.output, status="DONE")
             elif isinstance(ev, events.RunError):
                 if stream_ref["body"] is not None:   # fige la bulle partielle (retire le caret)
                     views.finalize_stream(stream_ref["body"], stream_ref["text"])
