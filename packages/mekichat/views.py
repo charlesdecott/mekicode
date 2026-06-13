@@ -182,13 +182,23 @@ def render_thinking():
     return row
 
 
-def render_thread(messages: list) -> None:
+def render_thread(messages: list, authors: dict | None = None) -> None:
     """Rejoue tout un historique : texte (user/assistant) + blocs d'outils appariés
-    (assistant.tool_calls ↔ messages role:'tool'). Chemin de rechargement de session."""
+    (assistant.tool_calls ↔ messages role:'tool'). Chemin de rechargement de session.
+
+    `authors` (optionnel) = {index_message: {"name","color"}} : si fourni, les messages
+    user sont rendus AVEC leur attribution (auteur multi-utilisateur), comme le rendu
+    live. Sans lui, repli sur le rendu générique (compat)."""
+    authors = authors or {}
     outputs = {m.get("tool_call_id"): m.get("content", "")
                for m in messages if m.get("role") == "tool"}
-    for m in messages:
+    for idx, m in enumerate(messages):
         role = m.get("role")
+        if role == "user" and m.get("content") and idx in authors:
+            attr = authors[idx]
+            render_user_message(m["content"], attr.get("name", "anon"),
+                                attr.get("color", "#39ff14"))
+            continue
         if role in ("user", "assistant") and m.get("content"):
             render_message(m)
         if role == "assistant":

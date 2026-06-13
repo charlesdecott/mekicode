@@ -92,6 +92,11 @@ def index() -> None:
     ui.query("body").props('data-theme=phosphor')
 
     current = _ensure_current()
+    # Identité du navigateur résolue UNE SEULE FOIS ici, dans le contexte de page (cookie de
+    # session lié à la requête → app.storage.user/.browser fiables). Réutilisée ensuite par la
+    # tâche de fond (_subscribe_loop) et l'envoi (send) via cette closure : on ne résout JAMAIS
+    # l'identité ailleurs, ce qui garantit une identité stable et distincte par navigateur.
+    author_ref: dict[str, object] = {"author": realtime.author_for_client()}
     thread_ref: dict[str, object] = {"inner": None}
     thinking_ref: dict[str, object] = {"el": None}
     stream_ref: dict[str, object] = {"body": None, "lbl": None, "text": ""}
@@ -182,7 +187,7 @@ def index() -> None:
             queue_rows.clear()
             inner.clear()
             with inner:
-                views.render_thread(state_.messages)
+                views.render_thread(state_.messages, getattr(state_, "authors", None))
             _rebuild_queue(getattr(state_, "queue", []) or [])
             _set_presence(getattr(state_, "presence", []) or [])
             stream_ref["body"] = None
@@ -286,7 +291,7 @@ def index() -> None:
         """Boucle d'abonnement live du client courant : join la salle, rend chaque event,
         leave à la sortie. Lancée via ui.timer one-shot → tourne dans le contexte du client,
         donc les mutations d'UI sont poussées par websocket au bon onglet."""
-        author = realtime.author_for_client()
+        author = author_ref["author"]   # identité résolue en contexte de page (cf. index)
         hub = _get_hub()
         sid = current.id
         hub.join(sid, author)
@@ -311,7 +316,7 @@ def index() -> None:
         text = text.strip()
         if not text:
             return
-        _get_hub().submit(current.id, text, author=realtime.author_for_client())
+        _get_hub().submit(current.id, text, author=author_ref["author"])
 
     ui.html(_BG)  # fond animé plein écran (derrière l'UI)
 
@@ -371,7 +376,7 @@ def index() -> None:
                 inner = ui.element("div").classes("thread-inner")
                 thread_ref["inner"] = inner
                 with inner:
-                    views.render_thread(current.messages)
+                    views.render_thread(current.messages, current.authors)
             with ui.element("div").classes("composer"):
                 with ui.element("div").classes("composer-inner"):
                     with ui.element("div").classes("input-wrap"):
