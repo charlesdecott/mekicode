@@ -71,11 +71,12 @@ def tool_summary(args) -> str:
     for k in ("command", "path", "pattern"):
         if k in args:
             return str(args[k])
+    # aucun argument connu → 1er argument (cas inattendu ; .cmd tronque si trop long)
     return str(next(iter(args.values()), ""))
 
 
 def render_tool(name: str, summary: str = "", output: str = "", status: str = "RUN"):
-    """Bloc d'outil générique : ▣ <NOM> :: <résumé>. Renvoie (label_statut, label_sortie)."""
+    """Bloc d'outil générique : ▣ <NOM> + résumé. Renvoie (label_statut, label_sortie)."""
     with ui.element("div").classes("tool"):
         with ui.element("div").classes("tool-head"):
             ui.label(f"▣ {name}").classes("ic")
@@ -86,7 +87,7 @@ def render_tool(name: str, summary: str = "", output: str = "", status: str = "R
 
 
 def fill_tool(handle, output: str, ok: bool = True) -> None:
-    """Remplit un bloc [bash] créé en statut RUN (chemin live)."""
+    """Remplit un bloc d'outil créé en statut RUN (chemin live)."""
     st, out = handle
     st.set_text("DONE" if ok else "ERR")
     st.classes(replace="st done" if ok else "st")
@@ -106,7 +107,7 @@ def render_thinking():
 
 
 def render_thread(messages: list) -> None:
-    """Rejoue tout un historique : texte (user/assistant) + blocs [bash] appariés
+    """Rejoue tout un historique : texte (user/assistant) + blocs d'outils appariés
     (assistant.tool_calls ↔ messages role:'tool'). Chemin de rechargement de session."""
     outputs = {m.get("tool_call_id"): m.get("content", "")
                for m in messages if m.get("role") == "tool"}

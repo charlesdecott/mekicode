@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""app.py — front mekichat (NiceGUI). Phase 2 : chat + outils (bash), non-streaming."""
+"""app.py — front mekichat (NiceGUI). Chat + outils (bash/read/write/edit/grep/glob), streaming."""
 from __future__ import annotations
 
 import sys
@@ -265,7 +265,7 @@ def index() -> None:
                         box.on("keydown.enter", _on_enter, args=["shiftKey"])
                     with ui.element("div").classes("hint"):
                         ui.html("<span><kbd>Entrée</kbd> envoyer · <kbd>Maj+Entrée</kbd> ligne</span>")
-                        ui.html('<span class="haz">⚠ STREAM ON · TOOLS: BASH</span>')
+                        ui.html('<span class="haz">⚠ STREAM ON · 6 TOOLS</span>')
         _scroll_bottom()
 
     _refresh()
