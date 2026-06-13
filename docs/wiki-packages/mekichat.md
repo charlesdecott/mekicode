@@ -61,12 +61,16 @@ coins biseautés (`clip-path`), glitch, scanlines, ticker HUD. Stylise les ligne
   `command` / `path` / `pattern`, sinon 1er argument).
 - `_render_diff(old, new)` : pour l'outil `edit`, affiche le changement en **diff** — `--- ancien`
   (lignes `-`, rouge) puis `+++ nouveau` (lignes `+`, vert), multi-lignes.
+- `tool_metric(name, output)` : **info compacte d'en-tête** (visible surtout quand le bloc est replié) —
+  `N lignes` (read/bash), `N car.` (write), `N résultats` (grep), `N fichiers` (glob) ; `edit` →
+  `+ajoutées -retirées` (depuis `old`/`new`).
 - `render_tool(name, summary, output, status, *, old, new)` : un **bloc d'outil** `<glyphe> <NOM>`
-  **coloré par outil** (`_TOOL_GLYPH` : `❯_`/`▤`/`✎`/`±`/`⌕`/`✲` ; couleur via la classe CSS `t-<nom>`).
-  Pour `edit`, insère le diff (depuis `old`/`new`) à la place de la sortie. Renvoie
-  `(label_statut, label_sortie)` pour remplissage différé.
-- `fill_tool(handle, output, ok)` : remplit un bloc d'outil créé en statut `RUN` (chemin live ;
-  statut `DONE`/`ERR`).
+  **coloré par outil** (`_TOOL_GLYPH` : `❯_`/`▤`/`✎`/`±`/`⌕`/`✲` ; couleur via la classe CSS `t-<nom>`),
+  **replié par défaut** (clic sur l'en-tête → ouvre/ferme, classe `collapsed` + chevron). En-tête :
+  glyphe + NOM + résumé + métrique + statut. Pour `edit`, le corps est le diff (depuis `old`/`new`).
+  Renvoie `(label_statut, label_sortie, label_métrique)` pour remplissage différé.
+- `fill_tool(handle, output, ok, name)` : remplit un bloc créé en statut `RUN` (statut `DONE`/`ERR`,
+  sortie, et **métrique** calculée via `tool_metric`).
 - `render_thinking()` : l'indicateur animé **« PROCESSING… »** pendant un appel LLM (renvoie
   l'élément, supprimé via `.delete()` à la réponse).
 - `render_thread(messages)` : rejoue tout un historique (texte + blocs d'outils appariés
