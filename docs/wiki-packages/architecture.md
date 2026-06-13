@@ -1,24 +1,39 @@
 # Architecture de `packages/`
 
-## Trois paquets, une dépendance
+## Quatre paquets, une dépendance
 
 ```
 packages/
 ├── mekillm/   ← provider LLM généraliste, réutilisable, ne connaît PAS mekicore
 ├── mekicore/  ← mini-harness (boucle agent à événements + outils bash/read/write/edit/grep/glob) ; dépend de mekillm
-└── mekichat/  ← front web NiceGUI (mode Discord) ; importe mekicore + mekillm en in-process
+├── mekichat/  ← adaptateur NiceGUI multi-utilisateur (présence, file d'attente, broadcast) ; importe mekihub
+└── mekihub/   ← hub de session temps réel (salle partagée, file FIFO, pub/sub, adaptateurs de canal)
 ```
 
 - **mekillm** est autonome : il ne sait rien d'un agent ni d'outils. Il prend des `messages`
   (format OpenAI) et rend une réponse normalisée. Il pourrait être importé par n'importe quel projet.
 - **mekicore** est le consommateur : une boucle perception-action **à événements** (`run_agent`,
   le s01 adapté) qui appelle mekillm et exécute des outils ; `agent_loop` (REPL) est réexprimé dessus.
-- **mekichat** est le **front web** (NiceGUI, mode Discord) : il importe mekicore + mekillm
-  **en in-process** et rend la conversation (streaming, blocs d'outils colorés/repliables par outil,
-  markdown, sessions persistées).
+- **mekihub** est le **hub temps réel** : bus de conversation multi-utilisateur, multi-canal. Il
+  gère les salles partagées (présence, file FIFO auto-drain, pub/sub mémoire) et pilote `mekicore.run_agent`
+  (via `asyncio.to_thread`) dans un worker asyncio par session. Les adaptateurs de canal (NiceGUI,
+  Discord…) s'y branchent via `SessionHub.subscribe` (async generator).
+- **mekichat** est devenu un **adaptateur NiceGUI** du `SessionHub` : présence en temps réel,
+  broadcast live des événements, UI de la file d'attente avec suppression.
 
-La dépendance est **à sens unique** : `mekichat → mekicore → mekillm`. Chaque couche ne touche qu'à
-l'**interface publique** de la précédente — jamais à ses internes.
+La dépendance est **à sens unique** : `mekichat → mekihub → mekicore → mekillm`. Chaque couche ne
+touche qu'à l'**interface publique** de la précédente — jamais à ses internes.
+
+### Hub temps réel (mekihub)
+
+`mekihub` introduit la notion de **salle partagée** : plusieurs utilisateurs (ou canaux) soumettent
+des messages vers une même session via `SessionHub.submit`. Un **worker asyncio** par session draine
+la file FIFO (`PendingQueue`) et pilote le générateur SYNC `mekicore.run_agent` step-by-step via
+`await asyncio.to_thread(next, gen)`. Les événements mekicore sont traduits en événements de salle
+(par `type(e).__name__`, pas `isinstance`, pour éviter l'ambiguïté des modules homonymes) et diffusés
+à tous les abonnés en mémoire (`asyncio.Queue` par abonné). Les adaptateurs de canal (`DiscordAdapter`,
+`mekichat/app.py`) s'y abonnent via `SessionHub.subscribe`, qui rend un générateur asynchrone
+(`Snapshot` d'amorçage + deltas en continu).
 
 ### Comment l'import fonctionne (import par chemin)
 `mekicore/main.py` ajoute `packages/` au `sys.path` avant d'importer mekillm :
@@ -98,4 +113,5 @@ caret de streaming), avec persistance des sessions.
 ## Voir aussi
 - [mekillm.md](mekillm.md) — détail du provider (`complete` / `stream`).
 - [mekicore.md](mekicore.md) — détail du harness (`run_agent`, `events.py`).
-- [mekichat.md](mekichat.md) — détail du front web NiceGUI.
+- [mekichat.md](mekichat.md) — détail du front web NiceGUI / adaptateur hub.
+- [mekihub.md](mekihub.md) — détail du hub temps réel (salle, file, pub/sub, adaptateurs).

@@ -15,7 +15,8 @@ entre eux. Commencer par le sommaire du wiki : [`wiki-packages/README.md`](wiki-
 | [`wiki-packages/architecture.md`](wiki-packages/architecture.md) | Vue d'ensemble des paquets, format pivot OpenAI, flux de données complet (REPL/front → boucle à événements → LLM → outils), et où vont les données runtime. |
 | [`wiki-packages/mekillm.md`](wiki-packages/mekillm.md) | Le provider LLM : `config.py`, `client.py` (`complete` + `stream`), `observability.py`, `__init__.py` — types normalisés (`LLMResponse`/`ToolCall`/`Usage`/`CallRecord`), variables d'environnement et relations. |
 | [`wiki-packages/mekicore.md`](wiki-packages/mekicore.md) | Le mini-harness : `tools.py`, `events.py`, `base.py` (`run_agent` à événements + `agent_loop`), `main.py` — les six outils (`bash` + `read`/`write`/`edit`/`grep`/`glob` confinés au workspace), le dispatch des `tool_calls`, le REPL et le bootstrap d'import. |
-| [`wiki-packages/mekichat.md`](wiki-packages/mekichat.md) | Le front web NiceGUI : `sessions.py`, `views.py`, `app.py`, le thème Phosphore — chat branché sur l'agent (outils en blocs colorés/repliables par outil + diff `edit`, streaming, markdown), sessions persistées. |
+| [`wiki-packages/mekichat.md`](wiki-packages/mekichat.md) | Le front web NiceGUI : `sessions.py`, `views.py`, `app.py`, le thème Phosphore — chat branché sur l'agent (outils en blocs colorés/repliables par outil + diff `edit`, streaming, markdown), sessions persistées. Devenu adaptateur NiceGUI du hub temps réel. |
+| [`wiki-packages/mekihub.md`](wiki-packages/mekihub.md) | Le hub temps réel : `session.py` (couche session canonique : `Author`, `QueueItem`, `Session`, `SessionState`, `SessionStore`), `events.py` (13 events), `hub.py` (`PendingQueue`, `SessionHub`, worker asyncio), `adapters/discord.py` (`DiscordAdapter`). Bus de session multi-utilisateur multi-canal. |
 
 ### Specs & plans — [`superpowers/`](superpowers/)
 Artefacts de conception (historique daté, ne se périment pas) :

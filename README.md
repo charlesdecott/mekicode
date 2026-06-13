@@ -27,16 +27,17 @@ Un agent, c'est une **boucle** toute bête :
 C'est exactement ce que fait Claude Code, Cursor & co. `mekicode` reconstruit cette boucle pièce par
 pièce, sans magie.
 
-Pour rester clair, le code est découpé en **3 paquets**, comme 3 organes :
+Pour rester clair, le code est découpé en **4 paquets**, comme 4 organes :
 
 | Paquet | Analogie | Son job |
 |--------|----------|---------|
 | 🗣️ **`mekillm`** | la **voix & les oreilles** | parler aux modèles (OpenRouter, ollama, litellm…) et **traduire** leurs réponses dans un format unique |
 | 🧠 **`mekicore`** | le **cerveau & les mains** | la boucle *réfléchir → agir*, et ses **outils** (`bash` + `read`/`write`/`edit`/`grep`/`glob`) pour agir pour de vrai |
-| 🎭 **`mekichat`** | le **visage** | une **interface web** cyberpunk pour discuter avec l'agent |
+| 🔀 **`mekihub`** | le **central téléphonique** | le hub qui relie tous les canaux — salle partagée, file d'attente, pub/sub : plusieurs utilisateurs ou canaux (web, Discord) connectés à la même session |
+| 🎭 **`mekichat`** | le **visage** | une **interface web** cyberpunk multi-utilisateur pour discuter avec l'agent |
 
-Chaque paquet ne connaît que celui d'en dessous : **`mekichat → mekicore → mekillm`**. On peut donc
-réutiliser `mekillm` tout seul dans n'importe quel projet.
+Chaque paquet ne connaît que celui d'en dessous : **`mekichat → mekihub → mekicore → mekillm`**. On
+peut donc réutiliser `mekillm` ou `mekicore` tout seul dans n'importe quel projet.
 
 ---
 
@@ -79,6 +80,11 @@ Pas envie d'interface ? Le mode terminal :
 - 📝 **Markdown** — les réponses sont mises en forme (titres, listes, code).
 - 🔌 **Multi-modèle / multi-backend** — un seul `.env` pour basculer entre OpenRouter, ollama (local)
   ou litellm. Aucun code à changer.
+- 🌐 **Chat temps réel multi-utilisateur** — plusieurs personnes dans la même salle : **présence**
+  en direct, **file d'attente** partagée (les messages s'empilent et se déroulent automatiquement),
+  et suppression d'un message en attente avant qu'il parte.
+- 📡 **Multi-canal** — le même agent accessible depuis le **web** et **Discord** simultanément, via
+  un hub unifié (`mekihub`) : un seul fil de session, plusieurs interfaces branchées dessus.
 - 📊 **Observabilité intégrée** — chaque appel au LLM est tracé (latence, tokens, statut) dans
   `.logs/`, et on peut brancher ses propres *hooks*.
 - 🎨 **Look « console de nuit » cyberpunk** — thème néon *Phosphore* (vert + magenta), grille en
@@ -109,12 +115,23 @@ La boucle perception-action au format OpenAI, branchée sur `mekillm`.
 | `base.py` | **`run_agent`** : la boucle qui *émet des événements* (consommée par le front) ; **`agent_loop`** : la même chose mais pour le terminal (rend les événements en `print`). |
 | `main.py` | Le **REPL** : tape une requête, l'agent boucle, recommence. |
 
+### 🔀 `packages/mekihub/` — le hub temps réel (le central téléphonique)
+Le bus de session qui connecte tous les canaux à un même fil de conversation.
+
+| Fichier | À quoi ça sert |
+|---------|----------------|
+| `session.py` | La **couche session canonique** : `Author` (participant éphémère avec couleur), `QueueItem`, `Session` (avec `add_user` qui range l'auteur séparément des messages OpenAI), `SessionState` (instantané complet), `SessionStore` (CRUD JSON). |
+| `events.py` | Les **13 événements de salle** : présence, file (enqueued/deleted), run d'agent (started/delta/done/tools/finished/error) et `Idle`. Émis par le hub, consommés par les adaptateurs. |
+| `hub.py` | Le cœur : **`PendingQueue`** (file FIFO supprimable, `pop_next` async) + **`SessionHub`** (join/leave/submit/delete_pending/snapshot/subscribe) + **worker asyncio** par session (draille la file → pilote `mekicore.run_agent` via `asyncio.to_thread`). |
+| `main.py` | L'**entrypoint** : `build_hub()` câblé sur mekillm + outils mekicore ; `main()` active le front NiceGUI (`MEKIHUB_FRONT`) ou Discord (`MEKIHUB_DISCORD`) selon l'env. |
+| `adapters/discord.py` | L'**adaptateur Discord** : `DiscordAdapter` (mapping canal→session, `handle_message` → `hub.submit`, `_render_loop` consomme `subscribe` et poste/édite) + `FakeDiscordClient` pour les tests. |
+
 ### 🎭 `packages/mekichat/` — le front web (NiceGUI)
 Une interface web écrite **100 % en Python** (NiceGUI), qui tourne **dans le même process** que l'agent.
 
 | Fichier | À quoi ça sert |
 |---------|----------------|
-| `sessions.py` | **Persistance** : un `SessionStore` qui crée / sauve / charge / supprime des sessions (un fichier JSON par conversation, sous `.sessions/`). Pur Python, testable seul. |
+| `sessions.py` | **Ré-export** de la couche session canonique de `mekihub` (shim de compatibilité). |
 | `views.py` | Les **briques de rendu** : une ligne de message (markdown), un **bloc d'outil coloré/repliable par outil** (glyphe + couleur, métrique d'en-tête, diff `edit` ; les six outils), l'indicateur « PROCESSING… », la bulle de streaming. |
 | `app.py` | La **page** : barre latérale des sessions, en-tête (modèle / session), fil de discussion, zone de saisie. C'est elle qui pilote `run_agent` en streaming et affiche tout en direct. |
 | `static/mekichat.css` | Le **thème cyberpunk Phosphore** (variables CSS, glitch, scanlines, coins biseautés…). |
@@ -127,6 +144,7 @@ Une interface web écrite **100 % en Python** (NiceGUI), qui tourne **dans le m�
 ```bash
 python tests/smoke_packages.py     # mekillm + mekicore (LLM stubé, agent loop, streaming…)
 python tests/smoke_mekichat.py     # mekichat : persistance des sessions
+python tests/smoke_mekihub.py      # mekihub : file, pub/sub, worker, Discord (FakeLLM + FakeClient)
 ```
 
 Tout est conçu pour passer **hors-ligne** : on stubbe le SDK et le provider.

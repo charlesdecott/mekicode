@@ -1,6 +1,6 @@
 # Wiki — `packages/`
 
-Documentation du code de `packages/` (mekillm + mekicore + mekichat) : ce que fait chaque fichier,
+Documentation du code de `packages/` (mekillm + mekicore + mekichat + mekihub) : ce que fait chaque fichier,
 ses fonctions et variables, et surtout les **relations** entre eux.
 
 > Numéros de ligne **indicatifs** (wiki rédigé à la main, il vieillit à chaque édition du code).
@@ -13,7 +13,8 @@ ses fonctions et variables, et surtout les **relations** entre eux.
 | [architecture.md](architecture.md) | **Vue d'ensemble.** Les deux paquets et leur dépendance (mekicore → mekillm), le format pivot OpenAI, le flux de données de bout en bout (REPL → `agent_loop` → `LLM.complete` → SDK openai → OpenRouter → normalisation → outils), et l'emplacement des données runtime (`.logs/` à la racine). À lire en premier. |
 | [mekillm.md](mekillm.md) | **Le provider LLM** (`packages/mekillm/`). Détaille `config.py` (résolution de config), `client.py` (`LLM`, `complete` + `stream`, normalisation/réassemblage du flux, types `LLMResponse`/`ToolCall`/`Usage`), `observability.py` (`CallRecord`, `emit`, hooks, JSONL) et `__init__.py` (API publique + raccourci `complete`). Liste les variables d'environnement consommées. |
 | [mekicore.md](mekicore.md) | **Le mini-harness** (`packages/mekicore/`). Détaille `tools.py` (six outils : `bash` + `read`/`write`/`edit`/`grep`/`glob` confinés au workspace via `_safe_path`, `TOOLS`, `DISPATCH`), `events.py` (événements), `base.py` (`run_agent` à événements + `agent_loop`, `dispatch_tools`), `main.py` (REPL, bootstrap `sys.path`). |
-| [mekichat.md](mekichat.md) | **Le front web** (`packages/mekichat/`). Interface NiceGUI in-process, mode conversation type Discord. Détaille `sessions.py` (persistance JSON sous `.sessions/`), `static/mekichat.css` (thème Phosphore), `views.py` (helpers de rendu), `app.py` (page NiceGUI, port 8080). Phases 1-3 livrées : sessions + UI (1), chat + outil `bash` (2), streaming + markdown (3) ; puis **outils étendus** (blocs d'outils colorés/repliables pour les six outils, diff `edit`). |
+| [mekichat.md](mekichat.md) | **Le front web** (`packages/mekichat/`). Interface NiceGUI in-process, mode conversation type Discord. Détaille `sessions.py` (persistance JSON sous `.sessions/`), `static/mekichat.css` (thème Phosphore), `views.py` (helpers de rendu), `app.py` (page NiceGUI, port 8080). Phases 1-3 livrées : sessions + UI (1), chat + outil `bash` (2), streaming + markdown (3) ; puis **outils étendus** (blocs d'outils colorés/repliables pour les six outils, diff `edit`). Devenu adaptateur NiceGUI du hub. |
+| [mekihub.md](mekihub.md) | **Le hub temps réel** (`packages/mekihub/`). Bus de session multi-utilisateur multi-canal : salle partagée, file FIFO auto-drain, pub/sub mémoire, adaptateurs de canal. Détaille `session.py` (couche session canonique : `Author`, `QueueItem`, `Session`, `SessionState`, `SessionStore`), `events.py` (13 events de salle + run), `hub.py` (`PendingQueue`, `SessionHub`, worker asyncio), `adapters/discord.py` (`DiscordAdapter`, stubs réseau-free). |
 
 ## Carte rapide des fichiers
 
@@ -29,10 +30,19 @@ packages/
 │   ├── events.py            ThinkingStarted/AssistantDelta/AssistantDone/ToolStarted/Finished/RunFinished/RunError
 │   ├── base.py              run_agent() (boucle à événements), agent_loop(), dispatch_tools()
 │   └── main.py              REPL + bootstrap import mekillm
-└── mekichat/                → voir mekichat.md
-    ├── app.py               page NiceGUI "/" (index + _refresh) ; ui.run(port=8080)
-    ├── sessions.py          SessionStore.create/save/load/delete/list ; JSON sous .sessions/ (racine)
-    ├── views.py             render_message() (markdown), render_tool(), render_thread(), render_stream_bubble()…
-    └── static/
-        └── mekichat.css     thème cyberpunk Phosphore
+├── mekichat/                → voir mekichat.md
+│   ├── app.py               page NiceGUI "/" (index + _refresh) ; ui.run(port=8080) ; adaptateur NiceGUI du hub
+│   ├── sessions.py          ré-export de mekihub.session (shim compat)
+│   ├── views.py             render_message() (markdown), render_tool(), render_thread(), render_stream_bubble()…
+│   └── static/
+│       └── mekichat.css     thème cyberpunk Phosphore
+└── mekihub/                 → voir mekihub.md
+    ├── session.py           Author, QueueItem, Session (+add_user), SessionMeta, SessionState, SessionStore
+    ├── events.py            13 events : Snapshot/PresenceChanged/QueueEnqueued/QueueItemDeleted/RunStarted/
+    │                        MessagePosted/AgentDelta/AgentDone/ToolStarted/ToolFinished/RunFinished/RunError/Idle
+    ├── hub.py               PendingQueue (FIFO supprimable) + SessionHub (join/leave/submit/delete_pending/
+    │                        snapshot/subscribe) + worker asyncio (drain file → run_agent via to_thread)
+    ├── main.py              entrypoint : build_hub() + main() (MEKIHUB_FRONT / MEKIHUB_DISCORD)
+    └── adapters/
+        └── discord.py       DiscordAdapter (canal→session, handle_message, _render_loop) + FakeDiscordClient
 ```

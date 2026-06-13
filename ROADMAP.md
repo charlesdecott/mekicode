@@ -43,7 +43,7 @@ existe déjà, validé, dans `src_scratch/`).
 | s13 | streaming (réponses en flux) | ✅ | ✅ (`LLM.stream` + streaming dans le front mekichat) |
 | s14 | tools extended (read/write/grep/glob/revert) | ✅ | 🟡 read/write/edit/grep/glob **confinés au workspace** (revert hors périmètre — YAGNI) |
 | s15 | permissions (gouvernance 3 tiers) | ✅ | ⬜ |
-| s16 | event bus (hooks d'événements) | ✅ | 🟡 cousin léger (hooks d'observabilité mekillm) |
+| s16 | event bus (hooks d'événements) | ✅ | 🟡 mekihub = bus de session pub/sub (events de salle + run) ; hooks d'observabilité mekillm côté LLM |
 | s17 | session management (persistance/reprise) | ✅ | ⬜ |
 | s18 | parallel tools (exécution parallèle) | ✅ | ⬜ |
 | s19 | interrupts (interruptions) | ✅ | ⬜ |
@@ -81,21 +81,39 @@ du socle, on ne recopie pas `src_scratch/`.
   génériquement par nom.
 - REPL (`main.py`) ; en console : en-tête **heure + modèle** avant chaque réponse.
 
-### `packages/mekichat/` — front web NiceGUI (phases 1-3 livrées)
+### `packages/mekihub/` — hub de session temps réel (multi-utilisateur, multi-canal)
+- Bus de conversation partagée : **salle partagée** multi-utilisateur (présence, pseudos colorés éphémères).
+- `session.py` : couche session canonique — `Author`, `QueueItem`, `Session.add_user` (attribution
+  séparée des messages OpenAI), `SessionState`, `SessionStore` (authors persisté ; présence/file éphémères).
+- `events.py` : 13 types couvrant la vie de la file (Enqueued/Deleted), la présence (PresenceChanged),
+  et le run d'agent (RunStarted/MessagePosted/AgentDelta/AgentDone/ToolStarted/Finished/RunFinished/RunError/Idle).
+- `hub.py` : `PendingQueue` (FIFO supprimable, `pop_next` async), `SessionHub` (join/leave/submit/
+  delete_pending/snapshot/subscribe), worker asyncio par session qui draille la file et pilote le
+  générateur SYNC `mekicore.run_agent` via `await asyncio.to_thread(next, gen)`.
+- `adapters/discord.py` : `DiscordAdapter` (mapping canal→session, handle_message, _render_loop
+  poste/édite via le client Discord) + `FakeDiscordClient`/`FakeMessage` (tests réseau-free).
+- `main.py` : `build_hub()` + `main()` (front/discord pilotés par `MEKIHUB_FRONT`/`MEKIHUB_DISCORD`).
+- Chaîne de dépendance : `mekichat` / `adapters.discord` → **mekihub** → `mekicore` → `mekillm`.
+- Non-régression réseau-free : `tests/smoke_mekihub.py` (FakeLLM + FakeDiscordClient).
+
+### `packages/mekichat/` — front web NiceGUI (phases 1-3 livrées, puis adaptateur hub)
 - Interface web in-process, mode conversation type Discord (thème cyberpunk **Phosphore**), réponses en markdown.
-- `sessions.py` : persistance JSON des sessions sous `.sessions/` (racine), format OpenAI.
+- `sessions.py` : **ré-export** de la couche session canonique de mekihub (shim de compatibilité).
 - `views.py` : rendu des bulles (markdown), des **blocs d'outils colorés/repliables par outil**
   (glyphe + couleur dédiés aux six outils ; **repliés par défaut**, clic = ouvrir ; métrique d'en-tête ;
   diff `---`/`+++` pour `edit`), du streaming (caret), de l'historique.
-- `app.py` : page NiceGUI (**http://localhost:8080**, lanceur `.\start-chat.ps1`) ; l'envoi pilote
-  `base.run_agent(stream=True)` via `run.io_bound` et **streame** la réponse token par token.
+- `app.py` : page NiceGUI (**http://localhost:8080**, lanceur `.\start-chat.ps1`) ; devenu **adaptateur
+  NiceGUI multi-utilisateur** du `SessionHub` (présence, broadcast live, UI file d'attente avec
+  suppression de messages en attente).
 - **Phases 1-3 livrées** : sessions + UI statique (1) ; chat + outil `bash` (2) ; streaming token-par-token (3).
 - **Outils étendus** (post-phase-3) : les six outils de mekicore rendus en blocs colorés/repliables.
 
 ### Confort projet
 - Lanceurs `start.ps1` / `start.sh` (mekicore) et `start-chat.ps1` (mekichat) à la racine.
-- Tests réseau-free : `python tests/smoke_packages.py` (mekillm + mekicore) et `python tests/smoke_mekichat.py` (mekichat).
+- Tests réseau-free : `python tests/smoke_packages.py` (mekillm + mekicore), `python tests/smoke_mekichat.py`
+  (mekichat) et `python tests/smoke_mekihub.py` (mekihub + Discord).
 - Données runtime (logs, sessions) à la racine (`.logs/`, `.sessions/`), jamais dans `packages/`.
+- Docker : `Dockerfile` + `docker-compose.yml` à la racine (conteneur = isolation de l'agent).
 
 ## Ce qu'apporte `packages/` en plus de claude-code-from-scratch
 - **Multi-backend** : ccfs est Anthropic-only ; mekillm parle OpenRouter/ollama/litellm.
