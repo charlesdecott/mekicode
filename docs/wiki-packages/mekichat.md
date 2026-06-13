@@ -91,7 +91,8 @@ coins biseautés (`clip-path`), glitch, scanlines, ticker HUD. Stylise les ligne
   (en **`stream=True`**) **pas-à-pas** via `await run.io_bound(next, gen, _DONE)` (sans figer l'UI).
   Rend en direct : `ThinkingStarted` → « PROCESSING… », `AssistantDelta` → bulle de **streaming**
   (texte + caret), `AssistantDone` → **finalisation markdown**, `ToolStarted`/`ToolFinished` → bloc
-  d'outil générique `▣ <nom>`, `RunError` → bulle rouge (et fige la bulle partielle). Persiste à la fin.
+  d'outil **coloré/repliable par outil** (`render_tool`/`fill_tool` ; `old`/`new` pour le diff `edit`),
+  `RunError` → bulle rouge (et fige la bulle partielle). Persiste à la fin.
 - `state["busy"]` empêche envois/bascules concurrents ; le rendu cesse proprement si l'onglet se
   ferme en plein run (garde « client supprimé »).
 - Store et LLM en singletons **paresseux** (`_get_store` / `_get_llm`).

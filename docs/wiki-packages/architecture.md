@@ -14,7 +14,8 @@ packages/
 - **mekicore** est le consommateur : une boucle perception-action **à événements** (`run_agent`,
   le s01 adapté) qui appelle mekillm et exécute des outils ; `agent_loop` (REPL) est réexprimé dessus.
 - **mekichat** est le **front web** (NiceGUI, mode Discord) : il importe mekicore + mekillm
-  **en in-process** et rend la conversation (streaming, blocs d'outils `▣ <nom>`, markdown, sessions persistées).
+  **en in-process** et rend la conversation (streaming, blocs d'outils colorés/repliables par outil,
+  markdown, sessions persistées).
 
 La dépendance est **à sens unique** : `mekichat → mekicore → mekillm`. Chaque couche ne touche qu'à
 l'**interface publique** de la précédente — jamais à ses internes.
@@ -83,7 +84,8 @@ sur **`run_agent`**, un générateur qui **émet des événements** (`events.py`
 `ToolStarted`/`Finished`, `ThinkingStarted`, `RunFinished`, `RunError`) au lieu d'imprimer. Le front
 [mekichat](mekichat.md) consomme ce même `run_agent` — en **`stream=True`** (`llm.stream` →
 `AssistantDelta` token par token) — pour rendre la conversation **en direct** dans le navigateur
-(bulles markdown, blocs d'outils génériques `▣ <nom>`, caret de streaming), avec persistance des sessions.
+(bulles markdown, blocs d'outils colorés/repliables par outil — glyphe + couleur, diff `edit` —,
+caret de streaming), avec persistance des sessions.
 
 ## Données runtime
 - mekillm écrit un **JSONL d'appels** dans `.logs/mekillm.jsonl` **à la racine du projet** (jamais

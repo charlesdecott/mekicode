@@ -1,7 +1,8 @@
 # `packages/mekicore/` — mini-harness (s01 adapté)
 
-Le s01 de claude-code-from-scratch (boucle perception-action + outil `bash`), réécrit au format
-OpenAI et branché sur [mekillm](mekillm.md). Trois fichiers fins.
+Le s01 de claude-code-from-scratch (boucle perception-action), réécrit au format OpenAI et branché
+sur [mekillm](mekillm.md), puis **étendu** : six outils (`bash` + `read`/`write`/`edit`/`grep`/`glob`,
+ces cinq derniers confinés au workspace). Quatre fichiers fins.
 
 > Numéros de ligne indicatifs (source = vérité).
 
@@ -112,5 +113,5 @@ Nécessite une clé dans le `.env` racine (voir `.env.example` : `OPENROUTER_API
 ## Relations entrantes / sortantes
 - Dépend de [mekillm](mekillm.md) (`LLM.complete`/`stream`, types `LLMResponse`/`ToolCall`).
 - `run_agent` + `events.py` sont consommés par le front [mekichat](mekichat.md) (rendu en direct des
-  bulles, blocs d'outils génériques `▣ <nom>`, streaming).
+  bulles, blocs d'outils colorés/repliables par outil, streaming).
 - Non-régression réseau-free : `tests/smoke_packages.py` (`run_agent`, événements, streaming).

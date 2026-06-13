@@ -29,7 +29,7 @@ existe déjà, validé, dans `src_scratch/`).
 | Session | Feature | `src_scratch/` | `packages/` |
 |---------|---------|:---:|:---:|
 | s01 | boucle perception-action + outil bash | ✅ | ✅ |
-| s02 | tool use (appel d'outils structuré) | ✅ | ✅ (outils exécutés via `run_agent`, blocs d'outils génériques `▣ <nom>` dans le front) |
+| s02 | tool use (appel d'outils structuré) | ✅ | ✅ (outils exécutés via `run_agent`, blocs d'outils colorés/repliables par outil dans le front) |
 | s03 | todo write (todo-list interne) | ✅ | ⬜ |
 | s04 | subagent (délégation à des sous-agents) | ✅ | ⬜ |
 | s05 | skill loading (chargement de `SKILL.md`) | ✅ | ⬜ |
@@ -84,11 +84,13 @@ du socle, on ne recopie pas `src_scratch/`.
 ### `packages/mekichat/` — front web NiceGUI (phases 1-3 livrées)
 - Interface web in-process, mode conversation type Discord (thème cyberpunk **Phosphore**), réponses en markdown.
 - `sessions.py` : persistance JSON des sessions sous `.sessions/` (racine), format OpenAI.
-- `views.py` : rendu des bulles (markdown), des **blocs d'outils génériques** `▣ <nom>` (read/write/
-  edit/grep/glob, plus seulement bash), du streaming (caret), de l'historique.
+- `views.py` : rendu des bulles (markdown), des **blocs d'outils colorés/repliables par outil**
+  (glyphe + couleur dédiés aux six outils ; **repliés par défaut**, clic = ouvrir ; métrique d'en-tête ;
+  diff `---`/`+++` pour `edit`), du streaming (caret), de l'historique.
 - `app.py` : page NiceGUI (**http://localhost:8080**, lanceur `.\start-chat.ps1`) ; l'envoi pilote
   `base.run_agent(stream=True)` via `run.io_bound` et **streame** la réponse token par token.
 - **Phases 1-3 livrées** : sessions + UI statique (1) ; chat + outil `bash` (2) ; streaming token-par-token (3).
+- **Outils étendus** (post-phase-3) : les six outils de mekicore rendus en blocs colorés/repliables.
 
 ### Confort projet
 - Lanceurs `start.ps1` / `start.sh` (mekicore) et `start-chat.ps1` (mekichat) à la racine.

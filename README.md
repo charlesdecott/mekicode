@@ -115,7 +115,7 @@ Une interface web écrite **100 % en Python** (NiceGUI), qui tourne **dans le m�
 | Fichier | À quoi ça sert |
 |---------|----------------|
 | `sessions.py` | **Persistance** : un `SessionStore` qui crée / sauve / charge / supprime des sessions (un fichier JSON par conversation, sous `.sessions/`). Pur Python, testable seul. |
-| `views.py` | Les **briques de rendu** : une ligne de message (markdown), un **bloc d'outil générique** `▣ <nom>` (read/write/edit/grep/glob, plus seulement bash), l'indicateur « PROCESSING… », la bulle de streaming. |
+| `views.py` | Les **briques de rendu** : une ligne de message (markdown), un **bloc d'outil coloré/repliable par outil** (glyphe + couleur, métrique d'en-tête, diff `edit` ; les six outils), l'indicateur « PROCESSING… », la bulle de streaming. |
 | `app.py` | La **page** : barre latérale des sessions, en-tête (modèle / session), fil de discussion, zone de saisie. C'est elle qui pilote `run_agent` en streaming et affiche tout en direct. |
 | `static/mekichat.css` | Le **thème cyberpunk Phosphore** (variables CSS, glitch, scanlines, coins biseautés…). |
 | `__init__.py` | Les exports (`Session`, `SessionStore`…). |
@@ -156,5 +156,3 @@ inspiration/     les repos de référence (non versionnés)
 
 *Projet perso d'apprentissage : du « comment marche un agent » jusqu'à une appli de chat qui streame.
 Tout en français, tout fait main. 🛠️*
-
-hello world
