@@ -45,6 +45,52 @@ def run_bash(command: str) -> str:
         return f"Error: {e}"
 
 
+def read_file(path: str) -> str:
+    """Lit un fichier texte (confiné au workspace)."""
+    try:
+        p = _safe_path(path)
+    except ValueError as e:
+        return f"Error: {e}"
+    if not p.is_file():
+        return f"Error: fichier introuvable : {path}"
+    try:
+        return p.read_text(encoding="utf-8", errors="replace")[:_MAX_OUT]
+    except OSError as e:
+        return f"Error: {e}"
+
+
+def write_file(path: str, content: str) -> str:
+    """Crée ou écrase un fichier texte (crée les dossiers parents)."""
+    try:
+        p = _safe_path(path)
+    except ValueError as e:
+        return f"Error: {e}"
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(content, encoding="utf-8")
+    except OSError as e:
+        return f"Error: {e}"
+    return f"écrit {len(content)} caractères dans {path}"
+
+
+def edit_file(path: str, old: str, new: str) -> str:
+    """Remplace `old` par `new` si `old` apparaît exactement une fois (str-replace)."""
+    try:
+        p = _safe_path(path)
+    except ValueError as e:
+        return f"Error: {e}"
+    if not p.is_file():
+        return f"Error: fichier introuvable : {path}"
+    content = p.read_text(encoding="utf-8")
+    count = content.count(old)
+    if count == 0:
+        return "Error: texte introuvable (old)"
+    if count > 1:
+        return f"Error: texte ambigu ({count} occurrences) — ajoute du contexte"
+    p.write_text(content.replace(old, new, 1), encoding="utf-8")
+    return f"édité {path}"
+
+
 # Schéma au format function-calling OpenAI (lingua franca OpenRouter/ollama/litellm).
 TOOLS = [
     {

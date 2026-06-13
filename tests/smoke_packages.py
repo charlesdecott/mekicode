@@ -362,6 +362,24 @@ def test_safe_path_confine():
                 pass
 
 
+def test_write_read_roundtrip():
+    with tempfile.TemporaryDirectory() as d, _ws(d):
+        assert tools.write_file("sub/a.txt", "café ☕").startswith("écrit")   # crée le dossier parent
+        assert (Path(d) / "sub" / "a.txt").is_file()
+        assert tools.read_file("sub/a.txt") == "café ☕"
+        assert tools.read_file("absent.txt").startswith("Error")
+        assert tools.write_file("../escape.txt", "x").startswith("Error")     # confiné
+
+
+def test_edit_unique_and_ambiguous():
+    with tempfile.TemporaryDirectory() as d, _ws(d):
+        tools.write_file("f.py", "a = 1\nb = 2\na = 1\n")
+        assert tools.edit_file("f.py", "b = 2", "b = 3") == "édité f.py"
+        assert tools.read_file("f.py") == "a = 1\nb = 3\na = 1\n"
+        assert tools.edit_file("f.py", "a = 1", "a = 9").startswith("Error")  # 2 occurrences → ambigu
+        assert tools.edit_file("f.py", "zzz", "x").startswith("Error")        # introuvable
+
+
 def main():
     log_path = Path(tempfile.gettempdir()) / "mekillm_smoke.jsonl"
     if log_path.exists():
@@ -387,6 +405,8 @@ def main():
     test_run_agent_streaming()
     test_llm_wrappers_stub()
     test_safe_path_confine()
+    test_write_read_roundtrip()
+    test_edit_unique_and_ambiguous()
     print("OK - tous les smoke tests passent")
 
 
