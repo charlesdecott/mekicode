@@ -10,6 +10,8 @@ _AVATARS = {"user": ("user", "CD"), "assistant": ("bot", "M")}
 _WHO = {"user": "charles", "assistant": "mekicore"}
 _TAG = {"user": "//USER", "assistant": "//AGENT"}
 _MD_EXTRAS = ["fenced-code-blocks", "tables", "break-on-newline"]
+# Glyphe cyberpunk par outil (la couleur est portée par la classe CSS `t-<nom>`).
+_TOOL_GLYPH = {"bash": "❯_", "read": "▤", "write": "✎", "edit": "±", "grep": "⌕", "glob": "✲"}
 
 
 def _md(text: str) -> None:
@@ -75,13 +77,34 @@ def tool_summary(args) -> str:
     return str(next(iter(args.values()), ""))
 
 
-def render_tool(name: str, summary: str = "", output: str = "", status: str = "RUN"):
-    """Bloc d'outil générique : ▣ <NOM> + résumé. Renvoie (label_statut, label_sortie)."""
-    with ui.element("div").classes("tool"):
+_ST_CLASS = {"DONE": "st done", "ERR": "st err"}
+
+
+def _render_diff(old: str, new: str) -> None:
+    """Affiche le changement d'`edit` en diff : `--- ancien` (lignes `-`) / `+++ nouveau` (lignes `+`)."""
+    with ui.element("div").classes("diff"):
+        ui.label("--- ancien").classes("dh")
+        for line in (old.splitlines() or [""]):
+            ui.label(f"- {line}").classes("dl del")
+        ui.label("+++ nouveau").classes("dh")
+        for line in (new.splitlines() or [""]):
+            ui.label(f"+ {line}").classes("dl add")
+
+
+def render_tool(name: str, summary: str = "", output: str = "", status: str = "RUN",
+                *, old: str | None = None, new: str | None = None):
+    """Bloc d'outil : glyphe + NOM (couleur par outil) + résumé + statut. Pour `edit`, affiche le
+    diff `---`/`+++` (depuis old/new). Renvoie (label_statut, label_sortie) pour remplissage différé."""
+    glyph = _TOOL_GLYPH.get(name, "▣")
+    cls = f"tool t-{name}" if name in _TOOL_GLYPH else "tool"
+    with ui.element("div").classes(cls):
         with ui.element("div").classes("tool-head"):
-            ui.label(f"▣ {name}").classes("ic")
+            ui.label(glyph).classes("ic")
+            ui.label(name).classes("tname")
             ui.label(summary).classes("cmd")
-            st = ui.label(status).classes("st done" if status == "DONE" else "st")
+            st = ui.label(status).classes(_ST_CLASS.get(status, "st"))
+        if name == "edit" and old is not None:
+            _render_diff(old, new or "")
         out = ui.label(output).classes("tool-out")
     return st, out
 
@@ -90,7 +113,7 @@ def fill_tool(handle, output: str, ok: bool = True) -> None:
     """Remplit un bloc d'outil créé en statut RUN (chemin live)."""
     st, out = handle
     st.set_text("DONE" if ok else "ERR")
-    st.classes(replace="st done" if ok else "st")
+    st.classes(replace="st done" if ok else "st err")
     out.set_text(output)
 
 
@@ -122,8 +145,15 @@ def render_thread(messages: list) -> None:
                     args = json.loads(fn.get("arguments") or "{}")
                 except json.JSONDecodeError:
                     args = {}
-                render_tool(fn.get("name", "tool"), tool_summary(args),
-                            output=outputs.get(tc.get("id"), ""), status="DONE")
+                name = fn.get("name", "tool")
+                raw = outputs.get(tc.get("id"), "")
+                status = "ERR" if raw.startswith("Error") else "DONE"
+                old = new = None
+                out = raw
+                if name == "edit":
+                    old, new = args.get("old"), args.get("new")
+                    out = "" if status == "DONE" else raw   # succès : le diff suffit
+                render_tool(name, tool_summary(args), output=out, status=status, old=old, new=new)
 
 
 def render_stream_bubble():

@@ -131,14 +131,19 @@ def index() -> None:
                 elif ev.text:
                     views.render_message({"role": "assistant", "content": ev.text})
             elif isinstance(ev, events.ToolStarted):
-                handles[ev.id] = views.render_tool(ev.name, views.tool_summary(ev.args))
+                args = ev.args if isinstance(ev.args, dict) else {}
+                old = args.get("old") if ev.name == "edit" else None
+                new = args.get("new") if ev.name == "edit" else None
+                handles[ev.id] = views.render_tool(ev.name, views.tool_summary(ev.args),
+                                                    old=old, new=new)
             elif isinstance(ev, events.ToolFinished):
                 handle = handles.get(ev.id)
                 ok = not ev.output.startswith("Error")
+                out_text = "" if (ev.name == "edit" and ok) else ev.output   # edit OK : le diff suffit
                 if handle is not None:
-                    views.fill_tool(handle, ev.output, ok=ok)
+                    views.fill_tool(handle, out_text, ok=ok)
                 else:
-                    views.render_tool(ev.name, "", output=ev.output, status="DONE")
+                    views.render_tool(ev.name, "", output=out_text, status="DONE" if ok else "ERR")
             elif isinstance(ev, events.RunError):
                 if stream_ref["body"] is not None:   # fige la bulle partielle (retire le caret)
                     views.finalize_stream(stream_ref["body"], stream_ref["text"])
