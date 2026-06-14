@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>mekicode — trailer</title>
+<!-- VRAIE CSS du front (source de verite unique, servie par http.server) -->
+<link rel="stylesheet" href="../packages/mekichat/static/mekichat.css">
+<!-- polices bundlees en local (offline) + repli reseau Google Fonts -->
+<link rel="stylesheet" href="assets/fonts/fonts.css">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  html,body{width:1920px;height:1080px;overflow:hidden;background:var(--bg);cursor:none}
+  .scene{position:fixed;inset:0;z-index:2;opacity:0;will-change:opacity,transform}
+  .center{display:grid;place-items:center}
+  #t{position:fixed;left:10px;bottom:8px;z-index:99;font:12px var(--mono);color:#39ff14;opacity:0}
+
+  /* ── captions neon ── */
+  .cap{position:fixed;left:0;right:0;text-align:center;font-family:var(--ui);font-weight:700;
+       letter-spacing:.02em;color:#fff;text-shadow:var(--p1-glow);opacity:0;z-index:6}
+  .cap .m{color:var(--p2);text-shadow:var(--p2-glow)}
+  .cap.sub{font-family:var(--mono);font-weight:400;letter-spacing:.12em;color:var(--muted);
+           text-shadow:none}
+  .tagchip{position:fixed;z-index:6;font-family:var(--mono);font-size:18px;letter-spacing:.14em;
+           padding:7px 16px;clip-path:var(--clip-sm);background:var(--panel-2);
+           border:1px solid var(--line);color:var(--p1);text-shadow:var(--p1-glow);opacity:0}
+
+  /* ── SCENE 0 : BOOT / LOGO ── */
+  #sc-boot .wrap{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;
+                 justify-content:center;gap:30px}
+  .logo-row{display:flex;align-items:center;gap:34px;transform-origin:center}
+  .brand-glyph{width:118px;height:118px;clip-path:var(--clip);font-family:var(--mono);
+    background:linear-gradient(135deg,var(--p1),color-mix(in srgb,var(--p1) 30%,#000));
+    color:#02080a;display:grid;place-items:center;font-weight:700;font-size:56px;
+    box-shadow:var(--p1-glow)}
+  .glitch.hero{font-size:150px;letter-spacing:.01em}
+  .boot-haz{width:560px;height:8px;background:var(--haz);opacity:.6;clip-path:var(--clip-sm)}
+  .boot-sub{font-family:var(--mono);font-size:21px;letter-spacing:.22em;color:var(--p1);
+    text-shadow:var(--p1-glow);display:flex;align-items:center;gap:14px;text-transform:uppercase}
+  .boot-sub .led{width:11px;height:11px}
+
+  /* ── SCENE 1 : LA BOUCLE ── */
+  #sc-loop .stage{position:fixed;left:50%;top:50%;width:1320px;height:560px;
+                  transform:translate(-50%,-46%)}
+  #sc-loop svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+  .lpath{fill:none;stroke:var(--p1);stroke-width:3;filter:drop-shadow(0 0 6px var(--p1));
+         stroke-linecap:round}
+  .lpath.alt{stroke:var(--p2);filter:drop-shadow(0 0 6px var(--p2))}
+  .node{position:absolute;transform:translate(-50%,-50%);clip-path:var(--clip);
+    background:color-mix(in srgb,var(--p1) 9%,var(--panel-2));border:1px solid var(--line);
+    padding:18px 26px;font-family:var(--ui);font-weight:700;font-size:25px;color:#eaf2f5;
+    white-space:nowrap;box-shadow:0 0 22px -6px color-mix(in srgb,var(--p1) 50%,transparent);
+    text-align:center;opacity:0}
+  .node .k{display:block;font-family:var(--mono);font-size:13px;letter-spacing:.18em;
+           color:var(--p1);margin-top:5px;text-transform:uppercase;font-weight:400}
+  .node.accent{border-color:color-mix(in srgb,var(--p2) 45%,transparent);
+    background:color-mix(in srgb,var(--p2) 10%,var(--panel-2))}
+  .node.accent .k{color:var(--p2)}
+  .ledge{position:absolute;transform:translate(-50%,-50%);font-family:var(--mono);font-size:16px;
+    letter-spacing:.1em;color:var(--muted);opacity:0}
+  .pulse{position:absolute;width:16px;height:16px;border-radius:50%;background:var(--warn);
+    box-shadow:0 0 16px 5px var(--warn);transform:translate(-50%,-50%);opacity:0}
+
+  /* ── SCENE 2 : GAMEPLAY (reutilise les classes mekichat) ── */
+  #sc-game .app{transform-origin:center}
+  .reveal{opacity:0}
+  #game-stream .body, #game-final{}
+
+  /* ── SCENE 3 : 4 ORGANES ── */
+  #sc-organs .stage{position:fixed;left:50%;top:50%;width:1560px;transform:translate(-50%,-50%);
+    display:flex;flex-direction:column;align-items:center;gap:46px}
+  .cards{display:flex;gap:26px;justify-content:center}
+  .card{width:340px;clip-path:var(--clip);background:var(--panel-2);
+    border:1px solid var(--line);border-top:3px solid var(--cc,var(--p1));padding:30px 26px;opacity:0;
+    box-shadow:0 0 30px -10px color-mix(in srgb,var(--cc,var(--p1)) 60%,transparent)}
+  .card .ico{font-size:46px;line-height:1}
+  .card .nm{font-family:var(--mono);font-size:27px;font-weight:700;color:var(--cc,var(--p1));
+    margin:14px 0 6px;letter-spacing:.04em;text-shadow:0 0 10px color-mix(in srgb,var(--cc,var(--p1)) 55%,transparent)}
+  .card .ro{font-family:var(--ui);font-size:17.5px;color:var(--muted);line-height:1.4}
+  .card .org{font-family:var(--mono);font-size:13px;letter-spacing:.1em;color:var(--faint);
+    margin-top:14px;text-transform:uppercase}
+  .chain{display:flex;align-items:center;gap:18px;font-family:var(--mono);font-size:24px;opacity:0}
+  .chain .lk{padding:9px 18px;border:1px solid var(--line);clip-path:var(--clip-sm);
+    color:var(--muted);transition:none}
+  .chain .lk.on{color:#02080a;background:var(--p1);box-shadow:var(--p1-glow);font-weight:700}
+  .chain .ar{color:var(--p2);text-shadow:var(--p2-glow)}
+  .ribbon{font-family:var(--mono);font-size:18px;letter-spacing:.08em;color:var(--p1);
+    text-shadow:var(--p1-glow);opacity:0}
+  .ribbon b{color:var(--p2);text-shadow:var(--p2-glow);font-weight:400}
+
+  /* ── SCENE 4 : OUTRO / CTA ── */
+  #sc-outro .wrap{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:34px}
+  .term{width:760px;clip-path:var(--clip);background:rgba(0,0,0,.55);border:1px solid var(--line);
+    border-left:3px solid var(--p1);padding:24px 30px;font-family:var(--mono);font-size:23px;
+    line-height:1.7;color:var(--text);opacity:0}
+  .term .pr{color:var(--p1);text-shadow:var(--p1-glow)}
+  .term .ar{color:var(--muted)}
+  .repo{font-family:var(--mono);font-size:20px;letter-spacing:.08em;color:var(--muted);opacity:0}
+  .repo .yt{color:var(--p2);text-shadow:var(--p2-glow)}
+</style>
+</head>
+<body data-theme="phosphor">
+
+  <!-- fond anime identique au front -->
+  <div class="bg"><div class="grid"></div><div class="vig"></div><div class="scan"></div>
+    <div class="noise"></div><div class="sweep"></div><div class="mosh"></div><div class="mosh b"></div></div>
+
+  <!-- ════════ SCENE 0 : BOOT / LOGO ════════ -->
+  <section class="scene" id="sc-boot">
+    <div class="wrap">
+      <div class="logo-row" id="boot-logo">
+        <div class="brand-glyph">&gt;_</div>
+        <div class="glitch hero" data-t="mekicode">mekicode</div>
+      </div>
+      <div class="boot-haz"></div>
+      <div class="boot-sub"><span class="led"></span> HARNESS · PYTHON · AGENT LOOP · v0.1</div>
+    </div>
+    <div class="cap" id="boot-capA" style="top:79%;font-size:40px">Construis ton propre agent IA.</div>
+    <div class="cap" id="boot-capB" style="top:79%;font-size:40px">De <span class="m">zéro</span>. En Python.</div>
+  </section>
+
+  <!-- ════════ SCENE 1 : LA BOUCLE ════════ -->
+  <section class="scene" id="sc-loop">
+    <div class="tagchip" id="loop-tag" style="left:90px;top:80px;right:auto">01 · L'IDÉE</div>
+    <div class="stage">
+      <svg viewBox="0 0 1320 560" preserveAspectRatio="none">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="var(--p1)"/></marker>
+          <marker id="ah2" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="var(--p2)"/></marker>
+        </defs>
+        <path class="lpath" id="p1" d="M 250 300 L 372 300" marker-end="url(#ah)"/>
+        <path class="lpath" id="p2" d="M 580 300 L 700 300" marker-end="url(#ah)"/>
+        <path class="lpath" id="p3" d="M 908 300 L 1028 300" marker-end="url(#ah)"/>
+        <path class="lpath" id="p4" d="M 1150 334 C 1150 470 1150 500 1000 500 L 540 500 C 440 500 440 500 440 360" marker-end="url(#ah)"/>
+        <path class="lpath alt" id="p5" d="M 470 266 L 470 168" marker-end="url(#ah2)"/>
+        <path id="flow" d="M 150 300 L 470 300 L 800 300 L 1120 300" fill="none" stroke="none"/>
+      </svg>
+      <div class="node" id="n1" style="left:150px;top:300px">TU ÉCRIS<span class="k">prompt</span></div>
+      <div class="node" id="n2" style="left:470px;top:300px">RÉFLÉCHIT<span class="k">appel LLM</span></div>
+      <div class="node" id="n3" style="left:800px;top:300px">AGIT<span class="k">bash · outils</span></div>
+      <div class="node" id="n4" style="left:1120px;top:300px">OBSERVE<span class="k">lit le résultat</span></div>
+      <div class="node accent" id="n5" style="left:470px;top:110px">RÉPONDRE ✅<span class="k">terminé</span></div>
+      <div class="ledge" id="le1" style="left:625px;top:268px">outil ?</div>
+      <div class="ledge" id="le2" style="left:545px;top:205px">réponse ?</div>
+      <div class="ledge" id="le3" style="left:780px;top:540px">🔁 recommence</div>
+      <div class="pulse" id="lpulse"></div>
+    </div>
+    <div class="cap" id="loop-capA" style="top:81%;font-size:34px">Un agent, c'est une <span class="m">boucle</span>.</div>
+    <div class="cap" id="loop-capB" style="top:81%;font-size:34px">Réfléchir → Agir → Observer → <span class="m">recommencer</span>.</div>
+    <div class="cap sub" id="loop-capC" style="top:89%;font-size:19px">comme Claude Code &amp; Cursor — sans magie.</div>
+  </section>
+
+  <!-- ════════ SCENE 2 : GAMEPLAY ════════ -->
+  <section class="scene center" id="sc-game">
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="glyph">M</div>
+          <div>
+            <div class="glitch" data-t="MEKICHAT">MEKICHAT</div>
+            <div class="ver">// harness v0.1 :: ROOT</div>
+          </div>
+        </div>
+        <button class="new-btn">+ nouvelle session <kbd>⌘N</kbd></button>
+        <div class="sec-label">SESSIONS <span class="n">[03]</span></div>
+        <div class="sessions">
+          <div class="session active"><div class="s-title"><span class="mk">&gt;_</span>
+            <span class="s-name">compter les fichiers python</span><span class="s-del">✕</span></div>
+            <div class="s-meta">a3f9c1 · 6 msg</div></div>
+          <div class="session"><div class="s-title"><span class="mk">&gt;_</span>
+            <span class="s-name">refacto du parseur</span><span class="s-del">✕</span></div>
+            <div class="s-meta">7b2e08 · 14 msg</div></div>
+          <div class="session"><div class="s-title"><span class="mk">&gt;_</span>
+            <span class="s-name">idées de noms</span><span class="s-del">✕</span></div>
+            <div class="s-meta">c40d11 · 3 msg</div></div>
+        </div>
+        <div class="sidebar-foot"><span class="led"></span> OPENROUTER :: LINK_OK</div>
+      </aside>
+
+      <section class="main">
+        <header class="topbar">
+          <div class="channel"><span class="br">[#]</span><h1>conversation</h1>
+            <span class="sub">// compter les fichiers python</span></div>
+          <div class="chips">
+            <div class="chip model"><span class="k">MODEL</span><span class="v">qwen/qwen3-coder</span></div>
+            <div class="chip sid"><span class="k">SID</span><span class="v">a3f9c1</span></div>
+            <div class="presence">
+              <span class="pres-chip" style="--ac:#39ff14">charles</span>
+              <span class="pres-chip" style="--ac:#ff2bd6">neo</span>
+            </div>
+          </div>
+        </header>
+        <div class="queue-bar"><div class="queue"></div></div>
+        <div class="thread"><div class="thread-inner" id="game-thread">
+
+          <!-- message utilisateur -->
+          <div class="msg user reveal" id="g-user">
+            <div class="avatar user">CD</div>
+            <div>
+              <div class="head"><span class="who">charles</span><span class="tag">//USER</span>
+                <span class="time">15:48:02</span></div>
+              <div class="body plain"><span id="g-user-txt"></span></div>
+            </div>
+          </div>
+
+          <!-- PROCESSING… -->
+          <div class="msg bot reveal" id="g-think">
+            <div class="avatar bot">M</div>
+            <div><div class="thinking"><span class="bars"><i></i><i></i><i></i><i></i></span> PROCESSING…</div></div>
+          </div>
+
+          <!-- bloc outil bash -->
+          <div class="tool t-bash collapsed reveal" id="g-bash">
+            <div class="tool-head"><span class="ic">❯_</span><span class="tname">bash</span>
+              <span class="cmd">find . -name '*.py' | wc -l</span>
+              <span class="meta">1 lignes</span><span class="st done">DONE</span><span class="chev">▾</span></div>
+            <div class="tool-out">47</div>
+          </div>
+
+          <!-- reponse assistant : streaming puis markdown -->
+          <div class="msg bot reveal" id="g-bot">
+            <div class="avatar bot">M</div>
+            <div>
+              <div class="head"><span class="who">mekicore</span><span class="tag">//AGENT</span>
+                <span class="time">15:48:05</span></div>
+              <div class="body streaming" id="game-stream"><span id="g-stream-txt"></span></div>
+              <div class="body" id="game-final" style="display:none">
+                <h2>Architecture</h2>
+                <p><strong>47</strong> fichiers Python, organisés en <strong>4 paquets</strong> :</p>
+                <ul>
+                  <li><code>mekillm</code> — parler aux modèles (la voix)</li>
+                  <li><code>mekicore</code> — la boucle agent + 6 outils (le cerveau)</li>
+                  <li><code>mekihub</code> — le hub temps réel (le central)</li>
+                  <li><code>mekichat</code> — l'interface web (le visage)</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- bloc outil edit (diff) -->
+          <div class="tool t-edit collapsed reveal" id="g-edit">
+            <div class="tool-head"><span class="ic">±</span><span class="tname">edit</span>
+              <span class="cmd">README.md</span>
+              <span class="meta">+1 -1</span><span class="st done">DONE</span><span class="chev">▾</span></div>
+            <div class="diff">
+              <div class="dh">--- ancien</div>
+              <div class="dl del">- 3 paquets autonomes</div>
+              <div class="dh">+++ nouveau</div>
+              <div class="dl add">+ 4 paquets autonomes</div>
+            </div>
+          </div>
+
+        </div></div>
+        <div class="composer"><div class="composer-inner"><div class="input-wrap">
+          <div style="flex:1;color:var(--faint);font-family:var(--ui);font-size:18px;padding:7px 0">
+            <span id="g-compose"></span><span id="g-caret" style="color:var(--p1)">▌</span></div>
+          <button class="send">▸</button>
+        </div>
+        <div class="hint"><span><kbd>Entrée</kbd> envoyer · <kbd>Maj+Entrée</kbd> ligne</span>
+          <span class="haz">⚠ STREAM ON · 6 TOOLS</span></div></div></div>
+      </section>
+    </div>
+    <div class="cap" id="g-cap1" style="top:13.5%;font-size:27px;text-align:right;right:72px;left:auto;width:auto">⌨ <span class="m">Streaming en direct</span></div>
+    <div class="cap" id="g-cap2" style="top:13.5%;font-size:27px;text-align:right;right:72px;left:auto;width:auto">🛠 6 outils · confinés au workspace</div>
+    <div class="cap" id="g-cap3" style="bottom:14.5%;top:auto;font-size:27px">± diff chirurgical · <span class="m">blocs colorés &amp; repliables</span></div>
+  </section>
+
+  <!-- ════════ SCENE 3 : 4 ORGANES ════════ -->
+  <section class="scene" id="sc-organs">
+    <div class="tagchip" id="org-tag" style="left:90px;top:80px;right:auto">02 · ARCHITECTURE</div>
+    <div class="stage">
+      <div class="cards">
+        <div class="card" id="c1" style="--cc:#ff2bd6"><div class="ico">🗣️</div>
+          <div class="nm">mekillm</div><div class="ro">parler aux modèles &amp; normaliser leurs réponses</div>
+          <div class="org">la voix &amp; les oreilles</div></div>
+        <div class="card" id="c2" style="--cc:#39ff14"><div class="ico">🧠</div>
+          <div class="nm">mekicore</div><div class="ro">la boucle réfléchir→agir + 6 outils</div>
+          <div class="org">le cerveau &amp; les mains</div></div>
+        <div class="card" id="c3" style="--cc:#19e0ff"><div class="ico">🔀</div>
+          <div class="nm">mekihub</div><div class="ro">le hub temps réel multi-canal</div>
+          <div class="org">le central téléphonique</div></div>
+        <div class="card" id="c4" style="--cc:#b06bff"><div class="ico">🎭</div>
+          <div class="nm">mekichat</div><div class="ro">l'interface web cyberpunk</div>
+          <div class="org">le visage</div></div>
+      </div>
+      <div class="chain" id="org-chain">
+        <span class="lk" id="lk1">mekichat</span><span class="ar">→</span>
+        <span class="lk" id="lk2">mekihub</span><span class="ar">→</span>
+        <span class="lk" id="lk3">mekicore</span><span class="ar">→</span>
+        <span class="lk" id="lk4">mekillm</span>
+      </div>
+      <div class="ribbon" id="org-ribbon">temps réel multi-utilisateur <b>·</b> web + Discord <b>·</b> multi-modèle <b>·</b> observabilité</div>
+    </div>
+    <div class="cap" id="org-cap" style="bottom:8%;top:auto;font-size:34px"><span class="m">4 paquets. 4 organes.</span> Réutilisables partout.</div>
+  </section>
+
+  <!-- ════════ SCENE 4 : OUTRO / CTA ════════ -->
+  <section class="scene" id="sc-outro">
+    <div class="wrap">
+      <div class="logo-row" id="out-logo">
+        <div class="brand-glyph">&gt;_</div>
+        <div class="glitch hero" data-t="mekicode" style="font-size:120px">mekicode</div>
+      </div>
+      <div class="term" id="out-term">
+        <div><span class="pr">$</span> <span id="out-l1"></span></div>
+        <div><span class="pr">$</span> <span id="out-l2"></span></div>
+      </div>
+      <div class="cap" id="out-cap" style="position:static;font-size:30px">Tout en français. <span class="m">Tout fait main.</span> 🛠️</div>
+      <div class="repo" id="out-repo">github.com/charlesdecott/mekicode &nbsp;·&nbsp; <span class="yt">▶ regarder sur YouTube</span></div>
+    </div>
+  </section>
+
+  <div id="t"></div>
+
+<script>
+/* ════════════ TIMELINE GLOBALE (ms) ════════════ */
+const FPS = 30, DUR = 38000;
+const SC = { boot:[0,4000], loop:[4000,11000], game:[11000,27000], organs:[27000,33000], outro:[33000,38000] };
+
+/* ── utilitaires : motion = fonction pure de t ── */
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const lerp =(a,b,u)=>a+(b-a)*u;
+const easeOut=u=>1-Math.pow(1-u,3);
+const easeInOut=u=>u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;
+const prog=(t,a,b)=>clamp((t-a)/(b-a),0,1);
+function win(t,in0,in1,out0,out1){
+  if(t<in0||t>out1) return 0;
+  if(t<in1) return easeOut(prog(t,in0,in1));
+  if(t<out0) return 1;
+  return 1-easeInOut(prog(t,out0,out1));
+}
+const typed=(full,t,a,b)=>full.slice(0, Math.round(full.length*easeOut(prog(t,a,b))));
+
+const $=id=>document.getElementById(id);
+const setS=(id,p,v)=>{const e=$(id); if(e) e.style[p]=v;};
+const op=(id,v)=>setS(id,'opacity',v);
+function sceneFade(id,a,b,t,fin=450,fout=450){
+  const o=win(t,a,a+fin,b-fout,b);
+  const e=$(id); if(e){ e.style.opacity=o; e.style.visibility=o>0?'visible':'hidden'; }
+  return o;
+}
+function reveal(id,t,start,fade,dy){
+  const e=$(id); if(!e) return 0;
+  if(t<start){ e.style.display='none'; return 0; }
+  e.style.display='';
+  const u=easeOut(prog(t,start,start+(fade||320)));
+  e.style.opacity=u;
+  if(dy!==undefined) e.style.transform='translateY('+lerp(dy,0,u).toFixed(1)+'px)';
+  return u;
+}
+function expand(id,t,at){ const e=$(id); if(!e)return; e.classList.toggle('collapsed', t<at); }
+function cap(id,t,a,b){
+  const o=win(t,a,a+320,b-300,b); op(id,o);
+  setS(id,'transform','translateY('+lerp(14,0,easeOut(prog(t,a,a+450))).toFixed(1)+'px)');
+}
+function setText(id,s){ const e=$(id); if(e) e.textContent=s; }
+function setHTML(id,s){ const e=$(id); if(e) e.innerHTML=s; }
+
+/* ── longueurs des chemins SVG (pour le trace progressif) ── */
+const PLEN={};
+function initPaths(){
+  ['p1','p2','p3','p4','p5'].forEach(id=>{
+    const p=$(id); if(!p) return;
+    const L=p.getTotalLength(); PLEN[id]=L;
+    p.style.strokeDasharray=L; p.style.strokeDashoffset=L;
+  });
+}
+function drawPath(id,t,a,b){
+  const p=$(id), L=PLEN[id]; if(!p||L==null) return;
+  p.style.strokeDashoffset = (L*(1-easeOut(prog(t,a,b)))).toFixed(1);
+}
+
+/* ════════════ SCENES ════════════ */
+function drawBoot(t){
+  const o=sceneFade('sc-boot',SC.boot[0],SC.boot[1],t,1,400);
+  if(!o) return;
+  const u=easeOut(prog(t,0,1200));
+  setS('boot-logo','transform','scale('+lerp(.82,1,u).toFixed(3)+')');
+  setS('boot-logo','opacity',u);
+  cap('boot-capA',t,1300,2600);
+  cap('boot-capB',t,2700,4000);
+}
+
+function drawLoop(t){
+  const o=sceneFade('sc-loop',SC.loop[0],SC.loop[1],t);
+  if(!o) return;
+  cap('loop-tag',t,4200,11000); // tag reste
+  // nodes en cascade
+  [['n1',4200],['n2',4900],['n3',6300],['n4',7000],['n5',5700]].forEach(([id,s])=>{
+    const u=win(t,s,s+450,10600,11000); op(id,u);
+    setS(id,'transform','translate(-50%,-50%) translateY('+lerp(16,0,easeOut(prog(t,s,s+450))).toFixed(1)+'px)');
+  });
+  // connecteurs
+  drawPath('p1',t,4700,5100); drawPath('p5',t,5400,5900);
+  drawPath('p2',t,5900,6300); drawPath('p3',t,6800,7200);
+  drawPath('p4',t,7600,8600);
+  // labels
+  op('le1',win(t,6000,6400,10600,11000));
+  op('le2',win(t,5600,6000,10600,11000));
+  op('le3',win(t,8000,8400,10600,11000));
+  // pulse le long du flux
+  const fp=$('flow');
+  if(fp){
+    const L=fp.getTotalLength();
+    const fr=prog(t,8200,10200);
+    const vis=win(t,8200,8400,10000,10300);
+    const pt=fp.getPointAtLength(L*fr);
+    setS('lpulse','left',pt.x+'px'); setS('lpulse','top',pt.y+'px'); op('lpulse',vis);
+  }
+  cap('loop-capA',t,5000,7200);
+  cap('loop-capB',t,7400,10600);
+  cap('loop-capC',t,9000,11000);
+}
+
+const STREAM_RAW="## Architecture\n\n47 fichiers Python, en 4 paquets :\n- mekillm — parler aux modèles\n- mekicore — la boucle + 6 outils\n- mekihub — le hub temps réel\n- mekichat — l'interface web";
+function drawGame(t){
+  const o=sceneFade('sc-game',SC.game[0],SC.game[1],t,500,450);
+  if(!o){ return; }
+  const u=easeOut(prog(t,11000,11600));
+  setS('sc-game','transform','none');
+  const app=document.querySelector('#sc-game .app');
+  if(app) app.style.transform='scale('+lerp(.985,1,u).toFixed(3)+')';
+  // composer : la requete se tape puis s'efface a l'envoi
+  const q="compte les fichiers Python du projet et résume l'architecture";
+  if(t<12900){ setText('g-compose',typed(q,t,11200,12700)); op('g-caret', t>11200?1:0); }
+  else { setText('g-compose',''); op('g-caret',0); }
+  // message user (apparait a l'envoi ~12900)
+  reveal('g-user',t,12900,300,10);
+  setText('g-user-txt', t>=12900 ? q : '');
+  // PROCESSING
+  const think=$('g-think');
+  if(think){ if(t>=13100 && t<15300){ think.style.display=''; op('g-think',win(t,13100,13400,15000,15300)); } else think.style.display='none'; }
+  // bash
+  reveal('g-bash',t,15300,300,10); expand('g-bash',t,15900);
+  // reponse : stream puis markdown
+  reveal('g-bot',t,16600,300,10);
+  if(t<22000){
+    setS('game-stream','display',''); setS('game-final','display','none');
+    setText('g-stream-txt', typed(STREAM_RAW,t,16900,21600));
+  } else {
+    const sw=easeOut(prog(t,22000,22400));
+    setS('game-stream','display', sw<1?'':'none'); setS('game-final','display','');
+    op('game-stream',1-sw); op('game-final',sw);
+  }
+  // edit
+  reveal('g-edit',t,23200,300,10); expand('g-edit',t,23800);
+  // garde le bas du fil visible
+  const th=$('game-thread'); if(th && th.parentElement) th.parentElement.scrollTop=th.parentElement.scrollHeight;
+  // captions
+  cap('g-cap2',t,15600,18000);
+  cap('g-cap1',t,18200,21800);
+  cap('g-cap3',t,23600,26800);
+}
+
+function drawOrgans(t){
+  const o=sceneFade('sc-organs',SC.organs[0],SC.organs[1],t);
+  if(!o) return;
+  cap('org-tag',t,27200,33000);
+  [['c1',27200],['c2',27450],['c3',27700],['c4',27950]].forEach(([id,s])=>{
+    const u=win(t,s,s+420,32500,33000); op(id,u);
+    setS(id,'transform','translateY('+lerp(28,0,easeOut(prog(t,s,s+420))).toFixed(1)+'px)');
+  });
+  op('org-chain',win(t,29000,29400,32500,33000));
+  // maillons qui s'allument
+  [['lk1',29300],['lk2',29800],['lk3',30300],['lk4',30800]].forEach(([id,s])=>{
+    const e=$(id); if(e) e.classList.toggle('on', t>=s);
+  });
+  op('org-ribbon',win(t,30900,31300,32600,33000));
+  cap('org-cap',t,28600,32600);
+}
+
+function drawOutro(t){
+  const o=sceneFade('sc-outro',SC.outro[0],SC.outro[1],t,500,1);
+  if(!o) return;
+  const u=easeOut(prog(t,33000,34000));
+  setS('out-logo','opacity',u);
+  setS('out-logo','transform','scale('+lerp(.9,1,u).toFixed(3)+')');
+  // terminal
+  op('out-term',win(t,34900,35300,37999,38000));
+  setText('out-l1', typed("pip install -r requirements.txt",t,35100,36100));
+  setText('out-l2', t>36100 ? "./start-chat.ps1   → http://localhost:8080".slice(0,
+            Math.round(43*easeOut(prog(t,36100,37000)))) : "");
+  op('out-cap',win(t,35400,35800,37999,38000));
+  op('out-repo',win(t,36500,36900,37999,38000));
+}
+
+/* ── thème (flash des 4 palettes en scene outro) ── */
+function themeAt(t){
+  if(t>=34000 && t<34250) return 'blade';
+  if(t>=34250 && t<34500) return 'orange';
+  if(t>=34500 && t<34750) return 'acid';
+  return 'phosphor';
+}
+
+/* ════════════ POINT D'ENTREE ════════════ */
+function seek(t){
+  document.body.dataset.theme = themeAt(t);
+  drawBoot(t); drawLoop(t); drawGame(t); drawOrgans(t); drawOutro(t);
+  const te=$('t'); if(te) te.textContent=(t/1000).toFixed(2)+'s';
+}
+// recale aussi les @keyframes CSS d'ambiance → frame exacte
+window.seekFrame=function(t){
+  seek(t);
+  document.getAnimations().forEach(a=>{ try{ a.pause(); a.currentTime=t; }catch(e){} });
+};
+window.seek=seek;
+window.TL={FPS:FPS,DUR:DUR,SC:SC};
+
+document.fonts.ready.then(initPaths).catch(initPaths);
+window.addEventListener('load',()=>{ initPaths(); seek(0); });
+// debug : ?debug=1 montre l'horloge et permet de scruber au survol
+if(location.search.indexOf('debug=1')>=0){
+  $('t').style.opacity=.7;
+  window.addEventListener('mousemove',e=>seekFrame(Math.round(DUR*e.clientX/innerWidth)));
+}
+</script>
+</body>
+</html>
