@@ -337,7 +337,9 @@ const $=id=>document.getElementById(id);
 const setS=(id,p,v)=>{const e=$(id); if(e) e.style[p]=v;};
 const op=(id,v)=>setS(id,'opacity',v);
 function sceneFade(id,a,b,t,fin=450,fout=450){
-  const o=win(t,a,a+fin,b-fout,b);
+  // fondu d'entree TERMINE a `a` (donc commence a a-fin) → chevauche le fondu de sortie de
+  // la scene precedente [a-fout..a] = cross-dissolve, pas de passage au noir entre scenes.
+  const o=win(t,a-fin,a,b-fout,b);
   const e=$(id); if(e){ e.style.opacity=o; e.style.visibility=o>0?'visible':'hidden'; }
   return o;
 }

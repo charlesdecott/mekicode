@@ -10,6 +10,20 @@ des **paquets réutilisables** et une **vraie appli de chat**.
 
 ---
 
+## 🎬 Voir mekicode en action (40 s)
+
+[![mekicode — démo 40 s](trailer/out/poster.png)](https://youtu.be/XXXXXXXXXXX)
+
+> ▶ **40 secondes** : la boucle d'agent, le chat cyberpunk en streaming, les blocs d'outils, les
+> 4 paquets. *(clique l'image → YouTube)*
+
+![aperçu animé du trailer](trailer/out/preview.gif)
+
+> 🔁 La vidéo est **générée par le code** (thème *Phosphore* réel) : `python trailer/build.py`
+> → `trailer/out/mekicode-trailer.mp4`. Détails dans [`trailer/README.md`](trailer/README.md).
+
+---
+
 ## 🧠 L'idée en une image
 
 Un agent, c'est une **boucle** toute bête :

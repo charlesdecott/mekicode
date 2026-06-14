@@ -20,3 +20,10 @@ workspace/
 
 # Sessions de mekichat (générées à l'exécution, à la racine)
 .sessions/
+
+# Trailer : artefacts lourds régénérables (on versionne seulement poster.png + preview.gif)
+trailer/frames/
+trailer/out/*.mp4
+
+# NiceGUI (cache local)
+.nicegui/
