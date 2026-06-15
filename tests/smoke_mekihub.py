@@ -518,6 +518,15 @@ def test_discord_renders_tool_calls():
     asyncio.run(scenario())
 
 
+def test_tool_embed_color_per_tool():
+    """Chaque type d'outil a une couleur distincte ; une erreur vire au rouge."""
+    from mekihub.adapters.discord import _tool_embed
+    assert _tool_embed("bash", "ls", "ok", "x")["color"] != _tool_embed("read", "f", "ok", "x")["color"]
+    assert _tool_embed("write", "f", "ok", "x")["color"] != _tool_embed("edit", "f", "ok", "x")["color"]
+    assert _tool_embed("bash", "ls", "err", "Error")["color"] == 0xFF3B3B   # erreur = rouge
+    assert _tool_embed("inconnu", "x", "ok", "x")["color"] == 0x8899AA      # repli outil inconnu
+
+
 def test_discord_renders_tool_calls_as_embed():
     """En mode tool_style='embed', l'appel d'outil apparaît comme une carte (embed) avec sa sortie."""
     sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeToolLLM
@@ -620,6 +629,7 @@ if __name__ == "__main__":
     test_reconcile_creates_missing_channels()
     test_workspace_for_falls_back_when_worktree_missing()
     test_discord_renders_tool_calls()
+    test_tool_embed_color_per_tool()
     test_discord_renders_tool_calls_as_embed()
     test_approve_worktree_failure_is_graceful()
     print("OK - tous les smoke mekihub passent")

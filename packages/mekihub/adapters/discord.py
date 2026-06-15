@@ -173,13 +173,19 @@ def _tool_summary(name: str, args) -> str:
     return str(val).replace("\n", " ")[:120]
 
 
-# Glyphe par outil (en-tête de carte embed).
-_TOOL_GLYPH = {"bash": "$", "read": "▤", "write": "✎", "edit": "✂", "grep": "⌕", "glob": "❖"}
+# Glyphe + couleur par type d'outil (en-tête de carte embed). Couleur = identité de l'outil ;
+# le statut reste lisible via le footer (●/✓/✗). En cas d'erreur, la carte vire au rouge.
+_TOOL_GLYPH = {"bash": "$", "read": "▤", "write": "✎", "edit": "✂", "grep": "⌕", "glob": "❖",
+               "spawn_worktree": "⎇"}
+_TOOL_COLOR = {"bash": 0x39FF14, "read": 0x19E0FF, "write": 0xFF2BD6, "edit": 0xB06BFF,
+               "grep": 0xF7FF12, "glob": 0xFF8C2B, "spawn_worktree": 0x4D8CFF}
+_DEFAULT_TOOL_COLOR = 0x8899AA
+_ERROR_COLOR = 0xFF3B3B
 
 
 def _tool_embed(name: str, summary: str, status: str, output) -> dict:
     """Spec d'embed (carte Discord) pour un appel d'outil. status ∈ {running, ok, err}."""
-    color = {"running": 0xF7FF12, "ok": 0x39FF14, "err": 0xFF3B3B}[status]
+    color = _ERROR_COLOR if status == "err" else _TOOL_COLOR.get(name, _DEFAULT_TOOL_COLOR)
     foot = {"running": "● en cours…", "ok": "✓ terminé", "err": "✗ erreur"}[status]
     glyph = _TOOL_GLYPH.get(name, "🔧")
     embed: dict = {"title": f"{glyph} {name}", "color": color, "footer": foot}
