@@ -12,6 +12,13 @@ class _Resp:
     message: dict = field(default_factory=dict)
 
 
+@dataclass
+class _ToolCall:
+    id: str
+    name: str
+    arguments: dict
+
+
 class FakeLLM:
     """Renvoie une réponse texte fixe sans outil. `model` exposé comme la vraie LLM.
 
@@ -39,3 +46,35 @@ class FakeLLM:
             yield word + " "
         msg = {"role": "assistant", "content": self.reply}
         return _Resp(text=self.reply, tool_calls=[], finish_reason="stop", message=msg)
+
+
+class FakeToolLLM:
+    """1er tour : appelle un outil ; tours suivants : répond `final` (texte). Pour tester les outils."""
+    def __init__(self, tool_name, tool_args, final="ok", model="fake/model"):
+        self.tool_name = tool_name
+        self.tool_args = tool_args
+        self.final = final
+        self.model = model
+        self._calls = 0
+
+    def _step(self):
+        import json as _json
+        self._calls += 1
+        if self._calls == 1:
+            tc = _ToolCall(id="tc1", name=self.tool_name, arguments=dict(self.tool_args))
+            msg = {"role": "assistant", "content": None,
+                   "tool_calls": [{"id": "tc1", "type": "function",
+                                   "function": {"name": self.tool_name,
+                                                "arguments": _json.dumps(self.tool_args)}}]}
+            return _Resp(text="", tool_calls=[tc], finish_reason="tool_calls", message=msg)
+        return _Resp(text=self.final, tool_calls=[], finish_reason="stop",
+                     message={"role": "assistant", "content": self.final})
+
+    def complete(self, messages, tools=None):
+        return self._step()
+
+    def stream(self, messages, tools=None):
+        resp = self._step()
+        for w in (resp.text or "").split():
+            yield w + " "
+        return resp

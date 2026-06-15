@@ -284,6 +284,41 @@ def test_hub_uses_per_session_workspace():
     asyncio.run(scenario())
 
 
+def test_spawn_worktree_proposes_without_creating():
+    import tempfile, subprocess
+    from pathlib import Path
+    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeToolLLM
+    sys.path.insert(0, str(ROOT / "packages" / "mekicore")); import tools
+    from mekihub.hub import SessionHub
+    from mekihub.projects import ProjectRegistry, _wt_dir
+    from mekihub.session import Author, SessionStore
+    async def scenario():
+        with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
+            subprocess.run(["git","init","-q"], cwd=repo, check=True)
+            reg = ProjectRegistry(path=str(Path(base)/"p.json"), worktrees_base=str(Path(base)/"wt"))
+            p = reg.register(repo, name="proj")
+            store = SessionStore(directory=str(Path(base)/"sess"))
+            sess = store.create(model="m", system="sys", project_id=p.id, scope="main")
+            llm = FakeToolLLM(tool_name="spawn_worktree",
+                              tool_args={"nom":"featx","prompt_amorce":"code la feature X"},
+                              final="proposé")
+            hub = SessionHub(store=store, llm_factory=lambda: llm, tools=tools.TOOLS,
+                             dispatch_factory=tools.make_dispatch, registry=reg)
+            got = []
+            sub = hub.subscribe(sess.id); await sub.__anext__()
+            async def collect():
+                async for e in sub:
+                    got.append(type(e).__name__)
+                    if got.count("Idle") >= 1: break
+            t = asyncio.create_task(collect())
+            hub.submit(sess.id, "fais la feature X", author=Author(id="c",name="a",color="#fff"))
+            await asyncio.wait_for(t, timeout=5)
+            assert "WorktreeProposed" in got, got
+            assert not _wt_dir(p, "featx", str(Path(base)/"wt")).exists()   # RIEN créé
+            assert len(hub._rooms[sess.id].pending_worktrees) == 1
+    asyncio.run(scenario())
+
+
 if __name__ == "__main__":
     test_author_and_queueitem()
     test_session_authors_separate_from_messages()
@@ -300,4 +335,5 @@ if __name__ == "__main__":
     test_legacy_session_defaults_to_mekicode_project()
     test_author_has_source_default_none()
     test_hub_uses_per_session_workspace()
+    test_spawn_worktree_proposes_without_creating()
     print("OK - tous les smoke mekihub passent")

@@ -55,6 +55,24 @@ class PendingQueue:
 
 _DONE = object()
 
+WORKTREE_TOOL = {"type": "function", "function": {"name": "spawn_worktree",
+  "description": "Propose la création d'un worktree git isolé (nouvelle feature/changement ambitieux/"
+    "debug, pour ne pas bloquer main) et le lancement d'un agent dedans. Nécessite la validation "
+    "de l'utilisateur avant toute création.",
+  "parameters": {"type": "object", "properties": {
+    "nom": {"type": "string", "description": "nom court du worktree/branche (ex: featx)"},
+    "prompt_amorce": {"type": "string", "description": "consigne initiale de l'agent enfant"},
+    "base": {"type": "string", "description": "branche de base (optionnel)"}},
+    "required": ["nom", "prompt_amorce"]}}}
+
+
+def _record_proposal(proposals, args):
+    import uuid as _uuid
+    pid = _uuid.uuid4().hex[:8]
+    proposals.append({"proposal_id": pid, "nom": args.get("nom"),
+                      "prompt_amorce": args.get("prompt_amorce"), "base": args.get("base")})
+    return f"Proposition de worktree '{args.get('nom')}' envoyée pour validation."
+
 
 class _Room:
     """État runtime d'une session : worker, file, abonnés, présence."""
@@ -65,6 +83,7 @@ class _Room:
         self.presence: dict[str, Author] = {}      # author.id -> Author
         self.subscribers: set[asyncio.Queue] = set()
         self.worker: asyncio.Task | None = None
+        self.pending_worktrees: dict = {}          # proposal_id -> proposal dict
 
 
 class SessionHub:
@@ -159,8 +178,15 @@ class SessionHub:
             idx = sess.add_user(item.text, author=item.author)
             self.store.save(sess)
             self._publish(session_id, ev.MessagePosted(index=idx, author_name=item.author.name,
-                                                       color=item.author.color, text=item.text))
-            gen = run_agent(sess.messages, llm, self.tools, dispatch, stream=True)
+                                                       color=item.author.color, text=item.text,
+                                                       source=item.author.source))
+            proposals = []
+            if self.registry is not None:
+                tools_run = list(self.tools) + [WORKTREE_TOOL]
+                dispatch = {**dispatch, "spawn_worktree": lambda a, _p=proposals: _record_proposal(_p, a)}
+            else:
+                tools_run = self.tools
+            gen = run_agent(sess.messages, llm, tools_run, dispatch, stream=True)
             try:
                 while True:
                     e = await asyncio.to_thread(next, gen, _DONE)
@@ -172,6 +198,11 @@ class SessionHub:
             except Exception as exc:  # never-raise : le run d'une session ne tue pas le hub
                 self._publish(session_id, ev.RunError(str(exc)))
             self.store.save(sess)
+            for pr in proposals:
+                room.pending_worktrees[pr["proposal_id"]] = pr
+                self._publish(session_id, ev.WorktreeProposed(
+                    proposal_id=pr["proposal_id"], session_id=session_id,
+                    name=pr["nom"], prompt=pr["prompt_amorce"], base=pr.get("base")))
             room.running = None
         self._publish(session_id, ev.Idle())
 

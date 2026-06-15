@@ -43,6 +43,7 @@ class MessagePosted:
     author_name: str
     color: str
     text: str
+    source: str | None = None
 
 
 @dataclass
@@ -83,3 +84,24 @@ class RunError:
 class Idle:
     """Plus rien en cours ni en attente."""
     pass
+
+
+@dataclass
+class WorktreeProposed:
+    proposal_id: str
+    session_id: str
+    name: str
+    prompt: str
+    base: str | None = None
+
+
+@dataclass
+class WorktreeRejected:
+    proposal_id: str
+
+
+@dataclass
+class WorktreeCreated:
+    proposal_id: str
+    child_session_id: str
+    channel_id: str | None = None
