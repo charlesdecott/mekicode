@@ -217,6 +217,41 @@ def test_workspace_for_main_and_worktree():
         assert workspace_for(s_wt, reg) == wt_dir.resolve()
 
 
+def test_session_project_fields_and_filtered_list():
+    import tempfile
+    from mekihub.session import SessionStore
+    with tempfile.TemporaryDirectory() as d:
+        store = SessionStore(directory=d)
+        a = store.create(model="m", project_id="p1", scope="main")
+        b = store.create(model="m", project_id="p1", scope="featx")
+        c = store.create(model="m", project_id="p2", scope="main")
+        assert store.load(a.id).project_id == "p1" and store.load(b.id).scope == "featx"
+        assert {m.id for m in store.list(project_id="p1")} == {a.id, b.id}
+        assert {m.id for m in store.list(project_id="p1", scope="main")} == {a.id}
+        assert {m.id for m in store.list()} == {a.id, b.id, c.id}
+
+
+def test_legacy_session_defaults_to_mekicode_project():
+    import tempfile, json
+    from pathlib import Path
+    from mekihub.session import SessionStore
+    with tempfile.TemporaryDirectory() as d:
+        (Path(d)/"old123.json").write_text(json.dumps(
+            {"id":"old123","title":"t","model":"m","created_at":"t","messages":[],"authors":{}}),
+            encoding="utf-8")
+        store = SessionStore(directory=d)
+        s = store.load("old123")
+        assert s.project_id == "mekicode" and s.scope == "main"
+
+
+def test_author_has_source_default_none():
+    from mekihub.session import Author
+    a = Author(id="c1", name="alice", color="#fff")
+    assert a.source is None
+    b = Author(id="c2", name="bob", color="#fff", source="discord:chan1")
+    assert b.source == "discord:chan1"
+
+
 if __name__ == "__main__":
     test_author_and_queueitem()
     test_session_authors_separate_from_messages()
@@ -229,4 +264,7 @@ if __name__ == "__main__":
     test_project_registry_crud()
     test_register_rejects_non_git()
     test_workspace_for_main_and_worktree()
+    test_session_project_fields_and_filtered_list()
+    test_legacy_session_defaults_to_mekicode_project()
+    test_author_has_source_default_none()
     print("OK - tous les smoke mekihub passent")
