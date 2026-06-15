@@ -12,14 +12,17 @@ Couche présentation de [mekicore](mekicore.md) : son front visuel (l'agent + se
 ```
 app.py      ── page NiceGUI "/" (index) ; closure _refresh() (re)construit l'UI
    │            bootstrap sys.path → import sessions, views
-   │            store paresseux _get_store() ──▶ SessionStore
+   │            _get_hub() câblé sur dispatch_factory=make_dispatch + registry (ProjectRegistry)
+   │            _get_store() ──▶ SessionStore (sessions filtrées par projet+scope)
    │            rend chaque message/item via ──▶ views.render_message / render_session_item
+   │            consomme WorktreeProposed/Created/Rejected via ──▶ views.render_worktree_proposal
    ▼
-sessions.py ── Session, SessionMeta (dataclasses) + SessionStore (CRUD)
-   │            JSON sous .sessions/<id>.json (à la racine du projet) ; pur Python, pas de NiceGUI
+sessions.py ── shim : ré-exporte Session, SessionMeta, SessionStore depuis mekihub.session
    │
-views.py    ── render_message(msg)                 ligne de message façon Discord
-   │            render_session_item(meta, …)        item de la barre latérale
+views.py    ── render_message(msg)                   ligne de message façon Discord
+   │            render_session_item(meta, …)          item de la barre latérale
+   │            render_project_selector(…)            sélecteur Projet → scope → session
+   │            render_worktree_proposal(event, hub)  carte validation worktree (Approuver/Refuser)
    │
 static/
    └── mekichat.css  ── thème cyberpunk Phosphore (variables CSS, bulles, barre de saisie)
@@ -53,6 +56,14 @@ coins biseautés (`clip-path`), glitch, scanlines, ticker HUD. Stylise les ligne
 
 ## `views.py` — helpers de rendu
 
+- `render_project_selector(registry, store, *, on_select)` : sélecteur **Projet → scope (main |
+  worktrees) → session** affiché dans la barre latérale. Bouton « + projet » : ouvre un dialogue
+  de saisie de chemin de dépôt, appelle `registry.register(path)`. Sessions filtrées par
+  `project_id` et `scope` sélectionnés.
+- `render_worktree_proposal(event, hub)` : carte de validation worktree insérée dans le fil lors
+  d'un `WorktreeProposed`. Affiche le nom proposé et la branche de base. Boutons **Approuver**
+  (`hub.approve_worktree`) et **Refuser** (`hub.reject_worktree`) ; la carte se remplace par un
+  bandeau de confirmation ou de refus une fois l'action prise.
 - `render_message(msg)` : une **ligne de message** façon Discord. Les réponses **assistant** sont
   rendues en **markdown** (`ui.markdown` : titres dégressifs h1-h3, listes, code, retours-ligne) ;
   les messages **user** en texte brut (retours-ligne préservés, pas de markdown).
@@ -87,12 +98,16 @@ coins biseautés (`clip-path`), glitch, scanlines, ticker HUD. Stylise les ligne
 - `@ui.page("/")` → `index()` : la page. L'UI (barre latérale, en-tête, fil, composer) est
   (re)construite par la closure `_refresh()` ; le fil d'une session rechargée est rejoué par
   `views.render_thread`.
+- **Hub multi-projet** : `_get_hub()` (singleton paresseux) construit un `SessionHub` câblé sur
+  `dispatch_factory=make_dispatch` (workspace confiné par session) et `registry=ProjectRegistry()`
+  (lit `.mekicode/projects.json`). Appelle `registry.ensure_default()` au démarrage.
 - **Envoi** (`send`, async) : ajoute le message user, persiste, puis pilote `base.run_agent`
   (en **`stream=True`**) **pas-à-pas** via `await run.io_bound(next, gen, _DONE)` (sans figer l'UI).
   Rend en direct : `ThinkingStarted` → « PROCESSING… », `AssistantDelta` → bulle de **streaming**
   (texte + caret), `AssistantDone` → **finalisation markdown**, `ToolStarted`/`ToolFinished` → bloc
   d'outil **coloré/repliable par outil** (`render_tool`/`fill_tool` ; `old`/`new` pour le diff `edit`),
   `RunError` → bulle rouge (et fige la bulle partielle). Persiste à la fin.
+  Sur `WorktreeProposed` → affiche la carte de validation (`views.render_worktree_proposal`).
 - `state["busy"]` empêche envois/bascules concurrents ; le rendu cesse proprement si l'onglet se
   ferme en plein run (garde « client supprimé »).
 - Store et LLM en singletons **paresseux** (`_get_store` / `_get_llm`).
@@ -112,12 +127,15 @@ clé valide, l'envoi affiche une bulle d'erreur « LLM indisponible » (dégrada
 
 ## Statut
 
-**Phases 1, 2 et 3 livrées.**
+**Phases 1, 2 et 3 livrées. Phase 4 (multi-projet + worktree) livrée.**
 - Phase 1 : persistance des sessions JSON + UI statique (thème Phosphore).
 - Phase 2 : chat branché sur l'agent (`base.run_agent` à événements sur `mekillm.LLM.complete`),
   outil `bash` en blocs `[bash]`, indicateur « PROCESSING… », gestion d'erreur, persistance par tour.
 - Phase 3 : **streaming token par token** — `mekillm.LLM.stream`, événement `AssistantDelta`,
   `run_agent(stream=True)` ; la bulle se construit en direct avec un **caret**, finalisée en markdown.
+- Phase 4 : **navigation multi-projet** — sélecteur Projet→scope→session dans la sidebar ; bouton
+  « + projet » (enregistrement d'un dépôt git) ; hub câblé sur `dispatch_factory` (workspace confiné
+  par session) + `registry` ; carte de validation worktree (`WorktreeProposed`/`Created`/`Rejected`).
 
 > Rendu **markdown** des réponses de l'agent (titres dégressifs, listes, blocs de code, retours-ligne).
 > Les messages utilisateur restent en texte brut.

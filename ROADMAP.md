@@ -1,6 +1,6 @@
 # ROADMAP — mekicode
 
-> Dernière mise à jour : 2026-06-13
+> Dernière mise à jour : 2026-06-15
 
 État d'avancement du projet et feuille de route. Pour comprendre le code, voir la documentation
 dans [`docs/`](docs/README.md).
@@ -39,7 +39,7 @@ existe déjà, validé, dans `src_scratch/`).
 | s09 | agent teams (équipes d'agents) | ✅ | ⬜ |
 | s10 | team protocols (communication d'équipe) | ✅ | ⬜ |
 | s11 | autonomous agents (boucles autonomes) | ✅ | ⬜ |
-| s12 | worktree task isolation (isolation git) | ✅ | ⬜ |
+| s12 | worktree task isolation (isolation git) | ✅ | 🟡 `projects.py` : `add_worktree`/`list_worktrees`/`remove_worktree` + `workspace_for` ; outil `spawn_worktree` propose/approve/reject via le hub (validation humaine requise) |
 | s13 | streaming (réponses en flux) | ✅ | ✅ (`LLM.stream` + streaming dans le front mekichat) |
 | s14 | tools extended (read/write/grep/glob/revert) | ✅ | 🟡 read/write/edit/grep/glob **confinés au workspace** (revert hors périmètre — YAGNI) |
 | s15 | permissions (gouvernance 3 tiers) | ✅ | ⬜ |
@@ -54,9 +54,9 @@ existe déjà, validé, dans `src_scratch/`).
 
 Légende : ✅ implémenté · 🟡 partiel · ⬜ à faire.
 
-**Avancement `packages/` vs s01–s23 : ≈ 4 / 23 ≈ 17 %** (s01 + s02 + s13 complets, s14 quasi complet —
-read/write/edit/grep/glob confinés, sans revert). C'est volontaire : on reconstruit proprement à partir
-du socle, on ne recopie pas `src_scratch/`.
+**Avancement `packages/` vs s01–s23 : ≈ 5 / 23 ≈ 22 %** (s01 + s02 + s13 complets, s14 quasi complet —
+read/write/edit/grep/glob confinés, sans revert ; s12 partiel — worktree avec validation humaine).
+C'est volontaire : on reconstruit proprement à partir du socle, on ne recopie pas `src_scratch/`.
 
 ## Ce qui est implémenté dans `packages/`
 
@@ -81,31 +81,43 @@ du socle, on ne recopie pas `src_scratch/`.
   génériquement par nom.
 - REPL (`main.py`) ; en console : en-tête **heure + modèle** avant chaque réponse.
 
-### `packages/mekihub/` — hub de session temps réel (multi-utilisateur, multi-canal)
+### `packages/mekihub/` — hub de session temps réel (multi-utilisateur, multi-canal, multi-projet)
 - Bus de conversation partagée : **salle partagée** multi-utilisateur (présence, pseudos colorés éphémères).
-- `session.py` : couche session canonique — `Author`, `QueueItem`, `Session.add_user` (attribution
-  séparée des messages OpenAI), `SessionState`, `SessionStore` (authors persisté ; présence/file éphémères).
-- `events.py` : 13 types couvrant la vie de la file (Enqueued/Deleted), la présence (PresenceChanged),
-  et le run d'agent (RunStarted/MessagePosted/AgentDelta/AgentDone/ToolStarted/Finished/RunFinished/RunError/Idle).
-- `hub.py` : `PendingQueue` (FIFO supprimable, `pop_next` async), `SessionHub` (join/leave/submit/
-  delete_pending/snapshot/subscribe), worker asyncio par session qui draille la file et pilote le
-  générateur SYNC `mekicore.run_agent` via `await asyncio.to_thread(next, gen)`.
-- `adapters/discord.py` : `DiscordAdapter` (mapping canal→session, handle_message, _render_loop
-  poste/édite via le client Discord) + `FakeDiscordClient`/`FakeMessage` (tests réseau-free).
+- `session.py` : couche session canonique — `Author` (+ `source`), `QueueItem`, `Session.add_user`
+  (attribution séparée des messages OpenAI), `SessionState`, `SessionStore` (authors persisté ;
+  présence/file éphémères ; champs `project_id`, `scope`, `discord_channel_id` ; migration douce).
+- `projects.py` : **NOUVEAU** — `Project` (dataclass), `ProjectRegistry` (CRUD JSON dans
+  `.mekicode/projects.json`), `workspace_for(session, registry)`, helpers worktree
+  (`add_worktree`, `list_worktrees`, `remove_worktree`, `slugify`).
+- `events.py` : 16 types — 13 originaux + `WorktreeProposed`/`WorktreeRejected`/`WorktreeCreated` ;
+  `MessagePosted` enrichi du champ `source`.
+- `hub.py` : `PendingQueue` (FIFO supprimable, `pop_next` async), `SessionHub` (constructeur étendu :
+  `dispatch_factory`, `registry`, `provisioner` ; méthodes : `approve_worktree`, `reject_worktree` ;
+  workspace confiné par session ; outil agent `spawn_worktree`).
+- `adapters/discord.py` : `DiscordProvisioner` (provisioning idempotent : `ensure_server`,
+  `ensure_project`, `ensure_channel`, `reconcile`) + `DiscordAdapter` (mapping canal→session,
+  handle_message avec `source="discord:<canal>"`, `_render_loop` avec anti-écho) +
+  `FakeDiscordClient` étendu (guild/catégorie/canal/invite) + `FakeMessage` (tests réseau-free).
 - `main.py` : `build_hub()` + `main()` (front/discord pilotés par `MEKIHUB_FRONT`/`MEKIHUB_DISCORD`).
 - Chaîne de dépendance : `mekichat` / `adapters.discord` → **mekihub** → `mekicore` → `mekillm`.
-- Non-régression réseau-free : `tests/smoke_mekihub.py` (FakeLLM + FakeDiscordClient).
+- Non-régression réseau-free : `tests/smoke_mekihub.py` (FakeLLM + FakeDiscordClient étendu ;
+  projets, workspace, worktree propose/approve/reject, provisioner idempotent, anti-écho, reconcile).
+- Validation Discord RÉELLE : manuelle (token bot requis) — backfill historique et transfert de
+  propriété serveur différés.
 
-### `packages/mekichat/` — front web NiceGUI (phases 1-3 livrées, puis adaptateur hub)
+### `packages/mekichat/` — front web NiceGUI (phases 1-4 livrées)
 - Interface web in-process, mode conversation type Discord (thème cyberpunk **Phosphore**), réponses en markdown.
 - `sessions.py` : **ré-export** de la couche session canonique de mekihub (shim de compatibilité).
 - `views.py` : rendu des bulles (markdown), des **blocs d'outils colorés/repliables par outil**
   (glyphe + couleur dédiés aux six outils ; **repliés par défaut**, clic = ouvrir ; métrique d'en-tête ;
-  diff `---`/`+++` pour `edit`), du streaming (caret), de l'historique.
-- `app.py` : page NiceGUI (**http://localhost:8080**, lanceur `.\start-chat.ps1`) ; devenu **adaptateur
+  diff `---`/`+++` pour `edit`), du streaming (caret), de l'historique, du **sélecteur multi-projet**
+  (`render_project_selector` : Projet→scope→session + bouton « + projet ») et de la **carte worktree**
+  (`render_worktree_proposal` : Approuver/Refuser, bandeau de confirmation).
+- `app.py` : page NiceGUI (**http://localhost:8080**, lanceur `.\start-chat.ps1`) ; **adaptateur
   NiceGUI multi-utilisateur** du `SessionHub` (présence, broadcast live, UI file d'attente avec
-  suppression de messages en attente).
+  suppression de messages en attente) ; hub câblé sur `dispatch_factory` + `registry`.
 - **Phases 1-3 livrées** : sessions + UI statique (1) ; chat + outil `bash` (2) ; streaming token-par-token (3).
+- **Phase 4 livrée** : navigation multi-projet + carte de validation worktree.
 - **Outils étendus** (post-phase-3) : les six outils de mekicore rendus en blocs colorés/repliables.
 
 ### Confort projet
@@ -125,6 +137,11 @@ du socle, on ne recopie pas `src_scratch/`.
 ### Court terme (porter les prochaines sessions dans `packages/`)
 - [x] s14 — outils étendus : **read / write / edit / grep / glob** au format OpenAI, confinés au
   workspace (`MEKICORE_WORKSPACE`, défaut `cwd`) + rendu générique dans le front. *revert* hors périmètre (YAGNI).
+- [x] s12 (partiel) — **multi-projet + worktree par chat** : `ProjectRegistry`, `workspace_for`,
+  `spawn_worktree` (propose/approve/reject via le hub), navigation Projet→scope→session dans mekichat,
+  `DiscordProvisioner` (provisioning idempotent), anti-écho Discord.
+  - Différé : validation Discord live (token bot requis), backfill historique de sessions existantes,
+    transfert de propriété serveur.
 - [ ] s15 — gouvernance des permissions (3 tiers) autour de `dispatch_tools`.
 - [ ] s06 — compaction du contexte quand l'historique grossit.
 
