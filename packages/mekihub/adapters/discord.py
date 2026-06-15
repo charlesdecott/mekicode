@@ -186,7 +186,7 @@ class DiscordAdapter:
             )
         self.hub.submit(session_id, msg.content, author=author)
 
-    async def _render_loop(self, channel_id: str, session_id: str) -> None:
+    async def _render_loop(self, channel_id: str, session_id: str, persistent: bool = False) -> None:
         msg_id = None
         buffer = ""
         async for event in self.hub.subscribe(session_id):
@@ -213,12 +213,28 @@ class DiscordAdapter:
                 if getattr(event, "source", None) != f"discord:{channel_id}":
                     await self.client.send(channel_id, f"**{event.author_name}**: {event.text}")
             elif name == "Idle":
+                if persistent:
+                    continue          # miroir permanent : on reste abonné entre les runs
                 break
 
     async def flush(self) -> None:
         """Attend que les tâches de rendu en cours se terminent (tests)."""
         await asyncio.gather(*[t for t in self._tasks.values() if not t.done()],
                              return_exceptions=True)
+
+    def add_mapping(self, channel_id: str, session_id: str) -> None:
+        """Enregistre un canal↔session et démarre son rendu persistant (miroir sortant à chaud)."""
+        self.channel_session[channel_id] = session_id
+        if channel_id not in self._tasks or self._tasks[channel_id].done():
+            self._tasks[channel_id] = asyncio.create_task(
+                self._render_loop(channel_id, session_id, persistent=True))
+
+    async def start_all(self) -> None:
+        """Démarre un rendu persistant pour chaque canal déjà mappé (miroir bidirectionnel)."""
+        for channel_id, session_id in list(self.channel_session.items()):
+            if channel_id not in self._tasks or self._tasks[channel_id].done():
+                self._tasks[channel_id] = asyncio.create_task(
+                    self._render_loop(channel_id, session_id, persistent=True))
 
     async def connect_real(self, token: str) -> None:
         """Connexion Discord réelle (discord.py). Importé à la demande ; validation manuelle."""
@@ -237,3 +253,98 @@ class DiscordAdapter:
         # NB : self.client doit alors être un wrapper qui appelle channel.send/edit ; câblage réel
         # finalisé lors de la validation manuelle avec un vrai token.
         await client.start(token)
+
+
+class RealDiscordClient:
+    """Adapte un `discord.Client` à l'interface attendue par DiscordProvisioner/DiscordAdapter
+    (send/edit/create_guild/create_category/create_channel/create_invite). Tous les ids sont des str."""
+
+    def __init__(self, client):
+        self.client = client     # discord.Client (déjà connecté quand on l'utilise)
+
+    async def _channel(self, channel_id):
+        cid = int(channel_id)
+        return self.client.get_channel(cid) or await self.client.fetch_channel(cid)
+
+    async def _guild(self, guild_id):
+        gid = int(guild_id)
+        return self.client.get_guild(gid) or await self.client.fetch_guild(gid)
+
+    async def send(self, channel_id, text) -> str:
+        ch = await self._channel(channel_id)
+        msg = await ch.send((text or "…")[:2000])
+        return str(msg.id)
+
+    async def edit(self, channel_id, message_id, text) -> None:
+        ch = await self._channel(channel_id)
+        msg = await ch.fetch_message(int(message_id))
+        await msg.edit(content=(text or "…")[:2000])
+
+    async def create_guild(self, name) -> str:
+        g = await self.client.create_guild(name=name)
+        return str(g.id)
+
+    async def create_category(self, guild_id, name) -> str:
+        g = await self._guild(guild_id)
+        cat = await g.create_category(name[:100])
+        return str(cat.id)
+
+    async def create_channel(self, guild_id, category_id, name) -> str:
+        g = await self._guild(guild_id)
+        cat = g.get_channel(int(category_id))
+        ch = await g.create_text_channel(name[:100], category=cat)
+        return str(ch.id)
+
+    async def create_invite(self, channel_id) -> str:
+        ch = await self._channel(channel_id)
+        inv = await ch.create_invite(max_age=0, max_uses=0, reason="mekicode admin invite")
+        return inv.url
+
+
+async def run_discord(hub, registry, store, *, token, guild_id=None, admin_user_id=None,
+                      holder=None) -> None:
+    """Démarre le bot Discord réel et le branche sur le hub (provisioning + miroir bidirectionnel).
+
+    Bloque sur `client.start(token)` (à lancer dans une tâche asyncio). À `on_ready` : reconcilie
+    les canaux (catégories <projet>-main/-worktrees + un canal par session), construit le mapping
+    canal→session et démarre un rendu persistant par canal. `holder` (dict optionnel) reçoit
+    `adapter`/`provisioner` pour le câblage à chaud des nouvelles sessions.
+    """
+    import discord
+    intents = discord.Intents.default()
+    intents.message_content = True
+    client = discord.Client(intents=intents)
+    real = RealDiscordClient(client)
+    prov = DiscordProvisioner(registry=registry, client=real,
+                              guild_id=guild_id, admin_user_id=admin_user_id)
+    hub.provisioner = prov
+    adapter = DiscordAdapter(hub=hub, client=real, channel_session={})
+    if holder is not None:
+        holder["adapter"] = adapter
+        holder["provisioner"] = prov
+        holder["client"] = client
+
+    @client.event
+    async def on_ready():
+        try:
+            n = await prov.reconcile(store)
+            for project in registry.list():
+                for meta in store.list(project_id=project.id):
+                    sess = store.load(meta.id)
+                    chan = getattr(sess, "discord_channel_id", None)
+                    if chan:
+                        adapter.channel_session[str(chan)] = sess.id
+            await adapter.start_all()
+            print(f"[discord] prêt — {client.user} · {n} canal(aux) créé(s) · "
+                  f"{len(adapter.channel_session)} canal(aux) mappé(s)")
+        except Exception as e:      # never-raise : un échec de provisioning ne tue pas le bot
+            print(f"[discord] erreur on_ready : {type(e).__name__}: {e}")
+
+    @client.event
+    async def on_message(message):  # noqa: ANN001
+        await adapter.handle_message(FakeMessage(
+            channel_id=str(message.channel.id), author_name=message.author.display_name,
+            author_id=str(message.author.id), is_bot=message.author.bot,
+            content=message.content or ""))
+
+    await client.start(token)

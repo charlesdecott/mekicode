@@ -12,7 +12,7 @@ sys.path.insert(0, str(HERE))                      # import sessions, views
 sys.path.insert(0, str(HERE.parent))               # import mekillm (packages/)
 sys.path.insert(0, str(HERE.parent / "mekicore"))  # import base, tools, events
 
-from nicegui import run, ui  # noqa: E402
+from nicegui import app as nicegui_app, run, ui  # noqa: E402
 
 import mekillm  # noqa: E402
 import realtime  # noqa: E402
@@ -95,6 +95,51 @@ def _ensure_current() -> sessions_mod.Session:
     return store.load(metas[0].id) if metas else store.create(model=DEFAULT_MODEL, system=SYSTEM)
 
 
+# Holder du runtime Discord (adapter + provisioner), peuplé par run_discord à on_ready.
+_DISCORD: dict = {}
+
+
+@nicegui_app.on_startup
+async def _boot_discord() -> None:
+    """Au démarrage du serveur : si DISCORD_BOT_TOKEN est posé, lance le bot (provisioning +
+    miroir bidirectionnel) dans une tâche asyncio. Sinon ne fait rien (Discord optionnel)."""
+    import os
+    token = os.environ.get("DISCORD_BOT_TOKEN")
+    if not token:
+        return
+    from mekihub.adapters.discord import run_discord
+    hub = _get_hub()
+    import asyncio
+    asyncio.create_task(run_discord(
+        hub, _get_registry(), hub.store, token=token,
+        guild_id=os.environ.get("DISCORD_GUILD_ID") or None,
+        admin_user_id=os.environ.get("MEKICODE_ADMIN_USER_ID") or None,
+        holder=_DISCORD,
+    ))
+
+
+def _mirror_session_to_discord(session) -> None:
+    """Crée (à chaud) le canal Discord d'une nouvelle session + démarre son rendu. No-op sans Discord."""
+    prov = _DISCORD.get("provisioner")
+    adapter = _DISCORD.get("adapter")
+    if prov is None or adapter is None:
+        return
+    import asyncio
+
+    async def _run():
+        try:
+            ch = await prov.ensure_channel(session)
+            _get_store().save(session)
+            adapter.add_mapping(str(ch), session.id)
+        except Exception as e:                      # never-raise : Discord optionnel
+            print(f"[discord] miroir nouvelle session échoué : {e}")
+
+    try:
+        asyncio.create_task(_run())
+    except RuntimeError:
+        pass        # hors boucle asyncio (ne devrait pas arriver dans un handler NiceGUI)
+
+
 def _system_for(project, scope: str = "main") -> str:
     """Génère un prompt système adapté au projet et au scope (main ou worktree)."""
     root = project.repo_path
@@ -146,6 +191,7 @@ def index() -> None:
             project_id=current_project.id,
             scope=current_scope,
         )
+        _mirror_session_to_discord(current)     # crée le canal Discord (no-op si Discord off)
         _refresh()
 
     def delete_session(session_id: str) -> None:
