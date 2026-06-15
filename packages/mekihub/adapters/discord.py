@@ -158,6 +158,16 @@ def _color_from_id(author_id: str) -> str:
     return palette[sum(ord(c) for c in author_id) % len(palette)]
 
 
+def _tool_summary(name: str, args) -> str:
+    """Argument le plus parlant d'un outil, tronqué (pour l'en-tête du bloc Discord)."""
+    if not isinstance(args, dict) or not args:
+        return ""
+    key = {"bash": "command", "read": "path", "write": "path", "edit": "path",
+           "grep": "pattern", "glob": "pattern"}.get(name)
+    val = args.get(key) if key else next(iter(args.values()), "")
+    return str(val).replace("\n", " ")[:120]
+
+
 class DiscordAdapter:
     """Branche un client Discord (réel ou factice) sur le SessionHub."""
 
@@ -189,11 +199,13 @@ class DiscordAdapter:
     async def _render_loop(self, channel_id: str, session_id: str, persistent: bool = False) -> None:
         msg_id = None
         buffer = ""
+        tool_msgs: dict = {}           # tool_call_id -> message_id (pour éditer au ToolFinished)
         async for event in self.hub.subscribe(session_id):
             name = type(event).__name__
             if name == "RunStarted":
                 buffer = ""
                 msg_id = None          # ne PAS poster ici : la question (MessagePosted) doit précéder
+                tool_msgs.clear()
             elif name == "AgentDelta":
                 buffer += event.text
                 if msg_id is None:     # 1er fragment : on crée le message APRÈS la question user
@@ -206,6 +218,20 @@ class DiscordAdapter:
                 elif event.text:       # réponse sans streaming (ex. outil seul) : poster directement
                     await self.client.send(channel_id, event.text)
                 msg_id = None
+            elif name == "ToolStarted":
+                summary = _tool_summary(event.name, event.args)
+                head = f"🔧 `{event.name}`" + (f" · `{summary}`" if summary else "")
+                tool_msgs[event.id] = await self.client.send(channel_id, head[:2000])
+            elif name == "ToolFinished":
+                mid = tool_msgs.pop(event.id, None)
+                out = str(event.output).strip()
+                ok = not out.startswith("Error")
+                block = f"\n```\n{out[:600]}\n```" if out and out != "(no output)" else ""
+                txt = f"🔧 `{event.name}` {'✓' if ok else '✗'}{block}"
+                if mid is not None:
+                    await self.client.edit(channel_id, mid, txt[:2000])
+                else:
+                    await self.client.send(channel_id, txt[:2000])
             elif name == "RunError":
                 txt = f"⚠ erreur : {event.message}"
                 if msg_id is not None:

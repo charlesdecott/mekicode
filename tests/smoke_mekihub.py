@@ -476,6 +476,32 @@ def test_provisioner_creates_categories_and_channels_idempotent():
     asyncio.run(scenario())
 
 
+def test_discord_renders_tool_calls():
+    """Les appels d'outils (ToolStarted/ToolFinished) apparaissent dans le canal Discord."""
+    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeToolLLM
+    from mekihub.hub import SessionHub
+    from mekihub.session import SessionStore
+    from mekihub.adapters.discord import DiscordAdapter, FakeDiscordClient, FakeMessage
+    async def scenario():
+        store = SessionStore(directory=str(ROOT / ".sessions"))
+        sess = store.create(model="m", system="sys")
+        dispatch = {"echo": lambda a: "resultat-echo-XYZ"}
+        hub = SessionHub(store=store, llm_factory=lambda: FakeToolLLM(
+            tool_name="echo", tool_args={"x": "hi"}, final="termine"),
+            tools=[], dispatch=dispatch)
+        client = FakeDiscordClient()
+        adapter = DiscordAdapter(hub=hub, client=client, channel_session={"chan1": sess.id})
+        await adapter.handle_message(FakeMessage(channel_id="chan1", author_name="dom",
+                                     author_id="42", is_bot=False, content="go"))
+        await asyncio.sleep(0.3); await adapter.flush()
+        texts = client.sent_texts()
+        assert any("echo" in t for t in texts), texts                 # en-tête de l'outil
+        assert any("resultat-echo-XYZ" in t for t in texts), texts    # sortie de l'outil
+        assert any("termine" in t for t in texts), texts              # réponse finale
+        store.delete(sess.id)
+    asyncio.run(scenario())
+
+
 def test_approve_worktree_failure_is_graceful():
     """B1 : si git worktree add échoue (branche déjà prise), approve_worktree ne crash pas,
     retire la proposition, publie WorktreeRejected + RunError, et renvoie None (never-raise)."""
@@ -548,5 +574,6 @@ if __name__ == "__main__":
     test_provisioner_creates_categories_and_channels_idempotent()
     test_discord_antiecho_on_messageposted()
     test_reconcile_creates_missing_channels()
+    test_discord_renders_tool_calls()
     test_approve_worktree_failure_is_graceful()
     print("OK - tous les smoke mekihub passent")
