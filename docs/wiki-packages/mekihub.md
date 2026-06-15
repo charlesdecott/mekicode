@@ -230,8 +230,20 @@ Branche un client Discord (réel ou `FakeDiscordClient`) sur le `SessionHub`.
   même canal (évite l'écho miroir d'un message arrivé de Discord).
 - `flush()` (l.138) : attend toutes les tâches de rendu en cours (`asyncio.gather`) — utile dans les
   tests pour s'assurer que les renders sont terminés avant de vérifier.
-- `connect_real(token)` (l.143) : connexion Discord réelle (importe `discord` à la demande — dépendance
-  optionnelle) ; câble `on_message` → `handle_message` ; appelle `client.start(token)`.
+- `_render_loop(..., persistent=False)` : si `persistent=True`, ne sort PAS sur `Idle` (miroir
+  permanent entre les runs, requis pour refléter les messages venus du front web). `start_all()` démarre
+  un rendu persistant par canal mappé ; `add_mapping(channel_id, session_id)` câble un canal à chaud.
+- `connect_real(token)` : ancienne amorce de connexion réelle (conservée).
+
+### `RealDiscordClient` + `run_discord` (intégration réelle)
+- **`RealDiscordClient(discord.Client)`** : adapte un vrai client `discord.py` à l'interface attendue
+  (`send`/`edit`/`create_guild`/`create_category`/`create_channel`/`create_invite`).
+- **`run_discord(hub, registry, store, *, token, guild_id, admin_user_id, holder)`** : démarre le bot,
+  câble `on_message → handle_message`, et à `on_ready` : `reconcile(store)` (crée catégories + canaux),
+  reconstruit le mapping canal→session, lance `start_all()` (miroir bidirectionnel). `holder` reçoit
+  `adapter`/`provisioner` pour le câblage à chaud des nouvelles sessions. **Validé en réel** (création
+  live des catégories/canaux + miroir web↔Discord). Lancé par `mekichat/app.py` via `app.on_startup`
+  si `DISCORD_BOT_TOKEN` est posé (sinon no-op).
 
 ## `main.py` — entrypoint
 
