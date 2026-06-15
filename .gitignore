@@ -21,6 +21,10 @@ workspace/
 # Sessions de mekichat (générées à l'exécution, à la racine)
 .sessions/
 
+# Multi-projet : registre des projets + worktrees gérés (générés à l'exécution)
+.mekicode/
+.mekicode-worktrees/
+
 # Trailer : artefacts lourds régénérables (on versionne seulement poster.png + preview.gif)
 trailer/frames/
 trailer/out/*.mp4
