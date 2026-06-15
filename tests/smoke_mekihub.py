@@ -252,6 +252,38 @@ def test_author_has_source_default_none():
     assert b.source == "discord:chan1"
 
 
+def test_hub_uses_per_session_workspace():
+    import tempfile, subprocess
+    from pathlib import Path
+    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeLLM
+    sys.path.insert(0, str(ROOT / "packages" / "mekicore")); import tools
+    from mekihub.hub import SessionHub
+    from mekihub.session import Author, SessionStore
+    from mekihub.projects import ProjectRegistry
+    async def scenario():
+        with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
+            subprocess.run(["git","init","-q"], cwd=repo, check=True)
+            (Path(repo)/"marqueur.txt").write_text("ok", encoding="utf-8")
+            reg = ProjectRegistry(path=str(Path(base)/"p.json"))
+            p = reg.register(repo, name="proj")
+            store = SessionStore(directory=str(Path(base)/"sess"))
+            sess = store.create(model="m", system="sys", project_id=p.id, scope="main")
+            hub = SessionHub(store=store, llm_factory=lambda: FakeLLM(reply="done"),
+                             tools=tools.TOOLS, dispatch_factory=tools.make_dispatch, registry=reg)
+            captured = []
+            orig = tools.make_dispatch
+            hub.dispatch_factory = lambda w, _o=orig, _c=captured: (_c.append(w), _o(w))[1]
+            sub = hub.subscribe(sess.id); await sub.__anext__()
+            async def collect():
+                async for e in sub:
+                    if type(e).__name__ == "Idle": break
+            t = asyncio.create_task(collect())
+            hub.submit(sess.id, "salut", author=Author(id="c",name="a",color="#fff"))
+            await asyncio.wait_for(t, timeout=5)
+            assert captured and captured[0] == Path(repo).resolve()
+    asyncio.run(scenario())
+
+
 if __name__ == "__main__":
     test_author_and_queueitem()
     test_session_authors_separate_from_messages()
@@ -267,4 +299,5 @@ if __name__ == "__main__":
     test_session_project_fields_and_filtered_list()
     test_legacy_session_defaults_to_mekicode_project()
     test_author_has_source_default_none()
+    test_hub_uses_per_session_workspace()
     print("OK - tous les smoke mekihub passent")

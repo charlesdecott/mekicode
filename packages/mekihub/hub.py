@@ -70,11 +70,17 @@ class _Room:
 class SessionHub:
     """Bus de conversation à état partagé. Agnostique du transport (ni NiceGUI ni HTTP)."""
 
-    def __init__(self, store: SessionStore, llm_factory, tools, dispatch):
+    def __init__(self, store: SessionStore, llm_factory, tools, dispatch=None, *,
+                 dispatch_factory=None, registry=None, provisioner=None):
         self.store = store
         self.llm_factory = llm_factory          # () -> objet avec .complete/.stream/.model
         self.tools = tools
-        self.dispatch = dispatch
+        if dispatch_factory is None:
+            d = dispatch or {}
+            dispatch_factory = lambda ws: d     # back-compat de l'API dispatch=
+        self.dispatch_factory = dispatch_factory
+        self.registry = registry
+        self.provisioner = provisioner
         self._rooms: dict[str, _Room] = {}
 
     def _room(self, session_id: str) -> _Room:
@@ -147,11 +153,14 @@ class SessionHub:
             room.running = item
             self._publish(session_id, ev.RunStarted(item_id=item.item_id))
             sess = self.store.load(session_id)
+            from projects import workspace_for   # mekihub (sys.path déjà posé)
+            workspace = workspace_for(sess, self.registry) if self.registry else None
+            dispatch = self.dispatch_factory(workspace)
             idx = sess.add_user(item.text, author=item.author)
             self.store.save(sess)
             self._publish(session_id, ev.MessagePosted(index=idx, author_name=item.author.name,
                                                        color=item.author.color, text=item.text))
-            gen = run_agent(sess.messages, llm, self.tools, self.dispatch, stream=True)
+            gen = run_agent(sess.messages, llm, self.tools, dispatch, stream=True)
             try:
                 while True:
                     e = await asyncio.to_thread(next, gen, _DONE)
