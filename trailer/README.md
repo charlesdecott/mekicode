@@ -37,5 +37,5 @@ Produit dans `out/` :
 La timeline est dans `trailer.html` (`FPS`, `DUR`, et l'objet `SC` = bornes ms de chaque scène).
 Le **gameplay est rejoué** (scripté, déterministe) : zéro appel API, aucune clé requise.
 
-> ⚠ Le lien YouTube du `README.md` racine (`https://youtu.be/XXXXXXXXXXX`) est un **placeholder** :
-> remplace-le par l'URL réelle après l'upload de `mekicode-trailer.mp4`.
+> ▶ Le `README.md` racine pointe vers la vidéo publiée :
+> **https://www.youtube.com/watch?v=5g4Q0RTS20E** (mise à jour après l'upload de `mekicode-trailer.mp4`).

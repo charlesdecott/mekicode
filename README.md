@@ -8,11 +8,21 @@
 français, en s'inspirant de 3 projets de référence — d'abord pour **apprendre**, ensuite pour en tirer
 des **paquets réutilisables** et une **vraie appli de chat**.
 
+> **Deux bases parallèles**, du plus pédagogique au plus réutilisable :
+> - 📚 `src_scratch/` — refonte d'étude **complète** : les 23 « sessions » d'un agent à la Claude Code,
+>   reconstruites une par une (backend Anthropic). ✅ **terminée (100 %)**, c'est le bac à sable où on a
+>   tout compris.
+> - 📦 `packages/` — la **cible produit** : des paquets **autonomes** (un provider LLM + un mini-harness
+>   + un hub temps réel + un front web), multi-backend, qu'on peut **importer dans n'importe quel projet**.
+>   🚧 **en cours** — on reconstruit proprement le socle, brique par brique.
+>
+> Ce README parle surtout de `packages/` (le produit). 👇
+
 ---
 
 ## 🎬 Voir mekicode en action (40 s)
 
-[![mekicode — démo 40 s](trailer/out/poster.png)](https://youtu.be/XXXXXXXXXXX)
+[![mekicode — démo 40 s](trailer/out/poster.png)](https://www.youtube.com/watch?v=5g4Q0RTS20E)
 
 > ▶ **40 secondes** : la boucle d'agent, le chat cyberpunk en streaming, les blocs d'outils, les
 > 4 paquets. *(clique l'image → YouTube)*
@@ -103,6 +113,32 @@ Pas envie d'interface ? Le mode terminal :
   `.logs/`, et on peut brancher ses propres *hooks*.
 - 🎨 **Look « console de nuit » cyberpunk** — thème néon *Phosphore* (vert + magenta), grille en
   perspective, glitch, scanlines… (les 4 palettes existent dans la maquette).
+
+---
+
+## 🗺️ La suite (roadmap)
+
+`packages/` reconstruit **proprement**, brique par brique, les fonctions d'un agent moderne. À ce jour
+~4 des 23 « sessions » de référence sont portées (la **boucle**, le **tool-use**, le **streaming**, les
+**outils fichiers**). Ce qui arrive ensuite, du plus proche au plus lointain :
+
+**🔜 Bientôt**
+- 🔐 **Permissions** — un garde-fou à 3 niveaux *avant* chaque action (demander / autoriser / refuser),
+  pour que l'agent ne lance pas une commande sensible sans ton accord.
+- 🗜️ **Compaction du contexte** — résumer automatiquement l'historique quand la conversation s'allonge
+  (sinon le modèle finit par « oublier » le début).
+
+**⏭️ Ensuite**
+- 🤝 **Sous-agents & équipes** — l'agent délègue des bouts de travail à d'autres agents et les coordonne.
+- ⏳ **Tâches, arrière-plan & boucles autonomes** — lancer des travaux longs qui tournent tout seuls.
+- 🔌 **MCP** — brancher des outils externes via le *Model Context Protocol* (le standard d'écosystème).
+
+**🧰 Confort & qualité**
+- 💲 **Coût `$` estimé** par appel (le champ existe dans la trace, reste à le calculer).
+- 🦙 Backend **ollama** (modèles 100 % locaux, sans clé) testé de bout en bout.
+- 📦 **Packaging pip** (`pip install mekillm`) au lieu de l'import par chemin.
+
+> Détail complet + tableau des 23 sessions (✅ / 🟡 / ⬜) : **[`ROADMAP.md`](ROADMAP.md)**.
 
 ---
 
