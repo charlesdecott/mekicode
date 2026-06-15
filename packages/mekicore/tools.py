@@ -19,22 +19,23 @@ def _workspace() -> Path:
     return Path(os.environ.get("MEKICORE_WORKSPACE") or os.getcwd()).resolve()
 
 
-def _safe_path(p: str) -> Path:
+def _safe_path(p: str, ws: Path | None = None) -> Path:
     """Résout p dans le workspace ; lève ValueError s'il s'en échappe (absolu hors racine, ../)."""
-    ws = _workspace()
+    ws = ws if ws is not None else _workspace()
     target = (ws / p).resolve()
     if target != ws and ws not in target.parents:
         raise ValueError(f"chemin hors du workspace : {p}")
     return target
 
 
-def run_bash(command: str) -> str:
+def run_bash(command: str, cwd: Path | None = None) -> str:
     """Exécute une commande shell (timeout 120 s), sortie tronquée à 50k chars."""
     if any(b in command for b in _ALWAYS_BLOCK):
         return "Error: dangerous command blocked"
+    effective_cwd = str(cwd) if cwd else os.getcwd()
     try:
         r = subprocess.run(
-            command, shell=True, cwd=os.getcwd(),
+            command, shell=True, cwd=effective_cwd,
             capture_output=True, text=True, timeout=120,
         )
         out = (r.stdout + r.stderr).strip()
@@ -45,10 +46,11 @@ def run_bash(command: str) -> str:
         return f"Error: {e}"
 
 
-def read_file(path: str) -> str:
+def read_file(path: str, ws: Path | None = None) -> str:
     """Lit un fichier texte (confiné au workspace)."""
+    ws = ws if ws is not None else _workspace()
     try:
-        p = _safe_path(path)
+        p = _safe_path(path, ws)
     except ValueError as e:
         return f"Error: {e}"
     if not p.is_file():
@@ -59,10 +61,11 @@ def read_file(path: str) -> str:
         return f"Error: {e}"
 
 
-def write_file(path: str, content: str) -> str:
+def write_file(path: str, content: str, ws: Path | None = None) -> str:
     """Crée ou écrase un fichier texte (crée les dossiers parents)."""
+    ws = ws if ws is not None else _workspace()
     try:
-        p = _safe_path(path)
+        p = _safe_path(path, ws)
     except ValueError as e:
         return f"Error: {e}"
     try:
@@ -73,10 +76,11 @@ def write_file(path: str, content: str) -> str:
     return f"écrit {len(content)} caractères dans {path}"
 
 
-def edit_file(path: str, old: str, new: str) -> str:
+def edit_file(path: str, old: str, new: str, ws: Path | None = None) -> str:
     """Remplace `old` par `new` si `old` apparaît exactement une fois (str-replace)."""
+    ws = ws if ws is not None else _workspace()
     try:
-        p = _safe_path(path)
+        p = _safe_path(path, ws)
     except ValueError as e:
         return f"Error: {e}"
     if not p.is_file():
@@ -97,16 +101,16 @@ def edit_file(path: str, old: str, new: str) -> str:
     return f"édité {path}"
 
 
-def grep_files(pattern: str, path: str = ".") -> str:
+def grep_files(pattern: str, path: str = ".", ws: Path | None = None) -> str:
     """Cherche une regex dans les fichiers texte sous `path` (confiné). Renvoie relpath:ligne: contenu."""
+    ws = ws if ws is not None else _workspace()
     try:
-        root = _safe_path(path)
+        root = _safe_path(path, ws)
         rx = re.compile(pattern)
     except ValueError as e:
         return f"Error: {e}"
     except re.error as e:
         return f"Error: regex invalide : {e}"
-    ws = _workspace()
     try:
         candidates = [root] if root.is_file() else sorted(root.rglob("*"))
     except (OSError, ValueError) as e:
@@ -134,10 +138,10 @@ def grep_files(pattern: str, path: str = ".") -> str:
     return "\n".join(results)[:_MAX_OUT]
 
 
-def glob_files(pattern: str) -> str:
+def glob_files(pattern: str, ws: Path | None = None) -> str:
     """Liste les fichiers correspondant au motif (ex. **/*.py) sous le workspace, chemins relatifs.
     Ignore les correspondances qui s'échappent du workspace (motifs avec ../, absolus)."""
-    ws = _workspace()
+    ws = ws if ws is not None else _workspace()
     matches: list[str] = []
     try:
         for p in ws.glob(pattern):
@@ -149,6 +153,19 @@ def glob_files(pattern: str) -> str:
     if not matches:
         return "(aucun fichier)"
     return "\n".join(sorted(matches)[:1000])
+
+
+def make_dispatch(workspace) -> dict:
+    """Construit un DISPATCH dont les handlers fichiers sont confinés à `workspace` (Path absolu)."""
+    ws = Path(workspace).resolve()
+    return {
+        "bash":  lambda a: run_bash(a["command"], cwd=ws),
+        "read":  lambda a: read_file(a["path"], ws),
+        "write": lambda a: write_file(a["path"], a["content"], ws),
+        "edit":  lambda a: edit_file(a["path"], a["old"], a["new"], ws),
+        "grep":  lambda a: grep_files(a["pattern"], a.get("path", "."), ws),
+        "glob":  lambda a: glob_files(a["pattern"], ws),
+    }
 
 
 def _tool(name: str, desc: str, props: dict, required: list) -> dict:

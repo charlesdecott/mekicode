@@ -409,6 +409,23 @@ def test_tools_registered():
         assert tools.DISPATCH["glob"]({"pattern": "*.txt"}) == "x.txt"
 
 
+def test_make_dispatch_confines_to_workspace():
+    import tempfile, os
+    from pathlib import Path
+    sys.path.insert(0, str(ROOT / "packages" / "mekicore"))
+    import tools
+    with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
+        (Path(a) / "x.txt").write_text("dans_A", encoding="utf-8")
+        (Path(b) / "x.txt").write_text("dans_B", encoding="utf-8")
+        da = tools.make_dispatch(Path(a))
+        db = tools.make_dispatch(Path(b))
+        assert da["read"]({"path": "x.txt"}) == "dans_A"
+        assert db["read"]({"path": "x.txt"}) == "dans_B"          # pas de fuite entre workspaces
+        assert "hors du workspace" in da["read"]({"path": "../x.txt"})  # confinement
+        out = da["bash"]({"command": "pwd"})
+        assert os.path.basename(a) in out                          # bash s'exécute dans le workspace
+
+
 def main():
     log_path = Path(tempfile.gettempdir()) / "mekillm_smoke.jsonl"
     if log_path.exists():
@@ -438,6 +455,7 @@ def main():
     test_edit_unique_and_ambiguous()
     test_grep_and_glob()
     test_tools_registered()
+    test_make_dispatch_confines_to_workspace()
     print("OK - tous les smoke tests passent")
 
 
