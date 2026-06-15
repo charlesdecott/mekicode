@@ -67,8 +67,7 @@ WORKTREE_TOOL = {"type": "function", "function": {"name": "spawn_worktree",
 
 
 def _record_proposal(proposals, args):
-    import uuid as _uuid
-    pid = _uuid.uuid4().hex[:8]
+    pid = uuid.uuid4().hex[:8]
     proposals.append({"proposal_id": pid, "nom": args.get("nom"),
                       "prompt_amorce": args.get("prompt_amorce"), "base": args.get("base")})
     return f"Proposition de worktree '{args.get('nom')}' envoyée pour validation."
@@ -152,15 +151,23 @@ class SessionHub:
         pr = room.pending_worktrees.pop(proposal_id, None)
         if pr is None:
             return None
-        from projects import add_worktree     # mekihub (sys.path déjà posé)
-        parent = self.store.load(session_id)
-        project = self.registry.get(parent.project_id)
-        await asyncio.to_thread(add_worktree, project, pr["nom"], pr.get("base"),
-                                self.registry.worktrees_base)
-        system = (parent.messages[0]["content"]
-                  if parent.messages and parent.messages[0].get("role") == "system" else None)
-        child = self.store.create(model=parent.model, system=system,
-                                  project_id=project.id, scope=pr["nom"])
+        try:
+            from projects import add_worktree     # mekihub (sys.path déjà posé)
+            parent = self.store.load(session_id)
+            project = self.registry.get(parent.project_id) if self.registry else None
+            if project is None:
+                raise RuntimeError("projet introuvable pour cette session")
+            # git worktree add (bloquant) hors boucle ; peut lever (branche déjà prise, etc.)
+            await asyncio.to_thread(add_worktree, project, pr["nom"], pr.get("base"),
+                                    self.registry.worktrees_base)
+            system = (parent.messages[0]["content"]
+                      if parent.messages and parent.messages[0].get("role") == "system" else None)
+            child = self.store.create(model=parent.model, system=system,
+                                      project_id=project.id, scope=pr["nom"])
+        except Exception as exc:    # never-raise : échec de création → retire la carte + informe
+            self._publish(session_id, ev.WorktreeRejected(proposal_id=proposal_id))
+            self._publish(session_id, ev.RunError(message=f"worktree '{pr.get('nom')}' : {exc}"))
+            return None
         channel_id = None
         if self.provisioner is not None:
             try:
