@@ -36,15 +36,20 @@ class FakeDiscordClient:
         self._seq += 1
         return f"{prefix}{self._seq}"
 
-    async def send(self, channel_id: str, text: str) -> int:
-        self._messages.append({"channel_id": channel_id, "text": text})
+    async def send(self, channel_id: str, text: str, embed: dict | None = None) -> int:
+        self._messages.append({"channel_id": channel_id, "text": text, "embed": embed})
         return len(self._messages) - 1     # "message id" = index
 
-    async def edit(self, channel_id: str, message_id: int, text: str) -> None:
+    async def edit(self, channel_id: str, message_id: int, text: str, embed: dict | None = None) -> None:
         self._messages[message_id]["text"] = text
+        if embed is not None:
+            self._messages[message_id]["embed"] = embed
 
     def sent_texts(self) -> list[str]:
         return [m["text"] for m in self._messages]
+
+    def sent_embeds(self) -> list[dict]:
+        return [m["embed"] for m in self._messages if m.get("embed")]
 
     async def create_guild(self, name: str) -> str:
         gid = self._nid("g")
@@ -168,13 +173,33 @@ def _tool_summary(name: str, args) -> str:
     return str(val).replace("\n", " ")[:120]
 
 
+# Glyphe par outil (en-tête de carte embed).
+_TOOL_GLYPH = {"bash": "$", "read": "▤", "write": "✎", "edit": "✂", "grep": "⌕", "glob": "❖"}
+
+
+def _tool_embed(name: str, summary: str, status: str, output) -> dict:
+    """Spec d'embed (carte Discord) pour un appel d'outil. status ∈ {running, ok, err}."""
+    color = {"running": 0xF7FF12, "ok": 0x39FF14, "err": 0xFF3B3B}[status]
+    foot = {"running": "● en cours…", "ok": "✓ terminé", "err": "✗ erreur"}[status]
+    glyph = _TOOL_GLYPH.get(name, "🔧")
+    embed: dict = {"title": f"{glyph} {name}", "color": color, "footer": foot}
+    if summary:
+        embed["description"] = f"`{summary}`"
+    if output is not None:
+        out = str(output).strip()
+        if out and out != "(no output)":
+            embed["fields"] = [{"name": "sortie", "value": f"```\n{out[:1000]}\n```", "inline": False}]
+    return embed
+
+
 class DiscordAdapter:
     """Branche un client Discord (réel ou factice) sur le SessionHub."""
 
-    def __init__(self, hub, client, channel_session: dict):
+    def __init__(self, hub, client, channel_session: dict, *, tool_style: str = "text"):
         self.hub = hub
         self.client = client
         self.channel_session = channel_session     # channel_id -> session_id
+        self.tool_style = tool_style               # "text" (blocs) | "embed" (cartes)
         self._tasks: dict[str, asyncio.Task] = {}
 
     async def handle_message(self, msg: FakeMessage) -> None:
@@ -220,18 +245,32 @@ class DiscordAdapter:
                 msg_id = None
             elif name == "ToolStarted":
                 summary = _tool_summary(event.name, event.args)
-                head = f"🔧 `{event.name}`" + (f" · `{summary}`" if summary else "")
-                tool_msgs[event.id] = await self.client.send(channel_id, head[:2000])
+                if self.tool_style == "embed":
+                    mid = await self.client.send(
+                        channel_id, "", embed=_tool_embed(event.name, summary, "running", None))
+                else:
+                    head = f"🔧 `{event.name}`" + (f" · `{summary}`" if summary else "")
+                    mid = await self.client.send(channel_id, head[:2000])
+                tool_msgs[event.id] = {"mid": mid, "summary": summary}
             elif name == "ToolFinished":
-                mid = tool_msgs.pop(event.id, None)
+                info = tool_msgs.pop(event.id, None)
+                mid = info["mid"] if info else None
+                summary = info["summary"] if info else ""
                 out = str(event.output).strip()
                 ok = not out.startswith("Error")
-                block = f"\n```\n{out[:600]}\n```" if out and out != "(no output)" else ""
-                txt = f"🔧 `{event.name}` {'✓' if ok else '✗'}{block}"
-                if mid is not None:
-                    await self.client.edit(channel_id, mid, txt[:2000])
+                if self.tool_style == "embed":
+                    embed = _tool_embed(event.name, summary, "ok" if ok else "err", event.output)
+                    if mid is not None:
+                        await self.client.edit(channel_id, mid, "", embed=embed)
+                    else:
+                        await self.client.send(channel_id, "", embed=embed)
                 else:
-                    await self.client.send(channel_id, txt[:2000])
+                    block = f"\n```\n{out[:600]}\n```" if out and out != "(no output)" else ""
+                    txt = f"🔧 `{event.name}` {'✓' if ok else '✗'}{block}"
+                    if mid is not None:
+                        await self.client.edit(channel_id, mid, txt[:2000])
+                    else:
+                        await self.client.send(channel_id, txt[:2000])
             elif name == "RunError":
                 txt = f"⚠ erreur : {event.message}"
                 if msg_id is not None:
@@ -300,15 +339,32 @@ class RealDiscordClient:
         gid = int(guild_id)
         return self.client.get_guild(gid) or await self.client.fetch_guild(gid)
 
-    async def send(self, channel_id, text) -> str:
+    @staticmethod
+    def _build_embed(spec: dict):
+        import discord
+        e = discord.Embed(title=spec.get("title"), description=spec.get("description"),
+                          color=spec.get("color"))
+        for f in spec.get("fields", []):
+            e.add_field(name=f.get("name", "—"), value=f.get("value", ""), inline=f.get("inline", False))
+        if spec.get("footer"):
+            e.set_footer(text=spec["footer"])
+        return e
+
+    async def send(self, channel_id, text, embed=None) -> str:
         ch = await self._channel(channel_id)
-        msg = await ch.send((text or "…")[:2000])
+        if embed is not None:
+            msg = await ch.send(content=(text or None), embed=self._build_embed(embed))
+        else:
+            msg = await ch.send((text or "…")[:2000])
         return str(msg.id)
 
-    async def edit(self, channel_id, message_id, text) -> None:
+    async def edit(self, channel_id, message_id, text, embed=None) -> None:
         ch = await self._channel(channel_id)
         msg = await ch.fetch_message(int(message_id))
-        await msg.edit(content=(text or "…")[:2000])
+        if embed is not None:
+            await msg.edit(content=(text or None), embed=self._build_embed(embed))
+        else:
+            await msg.edit(content=(text or "…")[:2000])
 
     async def create_guild(self, name) -> str:
         g = await self.client.create_guild(name=name)
@@ -348,7 +404,9 @@ async def run_discord(hub, registry, store, *, token, guild_id=None, admin_user_
     prov = DiscordProvisioner(registry=registry, client=real,
                               guild_id=guild_id, admin_user_id=admin_user_id)
     hub.provisioner = prov
-    adapter = DiscordAdapter(hub=hub, client=real, channel_session={})
+    # Style d'affichage des appels d'outils : "embed" (cartes, défaut) ou "text" (blocs).
+    tool_style = (os.environ.get("MEKICHAT_DISCORD_TOOL_STYLE") or "embed").lower()
+    adapter = DiscordAdapter(hub=hub, client=real, channel_session={}, tool_style=tool_style)
     if holder is not None:
         holder["adapter"] = adapter
         holder["provisioner"] = prov

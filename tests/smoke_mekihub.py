@@ -518,6 +518,34 @@ def test_discord_renders_tool_calls():
     asyncio.run(scenario())
 
 
+def test_discord_renders_tool_calls_as_embed():
+    """En mode tool_style='embed', l'appel d'outil apparaît comme une carte (embed) avec sa sortie."""
+    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeToolLLM
+    from mekihub.hub import SessionHub
+    from mekihub.session import SessionStore
+    from mekihub.adapters.discord import DiscordAdapter, FakeDiscordClient, FakeMessage
+    async def scenario():
+        store = SessionStore(directory=str(ROOT / ".sessions"))
+        sess = store.create(model="m", system="sys")
+        dispatch = {"echo": lambda a: "resultat-embed-XYZ"}
+        hub = SessionHub(store=store, llm_factory=lambda: FakeToolLLM(
+            tool_name="echo", tool_args={"x": "hi"}, final="termine"),
+            tools=[], dispatch=dispatch)
+        client = FakeDiscordClient()
+        adapter = DiscordAdapter(hub=hub, client=client, channel_session={"chan1": sess.id},
+                                 tool_style="embed")
+        await adapter.handle_message(FakeMessage(channel_id="chan1", author_name="dom",
+                                     author_id="42", is_bot=False, content="go"))
+        await asyncio.sleep(0.3); await adapter.flush()
+        embeds = client.sent_embeds()
+        assert embeds, "au moins une carte embed attendue"
+        assert any("echo" in (e.get("title") or "") for e in embeds), embeds
+        field_vals = [f["value"] for e in embeds for f in e.get("fields", [])]
+        assert any("resultat-embed-XYZ" in v for v in field_vals), field_vals
+        store.delete(sess.id)
+    asyncio.run(scenario())
+
+
 def test_approve_worktree_failure_is_graceful():
     """B1 : si git worktree add échoue (branche déjà prise), approve_worktree ne crash pas,
     retire la proposition, publie WorktreeRejected + RunError, et renvoie None (never-raise)."""
@@ -592,5 +620,6 @@ if __name__ == "__main__":
     test_reconcile_creates_missing_channels()
     test_workspace_for_falls_back_when_worktree_missing()
     test_discord_renders_tool_calls()
+    test_discord_renders_tool_calls_as_embed()
     test_approve_worktree_failure_is_graceful()
     print("OK - tous les smoke mekihub passent")
