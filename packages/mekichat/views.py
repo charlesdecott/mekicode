@@ -273,6 +273,26 @@ def render_user_message(text, name, color):
             ui.label(text)
 
 
+def render_worktree_proposal(name: str, prompt: str, on_approve, on_reject):
+    """Carte « worktree proposé » (style Phosphore) avec boutons Approuver / Refuser.
+
+    `name`       : nom du worktree (affiché dans le titre)
+    `prompt`     : texte d'amorçage (affiché en sous-texte)
+    `on_approve` : callback sans argument (appelé au clic sur Approuver)
+    `on_reject`  : callback sans argument (appelé au clic sur Refuser)
+    Renvoie l'élément racine de la carte (peut être supprimé via .delete()).
+    """
+    card = ui.element("div").classes("wt-proposal")
+    with card:
+        with ui.element("div").classes("wt-proposal-head"):
+            ui.label(f"⎇ worktree proposé : {name}").classes("wt-proposal-title")
+        ui.label(prompt).classes("wt-proposal-prompt")
+        with ui.element("div").classes("wt-proposal-actions"):
+            ui.button("Approuver", on_click=lambda: on_approve()).classes("wt-btn approve")
+            ui.button("Refuser", on_click=lambda: on_reject()).classes("wt-btn reject").props("flat")
+    return card
+
+
 def render_project_selector(projects, current_project_id, current_scope,
                              on_pick_project, on_pick_scope, on_add_project):
     """Sélecteur Projet → scope (main / worktrees) dans la sidebar, style Phosphore.

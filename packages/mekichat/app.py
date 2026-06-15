@@ -2,6 +2,7 @@
 """app.py — front mekichat (NiceGUI). Chat + outils (bash/read/write/edit/grep/glob), streaming."""
 from __future__ import annotations
 
+import asyncio
 import sys
 from functools import lru_cache
 from pathlib import Path
@@ -123,6 +124,8 @@ def index() -> None:
     bars_ref: dict[str, object] = {"presence": None, "queue": None}
     # lignes de file indexées par item_id (pour QueueItemDeleted) ; tâche d'abonnement courante
     queue_rows: dict[str, object] = {}
+    # cartes « worktree proposé » indexées par proposal_id (supprimées à WorktreeCreated/Rejected)
+    wt_cards: dict[str, object] = {}
     sub_ref: dict[str, object] = {"timer": None}
     state = {"busy": False}
 
@@ -348,6 +351,33 @@ def index() -> None:
                     views.finalize_stream(stream_ref["body"], stream_ref["text"])
                     stream_ref["body"] = None
                 _render_error(event.message)
+            return
+
+        if name == "WorktreeProposed":
+            def _approve(pid=event.proposal_id):
+                asyncio.create_task(_get_hub().approve_worktree(current.id, pid))
+            def _reject(pid=event.proposal_id):
+                _get_hub().reject_worktree(current.id, pid)
+            with inner:
+                card = views.render_worktree_proposal(event.name, event.prompt, _approve, _reject)
+            wt_cards[event.proposal_id] = card
+            return
+
+        if name == "WorktreeCreated":
+            card = wt_cards.pop(event.proposal_id, None)
+            if card is not None:
+                card.delete()
+            try:
+                ui.notify("worktree prêt — nouvelle session enfant", type="positive")
+            except Exception:
+                pass
+            _refresh_sidebar()
+            return
+
+        if name == "WorktreeRejected":
+            card = wt_cards.pop(event.proposal_id, None)
+            if card is not None:
+                card.delete()
             return
 
         if name in ("RunFinished", "Idle"):
