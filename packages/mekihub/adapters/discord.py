@@ -214,7 +214,8 @@ class DiscordAdapter:
             from mekihub.session import Author  # noqa: F401  # fallback si sous-paquet isolé
         author = Author(id=msg.author_id, name=msg.author_name,
                         color=_color_from_id(msg.author_id), source=f"discord:{msg.channel_id}")
-        # s'assurer qu'une tâche d'abonnement rend la sortie de ce canal
+        # s'assurer qu'une tâche d'abonnement rend la sortie de ce canal (persistante en prod via
+        # start_all ; ici non-persistante pour rester compatible avec flush() des tests)
         if msg.channel_id not in self._tasks or self._tasks[msg.channel_id].done():
             self._tasks[msg.channel_id] = asyncio.create_task(
                 self._render_loop(msg.channel_id, session_id)
@@ -224,67 +225,74 @@ class DiscordAdapter:
     async def _render_loop(self, channel_id: str, session_id: str, persistent: bool = False) -> None:
         msg_id = None
         buffer = ""
-        tool_msgs: dict = {}           # tool_call_id -> message_id (pour éditer au ToolFinished)
+        last_edit = 0.0                # throttle des éditions de streaming (anti rate-limit Discord)
+        tool_msgs: dict = {}           # tool_call_id -> {"mid", "summary"}
         async for event in self.hub.subscribe(session_id):
             name = type(event).__name__
-            if name == "RunStarted":
-                buffer = ""
-                msg_id = None          # ne PAS poster ici : la question (MessagePosted) doit précéder
-                tool_msgs.clear()
-            elif name == "AgentDelta":
-                buffer += event.text
-                if msg_id is None:     # 1er fragment : on crée le message APRÈS la question user
-                    msg_id = await self.client.send(channel_id, buffer or "…")
-                else:
-                    await self.client.edit(channel_id, msg_id, buffer)
-            elif name == "AgentDone":
-                if msg_id is not None:
-                    await self.client.edit(channel_id, msg_id, event.text)
-                elif event.text:       # réponse sans streaming (ex. outil seul) : poster directement
-                    await self.client.send(channel_id, event.text)
-                msg_id = None
-            elif name == "ToolStarted":
-                summary = _tool_summary(event.name, event.args)
-                if self.tool_style == "embed":
-                    mid = await self.client.send(
-                        channel_id, "", embed=_tool_embed(event.name, summary, "running", None))
-                else:
-                    head = f"🔧 `{event.name}`" + (f" · `{summary}`" if summary else "")
-                    mid = await self.client.send(channel_id, head[:2000])
-                tool_msgs[event.id] = {"mid": mid, "summary": summary}
-            elif name == "ToolFinished":
-                info = tool_msgs.pop(event.id, None)
-                mid = info["mid"] if info else None
-                summary = info["summary"] if info else ""
-                out = str(event.output).strip()
-                ok = not out.startswith("Error")
-                if self.tool_style == "embed":
-                    embed = _tool_embed(event.name, summary, "ok" if ok else "err", event.output)
-                    if mid is not None:
-                        await self.client.edit(channel_id, mid, "", embed=embed)
-                    else:
-                        await self.client.send(channel_id, "", embed=embed)
-                else:
-                    block = f"\n```\n{out[:600]}\n```" if out and out != "(no output)" else ""
-                    txt = f"🔧 `{event.name}` {'✓' if ok else '✗'}{block}"
-                    if mid is not None:
-                        await self.client.edit(channel_id, mid, txt[:2000])
-                    else:
-                        await self.client.send(channel_id, txt[:2000])
-            elif name == "RunError":
-                txt = f"⚠ erreur : {event.message}"
-                if msg_id is not None:
-                    await self.client.edit(channel_id, msg_id, txt)
-                else:
-                    await self.client.send(channel_id, txt)
-                msg_id = None
-            elif name == "MessagePosted":
-                if getattr(event, "source", None) != f"discord:{channel_id}":
-                    await self.client.send(channel_id, f"**{event.author_name}**: {event.text}")
-            elif name == "Idle":
+            if name == "Idle":         # hors try : doit toujours boucler/sortir proprement
                 if persistent:
-                    continue          # miroir permanent : on reste abonné entre les runs
+                    continue           # miroir permanent : on reste abonné entre les runs
                 break
+            try:
+                if name == "RunStarted":
+                    buffer = ""
+                    msg_id = None      # ne PAS poster ici : la question (MessagePosted) doit précéder
+                    tool_msgs.clear()
+                elif name == "AgentDelta":
+                    buffer += event.text
+                    now = asyncio.get_event_loop().time()
+                    if msg_id is None:        # 1er fragment : on crée le message APRÈS la question
+                        msg_id = await self.client.send(channel_id, buffer or "…")
+                        last_edit = now
+                    elif now - last_edit >= 1.2:      # ~1 édition / 1.2s pendant le stream
+                        await self.client.edit(channel_id, msg_id, buffer)
+                        last_edit = now
+                elif name == "AgentDone":
+                    if msg_id is not None:    # édition finale garantie (texte complet)
+                        await self.client.edit(channel_id, msg_id, event.text)
+                    elif event.text:          # réponse sans streaming (ex. outil seul) : poster
+                        await self.client.send(channel_id, event.text)
+                    msg_id = None
+                elif name == "ToolStarted":
+                    summary = _tool_summary(event.name, event.args)
+                    if self.tool_style == "embed":
+                        mid = await self.client.send(
+                            channel_id, "", embed=_tool_embed(event.name, summary, "running", None))
+                    else:
+                        head = f"🔧 `{event.name}`" + (f" · `{summary}`" if summary else "")
+                        mid = await self.client.send(channel_id, head[:2000])
+                    tool_msgs[event.id] = {"mid": mid, "summary": summary}
+                elif name == "ToolFinished":
+                    info = tool_msgs.pop(event.id, None)
+                    mid = info["mid"] if info else None
+                    summary = info["summary"] if info else ""
+                    out = str(event.output).strip()
+                    ok = not out.startswith("Error")
+                    if self.tool_style == "embed":
+                        embed = _tool_embed(event.name, summary, "ok" if ok else "err", event.output)
+                        if mid is not None:
+                            await self.client.edit(channel_id, mid, "", embed=embed)
+                        else:
+                            await self.client.send(channel_id, "", embed=embed)
+                    else:
+                        block = f"\n```\n{out[:600]}\n```" if out and out != "(no output)" else ""
+                        txt = f"🔧 `{event.name}` {'✓' if ok else '✗'}{block}"
+                        if mid is not None:
+                            await self.client.edit(channel_id, mid, txt[:2000])
+                        else:
+                            await self.client.send(channel_id, txt[:2000])
+                elif name == "RunError":
+                    txt = f"⚠ erreur : {event.message}"
+                    if msg_id is not None:
+                        await self.client.edit(channel_id, msg_id, txt)
+                    else:
+                        await self.client.send(channel_id, txt)
+                    msg_id = None
+                elif name == "MessagePosted":
+                    if getattr(event, "source", None) != f"discord:{channel_id}":
+                        await self.client.send(channel_id, f"**{event.author_name}**: {event.text}")
+            except Exception as e:     # JAMAIS tuer la boucle persistante sur une erreur Discord
+                print(f"[discord] rendu '{name}' sur {channel_id} échoué : {type(e).__name__}: {e}")
 
     async def flush(self) -> None:
         """Attend que les tâches de rendu en cours se terminent (tests)."""
