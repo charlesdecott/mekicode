@@ -1,4 +1,5 @@
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -170,6 +171,52 @@ def test_main_importable():
     assert hasattr(m, "build_hub") and hasattr(m, "main")
 
 
+def test_project_registry_crud():
+    import tempfile, subprocess
+    from pathlib import Path
+    from mekihub.projects import ProjectRegistry
+    with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
+        subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+        reg = ProjectRegistry(path=str(Path(base) / "projects.json"))
+        p = reg.register(repo, name="Mekipedia")
+        assert p.slug == "mekipedia" and p.default_branch in ("main", "master")
+        assert reg.get(p.id).repo_path == str(Path(repo).resolve())
+        assert [x.id for x in reg.list()] == [p.id]
+        reg.remove(p.id); assert reg.list() == []
+
+
+def test_register_rejects_non_git():
+    import tempfile
+    from pathlib import Path
+    from mekihub.projects import ProjectRegistry
+    with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as d:
+        reg = ProjectRegistry(path=str(Path(base) / "p.json"))
+        try:
+            reg.register(d); assert False, "doit refuser un non-repo"
+        except ValueError:
+            pass
+
+
+def test_workspace_for_main_and_worktree():
+    import tempfile, subprocess, os
+    from pathlib import Path
+    from mekihub.projects import ProjectRegistry, workspace_for, add_worktree
+    from mekihub.session import Session
+    with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
+        subprocess.run(["git","init","-q"], cwd=repo, check=True)
+        subprocess.run(["git","commit","--allow-empty","-q","-m","init"], cwd=repo,
+                       env={**os.environ,"GIT_AUTHOR_NAME":"t","GIT_AUTHOR_EMAIL":"t@t",
+                            "GIT_COMMITTER_NAME":"t","GIT_COMMITTER_EMAIL":"t@t"}, check=True)
+        reg = ProjectRegistry(path=str(Path(base)/"p.json"), worktrees_base=str(Path(base)/"wt"))
+        p = reg.register(repo, name="proj")
+        s_main = Session(id="s1", title="t", model="m", created_at="t", project_id=p.id, scope="main")
+        assert workspace_for(s_main, reg) == Path(repo).resolve()
+        wt_dir = add_worktree(p, "featx", base=None, worktrees_base=str(Path(base)/"wt"))
+        assert wt_dir.exists()
+        s_wt = Session(id="s2", title="t", model="m", created_at="t", project_id=p.id, scope="featx")
+        assert workspace_for(s_wt, reg) == wt_dir.resolve()
+
+
 if __name__ == "__main__":
     test_author_and_queueitem()
     test_session_authors_separate_from_messages()
@@ -179,4 +226,7 @@ if __name__ == "__main__":
     test_two_subscribers_and_queue_delete()
     test_discord_adapter_with_fake_client()
     test_main_importable()
+    test_project_registry_crud()
+    test_register_rejects_non_git()
+    test_workspace_for_main_and_worktree()
     print("OK - tous les smoke mekihub passent")

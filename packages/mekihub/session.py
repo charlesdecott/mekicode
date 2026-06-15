@@ -45,6 +45,8 @@ class Session:
     created_at: str
     messages: list = field(default_factory=list)      # OpenAI pur (ce que voit l'agent)
     authors: dict = field(default_factory=dict)        # index_message(str) -> {"name","color"}
+    project_id: str = "mekicode"
+    scope: str = "main"
 
     def add_user(self, content: str, *, author: Author) -> int:
         """Ajoute un message user (OpenAI pur) + son attribution. Renvoie l'index du message."""
