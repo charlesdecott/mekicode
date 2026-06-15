@@ -325,9 +325,10 @@ def render_project_selector(projects, current_project_id, current_scope,
             for scope_name in ("main", "worktrees"):
                 is_active = current_scope == scope_name
                 tab_classes = "scope-tab active" if is_active else "scope-tab"
-                ui.element("div").classes(tab_classes).on(
+                with ui.element("div").classes(tab_classes).on(
                     "click", lambda _, s=scope_name: on_pick_scope(s)
-                ).text = scope_name
+                ):
+                    ui.label(scope_name)
 
         # Bouton ajout de projet
         with ui.element("div").classes("proj-add-wrap"):

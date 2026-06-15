@@ -233,3 +233,38 @@
 .msg.user .body.attrib .msg-author,
 .msg.user.attrib .msg-author{color:var(--ac);font-weight:700;font-size:11px;margin-right:6px;
   font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em}
+
+/* ── SÉLECTEUR DE PROJET (Projet → scope main/worktrees) ── */
+.proj-selector{padding:4px 0 6px;border-bottom:1px solid var(--line-dim)}
+.proj-list{display:flex;flex-direction:column;gap:2px;padding:0 12px}
+.proj-item{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;
+  font-family:var(--mono);font-size:12px;color:var(--muted);clip-path:var(--clip-sm);
+  border:1px solid transparent;transition:color .15s,background .15s}
+.proj-item:hover{color:var(--text);background:var(--p1-bg)}
+.proj-item.active{color:var(--p1);background:var(--p1-bg);border-color:var(--line);
+  text-shadow:var(--p1-glow)}
+.proj-item .mk{color:var(--p1);font-weight:700}
+.proj-item .proj-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scope-tabs{display:flex;gap:6px;padding:8px 14px 4px}
+.scope-tab{flex:1;text-align:center;padding:5px 8px;cursor:pointer;font-family:var(--mono);
+  font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);
+  border:1px solid var(--line-dim);clip-path:var(--clip-sm);transition:color .15s,border-color .15s}
+.scope-tab:hover{color:var(--text)}
+.scope-tab.active{color:var(--p2);border-color:color-mix(in srgb,var(--p2) 40%,transparent);
+  box-shadow:var(--p2-glow)}
+.proj-add-wrap{padding:6px 14px 0}
+.proj-add-btn{width:100%;padding:6px 8px;cursor:pointer;background:transparent;
+  border:1px dashed var(--faint);color:var(--muted);font-family:var(--mono);font-size:10px;
+  letter-spacing:.1em;text-transform:uppercase;transition:color .15s,border-color .15s}
+.proj-add-btn:hover{color:var(--p1);border-color:var(--line)}
+
+/* ── CARTE DE VALIDATION WORKTREE (proposée par l'agent) ── */
+.wt-proposal{margin:10px 0;padding:12px 14px;background:var(--panel-2);clip-path:var(--clip);
+  border:1px solid color-mix(in srgb,var(--warn) 34%,transparent)}
+.wt-proposal-title{font-family:var(--mono);font-size:12px;color:var(--warn);font-weight:700;
+  letter-spacing:.06em}
+.wt-proposal-head{margin-bottom:4px}
+.wt-proposal-prompt{display:block;font-family:var(--ui);font-size:12px;color:var(--muted);margin-bottom:10px}
+.wt-proposal-actions{display:flex;gap:8px}
+.wt-btn.approve{background:var(--p1);color:#04130a;font-weight:700}
+.wt-btn.reject{color:var(--muted)}
