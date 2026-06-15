@@ -399,6 +399,28 @@ def test_reject_worktree_creates_nothing():
     asyncio.run(scenario())
 
 
+def test_reconcile_creates_missing_channels():
+    import tempfile, subprocess
+    from pathlib import Path
+    from mekihub.adapters.discord import DiscordProvisioner, FakeDiscordClient
+    from mekihub.projects import ProjectRegistry
+    from mekihub.session import SessionStore
+    async def scenario():
+        with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
+            subprocess.run(["git","init","-q"], cwd=repo, check=True)
+            reg = ProjectRegistry(path=str(Path(base)/"p.json"))
+            p = reg.register(repo, name="proj")
+            store = SessionStore(directory=str(Path(base)/"sess"))
+            store.create(model="m", project_id=p.id, scope="main")
+            store.create(model="m", project_id=p.id, scope="main")
+            client = FakeDiscordClient()
+            prov = DiscordProvisioner(registry=reg, client=client, guild_id="g1")
+            n = await prov.reconcile(store)
+            assert n == 2 and client.channel_count() >= 2
+            assert await prov.reconcile(store) == 0     # idempotent : tout est déjà posé
+    asyncio.run(scenario())
+
+
 def test_discord_antiecho_on_messageposted():
     sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeLLM
     from mekihub.hub import SessionHub
@@ -475,4 +497,5 @@ if __name__ == "__main__":
     test_reject_worktree_creates_nothing()
     test_provisioner_creates_categories_and_channels_idempotent()
     test_discord_antiecho_on_messageposted()
+    test_reconcile_creates_missing_channels()
     print("OK - tous les smoke mekihub passent")

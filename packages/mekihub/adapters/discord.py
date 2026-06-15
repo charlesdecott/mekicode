@@ -8,6 +8,7 @@ via FakeDiscordClient (réseau-free).
 from __future__ import annotations
 
 import asyncio
+import os
 from dataclasses import dataclass, field
 
 
@@ -127,6 +128,29 @@ class DiscordProvisioner:
         ch = await self.client.create_channel(project.discord["guild_id"], cat, _channel_name(session))
         session.discord_channel_id = ch
         return ch
+
+    async def reconcile(self, store):
+        """Parcourt projets+sessions ; crée les canaux manquants (idempotent). Renvoie le nb de créations."""
+        created = 0
+        for project in self.registry.list():
+            await self.ensure_project(project)
+            for meta in store.list(project_id=project.id):
+                sess = store.load(meta.id)
+                if not getattr(sess, "discord_channel_id", None):
+                    await self.ensure_channel(sess)
+                    store.save(sess)
+                    created += 1
+        return created
+
+
+def provisioner_from_env(registry, client):
+    """Construit un DiscordProvisioner depuis l'environnement, ou None si pas de token.
+    Import-safe : aucun appel réseau ici. `client` = client Discord réel ou factice déjà construit."""
+    if not os.environ.get("DISCORD_BOT_TOKEN"):
+        return None
+    return DiscordProvisioner(registry=registry, client=client,
+                              guild_id=os.environ.get("DISCORD_GUILD_ID") or None,
+                              admin_user_id=os.environ.get("MEKICODE_ADMIN_USER_ID") or None)
 
 
 def _color_from_id(author_id: str) -> str:

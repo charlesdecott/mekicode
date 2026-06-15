@@ -39,6 +39,13 @@ def main() -> None:
         hub = build_hub()
         token = os.environ["DISCORD_BOT_TOKEN"]
         mapping = {}  # à renseigner via DISCORD_CHANNEL_SESSION_MAP (clé=canal, val=session)
+        # Point d'intégration reconcile : lors de la validation manuelle avec un vrai token,
+        # câbler ici :
+        #   from adapters.discord import provisioner_from_env
+        #   provisioner = provisioner_from_env(hub.registry, <client_reel>)
+        #   if provisioner:
+        #       asyncio.run(provisioner.reconcile(hub.store))
+        # Le client réel est finalisé dans connect_real (voir DiscordAdapter.connect_real).
         adapter = DiscordAdapter(hub=hub, client=None, channel_session=mapping)
         asyncio.run(adapter.connect_real(token))
         return
