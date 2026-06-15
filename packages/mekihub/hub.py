@@ -147,6 +147,40 @@ class SessionHub:
             self._publish(session_id, ev.QueueItemDeleted(item_id=item_id))
         return ok
 
+    async def approve_worktree(self, session_id: str, proposal_id: str):
+        room = self._room(session_id)
+        pr = room.pending_worktrees.pop(proposal_id, None)
+        if pr is None:
+            return None
+        from projects import add_worktree     # mekihub (sys.path déjà posé)
+        parent = self.store.load(session_id)
+        project = self.registry.get(parent.project_id)
+        await asyncio.to_thread(add_worktree, project, pr["nom"], pr.get("base"),
+                                self.registry.worktrees_base)
+        system = (parent.messages[0]["content"]
+                  if parent.messages and parent.messages[0].get("role") == "system" else None)
+        child = self.store.create(model=parent.model, system=system,
+                                  project_id=project.id, scope=pr["nom"])
+        channel_id = None
+        if self.provisioner is not None:
+            try:
+                channel_id = await self.provisioner.ensure_channel(child)
+                self.store.save(child)
+            except Exception:
+                channel_id = None      # never-raise : Discord optionnel
+        self._publish(session_id, ev.WorktreeCreated(
+            proposal_id=proposal_id, child_session_id=child.id, channel_id=channel_id))
+        sys_author = Author(id="system", name="mekicode", color="#39ff14", source="system")
+        self.submit(child.id, pr["prompt_amorce"], author=sys_author)
+        return child.id
+
+    def reject_worktree(self, session_id: str, proposal_id: str) -> bool:
+        room = self._room(session_id)
+        if room.pending_worktrees.pop(proposal_id, None) is not None:
+            self._publish(session_id, ev.WorktreeRejected(proposal_id=proposal_id))
+            return True
+        return False
+
     async def subscribe(self, session_id: str):
         room = self._room(session_id)
         q: asyncio.Queue = asyncio.Queue()

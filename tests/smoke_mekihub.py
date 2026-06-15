@@ -319,6 +319,86 @@ def test_spawn_worktree_proposes_without_creating():
     asyncio.run(scenario())
 
 
+def test_approve_worktree_creates_child_session():
+    import tempfile, subprocess
+    from pathlib import Path
+    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeToolLLM
+    sys.path.insert(0, str(ROOT / "packages" / "mekicore")); import tools
+    from mekihub.hub import SessionHub
+    from mekihub.projects import ProjectRegistry, _wt_dir
+    from mekihub.session import Author, SessionStore
+    async def scenario():
+        with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
+            subprocess.run(["git","init","-q"], cwd=repo, check=True)
+            subprocess.run(["git","commit","--allow-empty","-q","-m","init"], cwd=repo,
+                           env={**os.environ,"GIT_AUTHOR_NAME":"t","GIT_AUTHOR_EMAIL":"t@t",
+                                "GIT_COMMITTER_NAME":"t","GIT_COMMITTER_EMAIL":"t@t"}, check=True)
+            reg = ProjectRegistry(path=str(Path(base)/"p.json"), worktrees_base=str(Path(base)/"wt"))
+            p = reg.register(repo, name="proj")
+            store = SessionStore(directory=str(Path(base)/"sess"))
+            sess = store.create(model="m", system="sys", project_id=p.id, scope="main")
+            llm = FakeToolLLM(tool_name="spawn_worktree",
+                              tool_args={"nom":"featx","prompt_amorce":"code la feature X"}, final="ok")
+            hub = SessionHub(store=store, llm_factory=lambda: llm, tools=tools.TOOLS,
+                             dispatch_factory=tools.make_dispatch, registry=reg)
+            sub = hub.subscribe(sess.id); await sub.__anext__()
+            async def collect():
+                async for e in sub:
+                    if type(e).__name__ == "Idle": break
+            t = asyncio.create_task(collect())
+            hub.submit(sess.id, "fais la feature X", author=Author(id="c",name="a",color="#fff"))
+            await asyncio.wait_for(t, timeout=5)
+            pid = next(iter(hub._rooms[sess.id].pending_worktrees))
+            child_id = await hub.approve_worktree(sess.id, pid)
+            assert child_id
+            assert _wt_dir(p, "featx", str(Path(base)/"wt")).exists()
+            assert pid not in hub._rooms[sess.id].pending_worktrees
+            child = store.load(child_id)
+            assert child.scope == "featx" and child.project_id == p.id
+            # le worker enfant ajoute le prompt d'amorçage en asynchrone → poll
+            found = False
+            for _ in range(100):
+                c = store.load(child_id)
+                if any(m.get("role")=="user" and "feature X" in (m.get("content") or "") for m in c.messages):
+                    found = True; break
+                await asyncio.sleep(0.02)
+            assert found, "le prompt d'amorçage doit devenir le 1er message user de l'enfant"
+    asyncio.run(scenario())
+
+
+def test_reject_worktree_creates_nothing():
+    import tempfile, subprocess
+    from pathlib import Path
+    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeToolLLM
+    sys.path.insert(0, str(ROOT / "packages" / "mekicore")); import tools
+    from mekihub.hub import SessionHub
+    from mekihub.projects import ProjectRegistry, _wt_dir
+    from mekihub.session import Author, SessionStore
+    async def scenario():
+        with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
+            subprocess.run(["git","init","-q"], cwd=repo, check=True)
+            reg = ProjectRegistry(path=str(Path(base)/"p.json"), worktrees_base=str(Path(base)/"wt"))
+            p = reg.register(repo, name="proj")
+            store = SessionStore(directory=str(Path(base)/"sess"))
+            sess = store.create(model="m", system="sys", project_id=p.id, scope="main")
+            llm = FakeToolLLM(tool_name="spawn_worktree",
+                              tool_args={"nom":"featy","prompt_amorce":"x"}, final="ok")
+            hub = SessionHub(store=store, llm_factory=lambda: llm, tools=tools.TOOLS,
+                             dispatch_factory=tools.make_dispatch, registry=reg)
+            sub = hub.subscribe(sess.id); await sub.__anext__()
+            async def collect():
+                async for e in sub:
+                    if type(e).__name__ == "Idle": break
+            t = asyncio.create_task(collect())
+            hub.submit(sess.id, "go", author=Author(id="c",name="a",color="#fff"))
+            await asyncio.wait_for(t, timeout=5)
+            pid = next(iter(hub._rooms[sess.id].pending_worktrees))
+            assert hub.reject_worktree(sess.id, pid) is True
+            assert pid not in hub._rooms[sess.id].pending_worktrees
+            assert not _wt_dir(p, "featy", str(Path(base)/"wt")).exists()
+    asyncio.run(scenario())
+
+
 if __name__ == "__main__":
     test_author_and_queueitem()
     test_session_authors_separate_from_messages()
@@ -336,4 +416,6 @@ if __name__ == "__main__":
     test_author_has_source_default_none()
     test_hub_uses_per_session_workspace()
     test_spawn_worktree_proposes_without_creating()
+    test_approve_worktree_creates_child_session()
+    test_reject_worktree_creates_nothing()
     print("OK - tous les smoke mekihub passent")
