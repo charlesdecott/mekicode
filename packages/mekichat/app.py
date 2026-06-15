@@ -20,7 +20,8 @@ import views  # noqa: E402
 from base import run_agent  # noqa: E402  (conservé : compat / rejouage direct, plus piloté ici)
 from mekihub.hub import SessionHub  # noqa: E402
 from mekihub.session import SessionStore as _HubSessionStore  # noqa: E402
-from tools import DISPATCH, TOOLS  # noqa: E402
+from tools import DISPATCH, TOOLS, make_dispatch  # noqa: E402
+from mekihub.projects import ProjectRegistry  # noqa: E402
 
 STATIC = HERE / "static"
 DEFAULT_MODEL = mekillm.config.resolve()["model"]
@@ -44,6 +45,14 @@ _DONE = object()  # sentinelle de fin de générateur pour run.io_bound(next, ge
 def _get_store() -> sessions_mod.SessionStore:
     """Singleton paresseux : évite de créer .sessions/ au simple import du module."""
     return sessions_mod.SessionStore()
+
+
+@lru_cache(maxsize=1)
+def _get_registry() -> ProjectRegistry:
+    """Singleton paresseux du registre de projets. S'assure que le projet par défaut existe."""
+    reg = ProjectRegistry()
+    reg.ensure_default()
+    return reg
 
 
 @lru_cache(maxsize=1)
@@ -74,7 +83,7 @@ def _get_hub() -> SessionHub:
     global _HUB
     if _HUB is None:
         _HUB = SessionHub(store=_HubSessionStore(), llm_factory=_llm_factory,
-                          tools=TOOLS, dispatch=DISPATCH)
+                          tools=TOOLS, dispatch_factory=make_dispatch, registry=_get_registry())
     return _HUB
 
 
@@ -85,6 +94,14 @@ def _ensure_current() -> sessions_mod.Session:
     return store.load(metas[0].id) if metas else store.create(model=DEFAULT_MODEL, system=SYSTEM)
 
 
+def _system_for(project, scope: str = "main") -> str:
+    """Génère un prompt système adapté au projet et au scope (main ou worktree)."""
+    root = project.repo_path
+    return (f"You are a coding agent working in the project '{project.name}' at {root} "
+            f"(scope: {scope}). Tools: bash, read, write, edit (str-replace), grep, glob "
+            "(file tools are confined to the workspace). Be concise.")
+
+
 @ui.page("/")
 def index() -> None:
     ui.add_head_html(FONTS)
@@ -92,6 +109,8 @@ def index() -> None:
     ui.query("body").props('data-theme=phosphor')
 
     current = _ensure_current()
+    current_project = _get_registry().get(current.project_id) or _get_registry().ensure_default()
+    current_scope = current.scope
     # Identité du navigateur résolue UNE SEULE FOIS ici, dans le contexte de page (cookie de
     # session lié à la requête → app.storage.user/.browser fiables). Réutilisée ensuite par la
     # tâche de fond (_subscribe_loop) et l'envoi (send) via cette closure : on ne résout JAMAIS
@@ -118,7 +137,12 @@ def index() -> None:
         nonlocal current
         if state["busy"]:
             return
-        current = _get_store().create(model=DEFAULT_MODEL, system=SYSTEM)
+        current = _get_store().create(
+            model=DEFAULT_MODEL,
+            system=_system_for(current_project, current_scope),
+            project_id=current_project.id,
+            scope=current_scope,
+        )
         _refresh()
 
     def delete_session(session_id: str) -> None:
@@ -128,6 +152,51 @@ def index() -> None:
         _get_store().delete(session_id)
         if current.id == session_id:               # session courante supprimée → basculer
             current = _ensure_current()             # plus récente restante, ou une nouvelle
+        _refresh()
+
+    def pick_project(pid: str) -> None:
+        nonlocal current, current_project, current_scope
+        if state["busy"]:
+            return
+        proj = _get_registry().get(pid)
+        if proj is None:
+            return
+        current_project = proj
+        # Charge la session la plus récente pour ce projet/scope, ou en crée une
+        metas = _get_store().list(project_id=pid, scope="main" if current_scope == "main" else None)
+        if current_scope != "main":
+            metas = [m for m in _get_store().list(project_id=pid) if m.scope != "main"]
+        if metas:
+            current = _get_store().load(metas[0].id)
+        else:
+            current = _get_store().create(
+                model=DEFAULT_MODEL,
+                system=_system_for(current_project, current_scope),
+                project_id=current_project.id,
+                scope=current_scope,
+            )
+        _refresh()
+
+    def pick_scope(scope: str) -> None:
+        nonlocal current, current_scope
+        if state["busy"]:
+            return
+        current_scope = scope
+        # Charge la session la plus récente pour ce projet/scope, ou en crée une
+        if scope == "main":
+            metas = _get_store().list(project_id=current_project.id, scope="main")
+        else:
+            metas = [m for m in _get_store().list(project_id=current_project.id)
+                     if m.scope != "main"]
+        if metas:
+            current = _get_store().load(metas[0].id)
+        else:
+            current = _get_store().create(
+                model=DEFAULT_MODEL,
+                system=_system_for(current_project, current_scope),
+                project_id=current_project.id,
+                scope=current_scope,
+            )
         _refresh()
 
     def _scroll_bottom() -> None:
@@ -335,10 +404,44 @@ def index() -> None:
                 with ui.element("div"):
                     ui.html('<div class="glitch" data-t="MEKICHAT">MEKICHAT</div>')
                     ui.label("// harness v0.1 :: ROOT").classes("ver")
+
+            # Sélecteur Projet → scope (en tête de sidebar, avant les sessions)
+            def _open_add_project_dialog():
+                dlg = ui.dialog()
+                with dlg, ui.card():
+                    ui.label("Ajouter un projet").classes("sec-label")
+                    inp = ui.input(placeholder="Chemin du dépôt git")
+                    def _do_register():
+                        path = inp.value.strip()
+                        try:
+                            _get_registry().register(path)
+                            dlg.close()
+                            _refresh_sidebar()
+                        except ValueError as e:
+                            ui.notify(str(e), color="negative")
+                    ui.button("Enregistrer", on_click=_do_register)
+                    ui.button("Annuler", on_click=dlg.close).props("flat")
+                dlg.open()
+
+            views.render_project_selector(
+                projects=_get_registry().list(),
+                current_project_id=current_project.id,
+                current_scope=current_scope,
+                on_pick_project=pick_project,
+                on_pick_scope=pick_scope,
+                on_add_project=_open_add_project_dialog,
+            )
+
             with ui.element("button").classes("new-btn").on("click", lambda _: new_session()):
                 ui.label("+ nouvelle session")
                 ui.html("<kbd>⌘N</kbd>")
-            metas = store.list()
+
+            # Sessions filtrées par projet courant + scope courant
+            if current_scope == "main":
+                metas = store.list(project_id=current_project.id, scope="main")
+            else:
+                metas = [m for m in store.list(project_id=current_project.id)
+                         if m.scope != "main"]
             with ui.element("div").classes("sec-label"):
                 ui.label("SESSIONS")
                 ui.label(f"[{len(metas):02d}]").classes("n")

@@ -20,10 +20,13 @@ sys.path.insert(0, str(HERE.parent / "mekicore"))  # base, tools, events de meki
 def build_hub():
     """Construit un SessionHub câblé sur mekillm + les outils de mekicore."""
     import mekillm
-    from tools import DISPATCH, TOOLS
+    import tools as core_tools
     from hub import SessionHub
     from session import SessionStore
-    return SessionHub(store=SessionStore(), llm_factory=mekillm.LLM, tools=TOOLS, dispatch=DISPATCH)
+    from projects import ProjectRegistry
+    reg = ProjectRegistry(); reg.ensure_default()
+    return SessionHub(store=SessionStore(), llm_factory=mekillm.LLM, tools=core_tools.TOOLS,
+                      dispatch_factory=core_tools.make_dispatch, registry=reg)
 
 
 def main() -> None:
