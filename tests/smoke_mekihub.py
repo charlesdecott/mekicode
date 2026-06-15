@@ -399,6 +399,28 @@ def test_reject_worktree_creates_nothing():
     asyncio.run(scenario())
 
 
+def test_discord_antiecho_on_messageposted():
+    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeLLM
+    from mekihub.hub import SessionHub
+    from mekihub.session import SessionStore
+    from mekihub.adapters.discord import DiscordAdapter, FakeDiscordClient, FakeMessage
+    async def scenario():
+        store = SessionStore(directory=str(ROOT / ".sessions"))
+        sess = store.create(model="m", system="sys")
+        hub = SessionHub(store=store, llm_factory=lambda: FakeLLM(reply="ok"), tools=[], dispatch={})
+        client = FakeDiscordClient()
+        adapter = DiscordAdapter(hub=hub, client=client, channel_session={"chan1": sess.id})
+        await adapter.handle_message(FakeMessage(channel_id="chan1", author_name="dom",
+                                     author_id="42", is_bot=False, content="depuis discord"))
+        await asyncio.sleep(0.3); await adapter.flush()
+        texts = client.sent_texts()
+        # anti-écho : le message né dans chan1 n'est PAS reposté dans chan1
+        assert all("depuis discord" not in t for t in texts), texts
+        assert any("ok" in t for t in texts)     # la réponse de l'agent est postée
+        store.delete(sess.id)
+    asyncio.run(scenario())
+
+
 def test_provisioner_creates_categories_and_channels_idempotent():
     import tempfile, subprocess
     from pathlib import Path
@@ -452,4 +474,5 @@ if __name__ == "__main__":
     test_approve_worktree_creates_child_session()
     test_reject_worktree_creates_nothing()
     test_provisioner_creates_categories_and_channels_idempotent()
+    test_discord_antiecho_on_messageposted()
     print("OK - tous les smoke mekihub passent")

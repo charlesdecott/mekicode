@@ -153,7 +153,8 @@ class DiscordAdapter:
             from session import Author  # type: ignore  # sys.path posé par mekihub/__init__.py
         except ImportError:
             from mekihub.session import Author  # noqa: F401  # fallback si sous-paquet isolé
-        author = Author(id=msg.author_id, name=msg.author_name, color=_color_from_id(msg.author_id))
+        author = Author(id=msg.author_id, name=msg.author_name,
+                        color=_color_from_id(msg.author_id), source=f"discord:{msg.channel_id}")
         # s'assurer qu'une tâche d'abonnement rend la sortie de ce canal
         if msg.channel_id not in self._tasks or self._tasks[msg.channel_id].done():
             self._tasks[msg.channel_id] = asyncio.create_task(
@@ -184,6 +185,9 @@ class DiscordAdapter:
                 else:
                     await self.client.send(channel_id, txt)
                 msg_id = None
+            elif name == "MessagePosted":
+                if getattr(event, "source", None) != f"discord:{channel_id}":
+                    await self.client.send(channel_id, f"**{event.author_name}**: {event.text}")
             elif name == "Idle":
                 break
 
