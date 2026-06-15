@@ -179,23 +179,30 @@ _TOOL_GLYPH = {"bash": "$", "read": "▤", "write": "✎", "edit": "✂", "grep"
                "spawn_worktree": "⎇"}
 _TOOL_COLOR = {"bash": 0x39FF14, "read": 0x19E0FF, "write": 0xFF2BD6, "edit": 0xB06BFF,
                "grep": 0xF7FF12, "glob": 0xFF8C2B, "spawn_worktree": 0x4D8CFF}
+# Libellé de la colonne « argument » selon l'outil.
+_TOOL_LABEL = {"bash": "commande", "read": "fichier", "write": "fichier", "edit": "fichier",
+               "grep": "motif", "glob": "motif", "spawn_worktree": "worktree"}
 _DEFAULT_TOOL_COLOR = 0x8899AA
 _ERROR_COLOR = 0xFF3B3B
 
 
 def _tool_embed(name: str, summary: str, status: str, output) -> dict:
-    """Spec d'embed (carte Discord) pour un appel d'outil. status ∈ {running, ok, err}."""
+    """Spec d'embed COMPACTE (carte Discord) pour un appel d'outil. status ∈ {running, ok, err}.
+
+    Mise en colonnes via des champs `inline` : une ligne « arg | statut » côte à côte, puis la
+    sortie en pleine largeur uniquement si présente. Couleur = type d'outil (rouge si erreur)."""
     color = _ERROR_COLOR if status == "err" else _TOOL_COLOR.get(name, _DEFAULT_TOOL_COLOR)
-    foot = {"running": "● en cours…", "ok": "✓ terminé", "err": "✗ erreur"}[status]
+    statut = {"running": "● en cours…", "ok": "✓ terminé", "err": "✗ erreur"}[status]
     glyph = _TOOL_GLYPH.get(name, "🔧")
-    embed: dict = {"title": f"{glyph} {name}", "color": color, "footer": foot}
+    fields = []
     if summary:
-        embed["description"] = f"`{summary}`"
-    if output is not None:
-        out = str(output).strip()
-        if out and out != "(no output)":
-            embed["fields"] = [{"name": "sortie", "value": f"```\n{out[:1000]}\n```", "inline": False}]
-    return embed
+        fields.append({"name": _TOOL_LABEL.get(name, "arg"),
+                       "value": f"`{summary[:90]}`", "inline": True})
+    fields.append({"name": "statut", "value": statut, "inline": True})
+    out = str(output).strip() if output is not None else ""
+    if out and out != "(no output)":
+        fields.append({"name": "sortie", "value": f"```\n{out[:400]}\n```", "inline": False})
+    return {"title": f"{glyph} {name}", "color": color, "fields": fields}
 
 
 class DiscordAdapter:
