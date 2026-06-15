@@ -193,14 +193,18 @@ class DiscordAdapter:
             name = type(event).__name__
             if name == "RunStarted":
                 buffer = ""
-                msg_id = await self.client.send(channel_id, "…")
+                msg_id = None          # ne PAS poster ici : la question (MessagePosted) doit précéder
             elif name == "AgentDelta":
                 buffer += event.text
-                if msg_id is not None:
+                if msg_id is None:     # 1er fragment : on crée le message APRÈS la question user
+                    msg_id = await self.client.send(channel_id, buffer or "…")
+                else:
                     await self.client.edit(channel_id, msg_id, buffer)
             elif name == "AgentDone":
                 if msg_id is not None:
                     await self.client.edit(channel_id, msg_id, event.text)
+                elif event.text:       # réponse sans streaming (ex. outil seul) : poster directement
+                    await self.client.send(channel_id, event.text)
                 msg_id = None
             elif name == "RunError":
                 txt = f"⚠ erreur : {event.message}"
