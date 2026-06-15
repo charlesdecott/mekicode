@@ -121,4 +121,6 @@ def workspace_for(session, registry) -> Path:
         return _ROOT
     if getattr(session, "scope", "main") == "main":
         return Path(project.repo_path).resolve()
-    return _wt_dir(project, session.scope, registry.worktrees_base)
+    wt = _wt_dir(project, session.scope, registry.worktrees_base)
+    # repli sur la racine du projet si le worktree n'existe pas sur le disque (cwd toujours valide)
+    return wt if wt.exists() else Path(project.repo_path).resolve()

@@ -476,6 +476,22 @@ def test_provisioner_creates_categories_and_channels_idempotent():
     asyncio.run(scenario())
 
 
+def test_workspace_for_falls_back_when_worktree_missing():
+    """Une session dont le scope ne correspond à aucun worktree sur disque retombe sur la racine
+    projet (cwd toujours valide) — évite le WinError 267 quand bash s'exécute."""
+    import tempfile, subprocess
+    from pathlib import Path
+    from mekihub.projects import ProjectRegistry, workspace_for
+    from mekihub.session import Session
+    with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
+        subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+        reg = ProjectRegistry(path=str(Path(base) / "p.json"), worktrees_base=str(Path(base) / "wt"))
+        p = reg.register(repo, name="proj")
+        s = Session(id="s1", title="t", model="m", created_at="t",
+                    project_id=p.id, scope="worktrees")     # aucun worktree "worktrees" créé
+        assert workspace_for(s, reg) == Path(repo).resolve()
+
+
 def test_discord_renders_tool_calls():
     """Les appels d'outils (ToolStarted/ToolFinished) apparaissent dans le canal Discord."""
     sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeToolLLM
@@ -574,6 +590,7 @@ if __name__ == "__main__":
     test_provisioner_creates_categories_and_channels_idempotent()
     test_discord_antiecho_on_messageposted()
     test_reconcile_creates_missing_channels()
+    test_workspace_for_falls_back_when_worktree_missing()
     test_discord_renders_tool_calls()
     test_approve_worktree_failure_is_graceful()
     print("OK - tous les smoke mekihub passent")
