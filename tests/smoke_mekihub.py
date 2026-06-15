@@ -399,6 +399,39 @@ def test_reject_worktree_creates_nothing():
     asyncio.run(scenario())
 
 
+def test_provisioner_creates_categories_and_channels_idempotent():
+    import tempfile, subprocess
+    from pathlib import Path
+    from mekihub.adapters.discord import DiscordProvisioner, FakeDiscordClient
+    from mekihub.projects import ProjectRegistry
+    from mekihub.session import Session
+    async def scenario():
+        with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
+            subprocess.run(["git","init","-q"], cwd=repo, check=True)
+            reg = ProjectRegistry(path=str(Path(base)/"p.json"))
+            p = reg.register(repo, name="Mekipedia")
+            client = FakeDiscordClient()
+            prov = DiscordProvisioner(registry=reg, client=client, guild_id="g1")
+            await prov.ensure_project(p)
+            p2 = reg.get(p.id)
+            assert p2.discord["cat_main"] and p2.discord["cat_worktrees"]
+            cats_before = client.category_count()
+            await prov.ensure_project(p)                     # idempotent
+            assert client.category_count() == cats_before    # pas de doublon
+            s = Session(id="s1", title="rev auth", model="m", created_at="t",
+                        project_id=p.id, scope="main")
+            ch = await prov.ensure_channel(s)
+            assert ch and s.discord_channel_id == ch
+            assert client.channel_name(ch).startswith("main-")
+            ch_again = await prov.ensure_channel(s)           # idempotent (canal déjà posé)
+            assert ch_again == ch and client.channel_count() == 1
+            sw = Session(id="s2", title="t", model="m", created_at="t",
+                         project_id=p.id, scope="featx")
+            chw = await prov.ensure_channel(sw)
+            assert client.channel_name(chw).startswith("featx-")
+    asyncio.run(scenario())
+
+
 if __name__ == "__main__":
     test_author_and_queueitem()
     test_session_authors_separate_from_messages()
@@ -418,4 +451,5 @@ if __name__ == "__main__":
     test_spawn_worktree_proposes_without_creating()
     test_approve_worktree_creates_child_session()
     test_reject_worktree_creates_nothing()
+    test_provisioner_creates_categories_and_channels_idempotent()
     print("OK - tous les smoke mekihub passent")

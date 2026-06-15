@@ -25,6 +25,15 @@ class FakeDiscordClient:
 
     def __init__(self):
         self._messages: list[dict] = []   # {channel_id, text}
+        self._guilds: dict[str, str] = {}
+        self._categories: dict[str, tuple] = {}
+        self._channels: dict[str, tuple] = {}
+        self._invites: list[str] = []
+        self._seq: int = 0
+
+    def _nid(self, prefix: str) -> str:
+        self._seq += 1
+        return f"{prefix}{self._seq}"
 
     async def send(self, channel_id: str, text: str) -> int:
         self._messages.append({"channel_id": channel_id, "text": text})
@@ -35,6 +44,89 @@ class FakeDiscordClient:
 
     def sent_texts(self) -> list[str]:
         return [m["text"] for m in self._messages]
+
+    async def create_guild(self, name: str) -> str:
+        gid = self._nid("g")
+        self._guilds[gid] = name
+        return gid
+
+    async def create_category(self, guild_id: str, name: str) -> str:
+        cid = self._nid("cat")
+        self._categories[cid] = (guild_id, name)
+        return cid
+
+    async def create_channel(self, guild_id: str, category_id: str, name: str) -> str:
+        chid = self._nid("ch")
+        self._channels[chid] = (guild_id, category_id, name)
+        return chid
+
+    async def create_invite(self, channel_id: str) -> str:
+        inv = "https://discord.gg/" + self._nid("inv")
+        self._invites.append(inv)
+        return inv
+
+    def category_count(self) -> int:
+        return len(self._categories)
+
+    def channel_count(self) -> int:
+        return len(self._channels)
+
+    def channel_name(self, channel_id: str) -> str:
+        return self._channels[channel_id][2]
+
+
+try:
+    from projects import slugify  # type: ignore  # sys.path posé par mekihub/__init__.py
+except ImportError:
+    from mekihub.projects import slugify
+
+
+def _channel_name(session) -> str:
+    """Nom Discord d'un canal à partir de la session (scope + titre/id)."""
+    if session.scope == "main":
+        base = slugify(session.title or session.id) or session.id[:8]
+        return f"main-{base[:80]}"
+    return f"{slugify(session.scope)}-{session.id[:8]}"
+
+
+class DiscordProvisioner:
+    """Cycle de vie serveur/catégories/canaux Discord, idempotent (piloté par le registre)."""
+
+    def __init__(self, registry, client, *, guild_id=None, admin_user_id=None):
+        self.registry = registry
+        self.client = client
+        self.guild_id = guild_id
+        self.admin_user_id = admin_user_id
+
+    async def ensure_server(self):
+        if self.guild_id:
+            return self.guild_id
+        if hasattr(self.client, "create_guild"):
+            self.guild_id = await self.client.create_guild("mekicode")
+            return self.guild_id
+        return None
+
+    async def ensure_project(self, project):
+        gid = await self.ensure_server()
+        d = dict(project.discord or {})
+        if not d.get("cat_main"):
+            d["cat_main"] = await self.client.create_category(gid, f"{project.slug}-main")
+        if not d.get("cat_worktrees"):
+            d["cat_worktrees"] = await self.client.create_category(gid, f"{project.slug}-worktrees")
+        d["guild_id"] = gid
+        project.discord = d
+        self.registry.update(project)
+        return d["cat_main"], d["cat_worktrees"]
+
+    async def ensure_channel(self, session):
+        if getattr(session, "discord_channel_id", None):
+            return session.discord_channel_id
+        project = self.registry.get(session.project_id)
+        cat_main, cat_wt = await self.ensure_project(project)
+        cat = cat_main if session.scope == "main" else cat_wt
+        ch = await self.client.create_channel(project.discord["guild_id"], cat, _channel_name(session))
+        session.discord_channel_id = ch
+        return ch
 
 
 def _color_from_id(author_id: str) -> str:
