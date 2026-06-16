@@ -19,6 +19,7 @@ class FakeMessage:
     author_id: str
     is_bot: bool
     content: str
+    message_id: str = ""        # id du message Discord (pour répondre dessus / reference)
 
 
 class FakeDiscordClient:
@@ -37,8 +38,9 @@ class FakeDiscordClient:
         self._seq += 1
         return f"{prefix}{self._seq}"
 
-    async def send(self, channel_id: str, text: str, embed: dict | None = None) -> int:
-        self._messages.append({"channel_id": channel_id, "text": text, "embed": embed})
+    async def send(self, channel_id: str, text: str, embed: dict | None = None, reply_to=None) -> int:
+        self._messages.append({"channel_id": channel_id, "text": text, "embed": embed,
+                               "reply_to": reply_to})
         return len(self._messages) - 1     # "message id" = index
 
     async def edit(self, channel_id: str, message_id: int, text: str, embed: dict | None = None) -> None:
@@ -219,6 +221,7 @@ class DiscordAdapter:
         self.tool_style = tool_style               # "text" (blocs) | "embed" (cartes)
         self._tasks: dict[str, asyncio.Task] = {}
         self._queues: dict = {}                    # channel_id -> {"active","pending","qmsg"}
+        self._questions: dict = {}                 # item_id -> message_id de la question (pour reply)
 
     async def handle_message(self, msg: FakeMessage) -> None:
         if msg.is_bot:
@@ -238,15 +241,17 @@ class DiscordAdapter:
             self._tasks[msg.channel_id] = asyncio.create_task(
                 self._render_loop(msg.channel_id, session_id)
             )
-        self.hub.submit(session_id, msg.content, author=author)
+        item_id = self.hub.submit(session_id, msg.content, author=author)
+        if msg.message_id:        # question venue de Discord : l'agent répondra sur ce message
+            self._questions[item_id] = msg.message_id
 
     def _qstate(self, channel_id) -> dict:
         """État de file d'attente par canal : run actif, messages en attente, id de l'embed file."""
         return self._queues.setdefault(channel_id, {"active": False, "pending": {}, "qmsg": None})
 
-    async def _emit(self, channel_id, text="", embed=None):
+    async def _emit(self, channel_id, text="", embed=None, reply_to=None):
         """Poste un message de CONTENU puis re-pose l'embed file d'attente TOUT EN BAS (delete+repost,
-        comme le cadre du front). Renvoie l'id du message de contenu."""
+        comme le cadre du front). `reply_to` = id de message à référencer. Renvoie l'id du contenu."""
         q = self._qstate(channel_id)
         if q["qmsg"] is not None:        # retire l'embed file : il sera reposté en dessous du contenu
             try:
@@ -254,7 +259,7 @@ class DiscordAdapter:
             except Exception:
                 pass
             q["qmsg"] = None
-        mid = await self.client.send(channel_id, text, embed=embed)
+        mid = await self.client.send(channel_id, text, embed=embed, reply_to=reply_to)
         await self._sync_queue(channel_id)     # repose la file en bas (si des messages attendent)
         return mid
 
@@ -285,6 +290,7 @@ class DiscordAdapter:
         buffer = ""
         last_edit = 0.0                # throttle des éditions de streaming (anti rate-limit Discord)
         tool_msgs: dict = {}           # tool_call_id -> {"mid", "summary"}
+        current_item = None            # item_id du run en cours (→ message question pour le reply)
         q = self._qstate(channel_id)   # état de file partagé pour ce canal
         async for event in self.hub.subscribe(session_id):
             name = type(event).__name__
@@ -301,23 +307,28 @@ class DiscordAdapter:
                     buffer = ""
                     msg_id = None      # ne PAS poster ici : la question (MessagePosted) doit précéder
                     tool_msgs.clear()
+                    current_item = event.item_id
                     q["active"] = True
                     if q["pending"].pop(event.item_id, None) is not None:
                         await self._sync_queue(channel_id)
                 elif name == "RunFinished":
                     q["active"] = False
+                    self._questions.pop(current_item, None)   # nettoyage de la question traitée
+                    current_item = None
                 elif name == "QueueEnqueued":
                     if q["active"]:    # n'affiche que ce qui attend DERRIÈRE un run en cours
                         q["pending"][event.item_id] = f"**{event.author_name}**: {event.text[:70]}"
                         await self._sync_queue(channel_id)
                 elif name == "QueueItemDeleted":
+                    self._questions.pop(event.item_id, None)
                     if q["pending"].pop(event.item_id, None) is not None:
                         await self._sync_queue(channel_id)
                 elif name == "AgentDelta":
                     buffer += event.text
                     now = asyncio.get_event_loop().time()
-                    if msg_id is None:        # 1er fragment : on crée le message APRÈS la question
-                        msg_id = await self._emit(channel_id, buffer or "…")
+                    if msg_id is None:        # 1er fragment : on RÉPOND au message de la question
+                        msg_id = await self._emit(channel_id, buffer or "…",
+                                                  reply_to=self._questions.get(current_item))
                         last_edit = now
                     elif now - last_edit >= 1.2:      # ~1 édition / 1.2s pendant le stream
                         await self.client.edit(channel_id, msg_id, buffer)
@@ -325,8 +336,9 @@ class DiscordAdapter:
                 elif name == "AgentDone":
                     if msg_id is not None:    # édition finale garantie (texte complet)
                         await self.client.edit(channel_id, msg_id, event.text)
-                    elif event.text:          # réponse sans streaming (ex. outil seul) : poster
-                        await self._emit(channel_id, event.text)
+                    elif event.text:          # réponse sans streaming (ex. outil seul) : répondre
+                        await self._emit(channel_id, event.text,
+                                         reply_to=self._questions.get(current_item))
                     msg_id = None
                 elif name == "ToolStarted":
                     summary = _tool_summary(event.name, event.args)
@@ -363,9 +375,14 @@ class DiscordAdapter:
                     else:
                         await self._emit(channel_id, txt)
                     msg_id = None
+                    self._questions.pop(current_item, None)
+                    current_item = None
                 elif name == "MessagePosted":
                     if getattr(event, "source", None) != f"discord:{channel_id}":
-                        await self._emit(channel_id, f"**{event.author_name}**: {event.text}")
+                        # question venue du front web : on poste le miroir et l'agent y répondra
+                        mirror = await self._emit(channel_id, f"**{event.author_name}**: {event.text}")
+                        if current_item is not None:
+                            self._questions[current_item] = mirror
             except Exception as e:     # JAMAIS tuer la boucle persistante sur une erreur Discord
                 print(f"[discord] rendu '{name}' sur {channel_id} échoué : {type(e).__name__}: {e}")
 
@@ -433,12 +450,17 @@ class RealDiscordClient:
             e.set_footer(text=spec["footer"])
         return e
 
-    async def send(self, channel_id, text, embed=None) -> str:
+    async def send(self, channel_id, text, embed=None, reply_to=None) -> str:
+        import discord
         ch = await self._channel(channel_id)
+        kw = {}
+        if reply_to:        # répond au message d'origine (référence visible dans Discord)
+            kw["reference"] = discord.MessageReference(
+                message_id=int(reply_to), channel_id=int(channel_id), fail_if_not_exists=False)
         if embed is not None:
-            msg = await ch.send(content=(text or None), embed=self._build_embed(embed))
+            msg = await ch.send(content=(text or None), embed=self._build_embed(embed), **kw)
         else:
-            msg = await ch.send((text or "…")[:2000])
+            msg = await ch.send((text or "…")[:2000], **kw)
         return str(msg.id)
 
     async def edit(self, channel_id, message_id, text, embed=None) -> None:
@@ -521,6 +543,6 @@ async def run_discord(hub, registry, store, *, token, guild_id=None, admin_user_
         await adapter.handle_message(FakeMessage(
             channel_id=str(message.channel.id), author_name=message.author.display_name,
             author_id=str(message.author.id), is_bot=message.author.bot,
-            content=message.content or ""))
+            content=message.content or "", message_id=str(message.id)))
 
     await client.start(token)

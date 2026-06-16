@@ -555,6 +555,29 @@ def test_discord_renders_tool_calls_as_embed():
     asyncio.run(scenario())
 
 
+def test_discord_agent_reply_references_question():
+    """La réponse de l'agent référence (reply) le message Discord de la question."""
+    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeLLM
+    from mekihub.hub import SessionHub
+    from mekihub.session import SessionStore
+    from mekihub.adapters.discord import DiscordAdapter, FakeDiscordClient, FakeMessage
+    async def scenario():
+        store = SessionStore(directory=str(ROOT / ".sessions"))
+        sess = store.create(model="m", system="sys")
+        hub = SessionHub(store=store, llm_factory=lambda: FakeLLM(reply="voici la reponse"),
+                         tools=[], dispatch={})
+        client = FakeDiscordClient()
+        adapter = DiscordAdapter(hub=hub, client=client, channel_session={"chan1": sess.id})
+        await adapter.handle_message(FakeMessage(channel_id="chan1", author_name="dom",
+                                     author_id="42", is_bot=False, content="salut", message_id="MSG_Q"))
+        await asyncio.sleep(0.3); await adapter.flush()
+        replied = [m for m in client._messages
+                   if m.get("reply_to") == "MSG_Q" and "voici la reponse" in (m.get("text") or "")]
+        assert replied, client._messages
+        store.delete(sess.id)
+    asyncio.run(scenario())
+
+
 def test_discord_queue_shows_pending():
     """Un 2e message envoyé pendant un run en cours apparaît dans l'embed « file d'attente »."""
     sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeLLM
@@ -659,5 +682,6 @@ if __name__ == "__main__":
     test_tool_embed_color_per_tool()
     test_discord_renders_tool_calls_as_embed()
     test_discord_queue_shows_pending()
+    test_discord_agent_reply_references_question()
     test_approve_worktree_failure_is_graceful()
     print("OK - tous les smoke mekihub passent")
