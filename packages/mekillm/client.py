@@ -6,6 +6,7 @@ l'API OpenAI). complete() renvoie un LLMResponse normalisé et émet un CallReco
 from __future__ import annotations
 
 import json
+import os
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -181,6 +182,30 @@ def _observe_call(model, n_messages, n_tools):
         ))
 
 
+# Marqueurs d'erreurs LLM transitoires (aléa provider / flux SSE) → on retente automatiquement.
+# Ex. OpenRouter qui injecte une erreur dans le flux quand un modèle « furtif » échoue en cours
+# de génération : « JSON error injected into SSE stream ».
+_TRANSIENT_MARKERS = (
+    "injected into sse", "sse stream", "json error", "overloaded", "rate limit", "rate_limit",
+    "429", "500", "502", "503", "504", "timeout", "timed out", "temporarily unavailable",
+    "connection", "upstream", "provider returned error", "no instances available",
+)
+
+
+def _is_transient(exc: Exception) -> bool:
+    """Vrai si l'erreur ressemble à un aléa provider/flux (à retenter) plutôt qu'à une faute de requête."""
+    s = str(exc).lower()
+    return any(m in s for m in _TRANSIENT_MARKERS)
+
+
+def _max_retries() -> int:
+    """Nombre de re-tentatives sur erreur transitoire (env MEKILLM_RETRIES, défaut 2)."""
+    try:
+        return max(0, int(os.environ.get("MEKILLM_RETRIES", "2")))
+    except ValueError:
+        return 2
+
+
 class LLM:
     """Provider LLM réutilisable. Lit la config depuis .env, surchargeable par args."""
 
@@ -199,18 +224,42 @@ class LLM:
         return sent, params
 
     def complete(self, messages, tools=None, system=None, max_tokens=8000, **kwargs) -> LLMResponse:
-        """Un tour de complétion. Émet un CallRecord (succès comme erreur)."""
+        """Un tour de complétion. Émet un CallRecord (succès comme erreur). Retente sur aléa provider."""
         sent, params = self._prepare(messages, system, tools, max_tokens, **kwargs)
-        with _observe_call(self.model, len(sent), len(tools or [])) as rec:
-            out = _normalize(self._client.chat.completions.create(**params))
-            rec["finish_reason"], rec["usage"] = out.finish_reason, out.usage
-            return out
+        attempts = _max_retries() + 1
+        for attempt in range(1, attempts + 1):
+            try:
+                with _observe_call(self.model, len(sent), len(tools or [])) as rec:
+                    out = _normalize(self._client.chat.completions.create(**params))
+                    rec["finish_reason"], rec["usage"] = out.finish_reason, out.usage
+                    return out
+            except Exception as e:
+                if attempt < attempts and _is_transient(e):
+                    log.warning("appel LLM transitoire (tentative %d/%d) : %s — nouvelle tentative",
+                                attempt, attempts, e)
+                    time.sleep(min(2.0, 0.5 * attempt))
+                    continue
+                raise
 
     def stream(self, messages, tools=None, system=None, max_tokens=8000, **kwargs):
         """Comme complete(), mais en flux : générateur de tokens ; **return** le LLMResponse final.
-        Émet un CallRecord (usage à 0 en streaming, sans stream_options). Réassemble les tool_calls."""
+        Émet un CallRecord (usage à 0 en streaming, sans stream_options). Réassemble les tool_calls.
+
+        Retente sur aléa provider/flux (ex. « JSON error injected into SSE stream ») : une tentative
+        ratée a pu yield des tokens partiels, mais l'`AssistantDone` final (texte complet de la
+        tentative réussie) recale l'affichage côté front/Discord."""
         sent, params = self._prepare(messages, system, tools, max_tokens, stream=True, **kwargs)
-        with _observe_call(self.model, len(sent), len(tools or [])) as rec:
-            out = yield from _consume_stream(self._client.chat.completions.create(**params))
-            rec["finish_reason"], rec["usage"] = out.finish_reason, out.usage
-            return out
+        attempts = _max_retries() + 1
+        for attempt in range(1, attempts + 1):
+            try:
+                with _observe_call(self.model, len(sent), len(tools or [])) as rec:
+                    out = yield from _consume_stream(self._client.chat.completions.create(**params))
+                    rec["finish_reason"], rec["usage"] = out.finish_reason, out.usage
+                    return out
+            except Exception as e:
+                if attempt < attempts and _is_transient(e):
+                    log.warning("flux LLM transitoire (tentative %d/%d) : %s — nouvelle tentative",
+                                attempt, attempts, e)
+                    time.sleep(min(2.0, 0.5 * attempt))
+                    continue
+                raise

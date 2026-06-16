@@ -349,6 +349,61 @@ def test_llm_wrappers_stub():
     assert len([r for r in seen if r.model == "stub-model"]) == 2
 
 
+def test_is_transient_classification():
+    from mekillm.client import _is_transient
+    assert _is_transient(RuntimeError("JSON error injected into SSE stream"))
+    assert _is_transient(Exception("Provider returned error: overloaded"))
+    assert _is_transient(Exception("HTTP 429 rate limit exceeded"))
+    assert not _is_transient(ValueError("invalid model name"))
+    assert not _is_transient(Exception("bad request: messages required"))
+
+
+def test_stream_retries_on_transient_error():
+    """stream() retente sur une erreur transitoire puis réussit (tokens de la tentative réussie)."""
+    llm = mekillm.LLM.__new__(mekillm.LLM)
+    llm.model = "stub-model"
+    good = [NS(choices=[NS(delta=NS(content="hello", tool_calls=None), finish_reason=None)], usage=None),
+            NS(choices=[NS(delta=NS(content=None, tool_calls=None), finish_reason="stop")], usage=None)]
+
+    class _Flaky:
+        calls = 0
+        def create(self, **params):
+            type(self).calls += 1
+            if self.calls == 1:
+                raise RuntimeError("JSON error injected into SSE stream")
+            return iter(good)
+
+    llm._client = NS(chat=NS(completions=_Flaky()))
+    os.environ["MEKILLM_RETRIES"] = "2"
+    try:
+        toks = list(_drain(llm.stream([{"role": "user", "content": "hi"}])))
+    finally:
+        os.environ.pop("MEKILLM_RETRIES", None)
+    resp = _drain.value
+    assert _Flaky.calls == 2                      # 1 échec transitoire + 1 succès
+    assert toks == ["hello"] and resp.text == "hello" and resp.finish_reason == "stop"
+
+
+def test_stream_no_retry_on_permanent_error():
+    """Une erreur NON transitoire (faute de requête) n'est pas retentée."""
+    llm = mekillm.LLM.__new__(mekillm.LLM)
+    llm.model = "stub-model"
+
+    class _Bad:
+        calls = 0
+        def create(self, **params):
+            type(self).calls += 1
+            raise ValueError("invalid request: bad messages")
+
+    llm._client = NS(chat=NS(completions=_Bad()))
+    try:
+        list(_drain(llm.stream([{"role": "user", "content": "hi"}])))
+        assert False, "devait lever"
+    except ValueError:
+        pass
+    assert _Bad.calls == 1                        # pas de retry sur erreur permanente
+
+
 def test_safe_path_confine():
     with tempfile.TemporaryDirectory() as d, _ws(d):
         root = Path(d).resolve()
@@ -450,6 +505,9 @@ def main():
     test_consume_stream_text_then_tool()
     test_run_agent_streaming()
     test_llm_wrappers_stub()
+    test_is_transient_classification()
+    test_stream_retries_on_transient_error()
+    test_stream_no_retry_on_permanent_error()
     test_safe_path_confine()
     test_write_read_roundtrip()
     test_edit_unique_and_ambiguous()
