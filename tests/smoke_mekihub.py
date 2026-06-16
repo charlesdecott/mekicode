@@ -555,6 +555,33 @@ def test_discord_renders_tool_calls_as_embed():
     asyncio.run(scenario())
 
 
+def test_discord_queue_shows_pending():
+    """Un 2e message envoyé pendant un run en cours apparaît dans l'embed « file d'attente »."""
+    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeLLM
+    from mekihub.hub import SessionHub
+    from mekihub.session import SessionStore
+    from mekihub.adapters.discord import DiscordAdapter, FakeDiscordClient, FakeMessage
+    async def scenario():
+        store = SessionStore(directory=str(ROOT / ".sessions"))
+        sess = store.create(model="m", system="sys")
+        hub = SessionHub(store=store, llm_factory=lambda: FakeLLM(reply="ok", delay=0.3),
+                         tools=[], dispatch={})
+        client = FakeDiscordClient()
+        adapter = DiscordAdapter(hub=hub, client=client, channel_session={"chan1": sess.id})
+        await adapter.handle_message(FakeMessage(channel_id="chan1", author_name="alice",
+                                     author_id="u1", is_bot=False, content="premier"))
+        await asyncio.sleep(0.08)        # le 1er run est en cours
+        await adapter.handle_message(FakeMessage(channel_id="chan1", author_name="bob",
+                                     author_id="u2", is_bot=False, content="deuxieme"))
+        await asyncio.sleep(0.08)        # le 2e est en file d'attente
+        qembeds = [e for e in client.sent_embeds() if "attente" in (e.get("title") or "")]
+        assert qembeds, ("pas d'embed file d'attente", client.sent_embeds())
+        assert any("deuxieme" in str(e) for e in qembeds), qembeds
+        await adapter.flush()
+        store.delete(sess.id)
+    asyncio.run(scenario())
+
+
 def test_approve_worktree_failure_is_graceful():
     """B1 : si git worktree add échoue (branche déjà prise), approve_worktree ne crash pas,
     retire la proposition, publie WorktreeRejected + RunError, et renvoie None (never-raise)."""
@@ -631,5 +658,6 @@ if __name__ == "__main__":
     test_discord_renders_tool_calls()
     test_tool_embed_color_per_tool()
     test_discord_renders_tool_calls_as_embed()
+    test_discord_queue_shows_pending()
     test_approve_worktree_failure_is_graceful()
     print("OK - tous les smoke mekihub passent")

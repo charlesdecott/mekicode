@@ -547,15 +547,15 @@ def index() -> None:
                     _chip("MODEL", current.model, "model")
                     _chip("SID", current.id, "sid")
                     bars_ref["presence"] = ui.element("div").classes("presence")
-            # barre de file d'attente (au-dessus du fil, hors de thread-inner pour survivre
-            # à la reconstruction du fil sur Snapshot)
-            with ui.element("div").classes("queue-bar"):
-                bars_ref["queue"] = ui.element("div").classes("queue")
             with ui.element("div").classes("thread"):
                 inner = ui.element("div").classes("thread-inner")
                 thread_ref["inner"] = inner
                 with inner:
                     views.render_thread(current.messages, current.authors)
+            # cadre de file d'attente : juste au-dessus du composer (en bas), hors de thread-inner
+            # pour survivre à la reconstruction du fil sur Snapshot
+            with ui.element("div").classes("queue-bar"):
+                bars_ref["queue"] = ui.element("div").classes("queue")
             with ui.element("div").classes("composer"):
                 with ui.element("div").classes("composer-inner"):
                     with ui.element("div").classes("input-wrap"):

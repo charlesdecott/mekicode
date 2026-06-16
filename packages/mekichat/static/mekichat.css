@@ -222,7 +222,10 @@
 /* ── FILE D'ATTENTE (items en attente d'un run, supprimables) ── */
 .queue-bar{flex:none;max-width:880px;width:100%;margin:0 auto;padding:0 28px}
 .queue-bar:has(.queue:empty){display:none}
-.queue:not(:empty){padding:8px 0 2px}
+.queue:not(:empty){padding:8px 10px 6px;margin:0 0 6px;border:1px solid color-mix(in srgb,var(--warn) 28%,transparent);
+  background:var(--warn-bg);clip-path:var(--clip-sm)}
+.queue:not(:empty)::before{content:"⏳ EN ATTENTE";display:block;font-family:var(--mono);font-size:9px;
+  letter-spacing:.2em;color:var(--warn);margin-bottom:5px}
 .qitem{display:flex;align-items:center;gap:8px;padding:4px 8px;border-left:2px solid var(--ac,#6c8595);
   background:rgba(0,0,0,.35);margin:2px 0}
 .q-author{color:var(--ac);font-weight:700;font-size:11px;font-family:var(--mono);flex:none}
