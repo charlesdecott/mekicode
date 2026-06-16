@@ -55,7 +55,7 @@ class PendingQueue:
 
 _DONE = object()
 
-WORKTREE_TOOL = {"type": "function", "function": {"name": "spawn_worktree",
+_WORKTREE_TOOL = {"type": "function", "function": {"name": "spawn_worktree",
   "description": "Propose la création d'un worktree git isolé (nouvelle feature/changement ambitieux/"
     "debug, pour ne pas bloquer main) et le lancement d'un agent dedans. Nécessite la validation "
     "de l'utilisateur avant toute création.",
@@ -223,7 +223,7 @@ class SessionHub:
                                                        source=item.author.source))
             proposals = []
             if self.registry is not None:
-                tools_run = list(self.tools) + [WORKTREE_TOOL]
+                tools_run = list(self.tools) + [_WORKTREE_TOOL]
                 dispatch = {**dispatch, "spawn_worktree": lambda a, _p=proposals: _record_proposal(_p, a)}
             else:
                 tools_run = self.tools

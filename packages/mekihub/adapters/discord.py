@@ -2,8 +2,8 @@
 
 Mapping canal Discord -> session. Un message entrant -> hub.submit. Une tâche par session
 mappée consomme hub.subscribe et rend la sortie agent (post/edit). discord.py n'est PAS importé
-au niveau module (optionnel) : `connect_real()` l'importe à la demande. La logique est testable
-via FakeDiscordClient (réseau-free).
+au niveau module (optionnel) : `run_discord()` construit le client et démarre le bot à la demande.
+La logique est testable via FakeDiscordClient (réseau-free).
 """
 from __future__ import annotations
 
@@ -140,8 +140,9 @@ class DiscordProvisioner:
         session.discord_channel_id = ch
         return ch
 
-    async def reconcile(self, store):
-        """Parcourt projets+sessions ; crée les canaux manquants (idempotent). Renvoie le nb de créations."""
+    async def reconcile(self, store, mapping=None):
+        """Parcourt projets+sessions ; crée les canaux manquants (idempotent). Renvoie le nb de
+        créations. Si `mapping` (dict) est fourni, le remplit canal_id→session_id (évite un 2e scan)."""
         created = 0
         for project in self.registry.list():
             await self.ensure_project(project)
@@ -151,6 +152,8 @@ class DiscordProvisioner:
                     await self.ensure_channel(sess)
                     store.save(sess)
                     created += 1
+                if mapping is not None and sess.discord_channel_id:
+                    mapping[str(sess.discord_channel_id)] = sess.id
         return created
 
 
@@ -260,7 +263,8 @@ class DiscordAdapter:
                 pass
             q["qmsg"] = None
         mid = await self.client.send(channel_id, text, embed=embed, reply_to=reply_to)
-        await self._sync_queue(channel_id)     # repose la file en bas (si des messages attendent)
+        if q["pending"]:                       # repose la file en bas seulement si des messages attendent
+            await self._sync_queue(channel_id)
         return mid
 
     async def _sync_queue(self, channel_id):
@@ -325,7 +329,7 @@ class DiscordAdapter:
                         await self._sync_queue(channel_id)
                 elif name == "AgentDelta":
                     buffer += event.text
-                    now = asyncio.get_event_loop().time()
+                    now = asyncio.get_running_loop().time()
                     if msg_id is None:        # 1er fragment : on RÉPOND au message de la question
                         msg_id = await self._emit(channel_id, buffer or "…",
                                                   reply_to=self._questions.get(current_item))
@@ -405,25 +409,6 @@ class DiscordAdapter:
                 self._tasks[channel_id] = asyncio.create_task(
                     self._render_loop(channel_id, session_id, persistent=True))
 
-    async def connect_real(self, token: str) -> None:
-        """Connexion Discord réelle (discord.py). Importé à la demande ; validation manuelle."""
-        import discord  # importé seulement ici (dépendance optionnelle)
-        intents = discord.Intents.default()
-        intents.message_content = True
-        client = discord.Client(intents=intents)
-
-        @client.event
-        async def on_message(message):  # noqa: ANN001
-            await self.handle_message(FakeMessage(
-                channel_id=str(message.channel.id), author_name=message.author.display_name,
-                author_id=str(message.author.id), is_bot=message.author.bot,
-                content=message.content))
-
-        # NB : self.client doit alors être un wrapper qui appelle channel.send/edit ; câblage réel
-        # finalisé lors de la validation manuelle avec un vrai token.
-        await client.start(token)
-
-
 class RealDiscordClient:
     """Adapte un `discord.Client` à l'interface attendue par DiscordProvisioner/DiscordAdapter
     (send/edit/create_guild/create_category/create_channel/create_invite). Tous les ids sont des str."""
@@ -465,7 +450,7 @@ class RealDiscordClient:
 
     async def edit(self, channel_id, message_id, text, embed=None) -> None:
         ch = await self._channel(channel_id)
-        msg = await ch.fetch_message(int(message_id))
+        msg = ch.get_partial_message(int(message_id))   # PATCH direct, sans GET préalable
         if embed is not None:
             await msg.edit(content=(text or None), embed=self._build_embed(embed))
         else:
@@ -525,13 +510,8 @@ async def run_discord(hub, registry, store, *, token, guild_id=None, admin_user_
     @client.event
     async def on_ready():
         try:
-            n = await prov.reconcile(store)
-            for project in registry.list():
-                for meta in store.list(project_id=project.id):
-                    sess = store.load(meta.id)
-                    chan = getattr(sess, "discord_channel_id", None)
-                    if chan:
-                        adapter.channel_session[str(chan)] = sess.id
+            # reconcile crée les canaux manquants ET remplit le mapping canal→session (un seul scan)
+            n = await prov.reconcile(store, mapping=adapter.channel_session)
             await adapter.start_all()
             print(f"[discord] prêt — {client.user} · {n} canal(aux) créé(s) · "
                   f"{len(adapter.channel_session)} canal(aux) mappé(s)")

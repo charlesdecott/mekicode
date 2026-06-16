@@ -193,7 +193,7 @@ _TRANSIENT_MARKERS = (
 
 
 def _is_transient(exc: Exception) -> bool:
-    """Vrai si l'erreur ressemble à un aléa provider/flux (à retenter) plutôt qu'à une faute de requête."""
+    """Vrai si l'erreur ressemble à un aléa provider/flux (à retenter), pas une faute de requête."""
     s = str(exc).lower()
     return any(m in s for m in _TRANSIENT_MARKERS)
 
@@ -204,6 +204,17 @@ def _max_retries() -> int:
         return max(0, int(os.environ.get("MEKILLM_RETRIES", "2")))
     except ValueError:
         return 2
+
+
+def _retry_or_raise(exc: Exception, attempt: int, attempts: int, label: str) -> None:
+    """Politique de retry partagée par complete()/stream() : si l'erreur est transitoire et qu'il
+    reste des tentatives, loggue + dort (le caller enchaîne l'itération suivante) ; sinon relève."""
+    if attempt < attempts and _is_transient(exc):
+        log.warning("%s transitoire (tentative %d/%d) : %s — nouvelle tentative",
+                    label, attempt, attempts, exc)
+        time.sleep(min(2.0, 0.5 * attempt))
+        return
+    raise exc
 
 
 class LLM:
@@ -234,12 +245,7 @@ class LLM:
                     rec["finish_reason"], rec["usage"] = out.finish_reason, out.usage
                     return out
             except Exception as e:
-                if attempt < attempts and _is_transient(e):
-                    log.warning("appel LLM transitoire (tentative %d/%d) : %s — nouvelle tentative",
-                                attempt, attempts, e)
-                    time.sleep(min(2.0, 0.5 * attempt))
-                    continue
-                raise
+                _retry_or_raise(e, attempt, attempts, "appel LLM")
 
     def stream(self, messages, tools=None, system=None, max_tokens=8000, **kwargs):
         """Comme complete(), mais en flux : générateur de tokens ; **return** le LLMResponse final.
@@ -257,9 +263,4 @@ class LLM:
                     rec["finish_reason"], rec["usage"] = out.finish_reason, out.usage
                     return out
             except Exception as e:
-                if attempt < attempts and _is_transient(e):
-                    log.warning("flux LLM transitoire (tentative %d/%d) : %s — nouvelle tentative",
-                                attempt, attempts, e)
-                    time.sleep(min(2.0, 0.5 * attempt))
-                    continue
-                raise
+                _retry_or_raise(e, attempt, attempts, "flux LLM")

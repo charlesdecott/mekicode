@@ -109,7 +109,6 @@ async def _boot_discord() -> None:
         return
     from mekihub.adapters.discord import run_discord
     hub = _get_hub()
-    import asyncio
     asyncio.create_task(run_discord(
         hub, _get_registry(), hub.store, token=token,
         guild_id=os.environ.get("DISCORD_GUILD_ID") or None,
@@ -124,7 +123,6 @@ def _mirror_session_to_discord(session) -> None:
     adapter = _DISCORD.get("adapter")
     if prov is None or adapter is None:
         return
-    import asyncio
 
     async def _run():
         try:
@@ -174,6 +172,21 @@ def index() -> None:
     sub_ref: dict[str, object] = {"timer": None}
     state = {"busy": False}
 
+    def _metas_for_scope(pid: str, scope: str):
+        """Liste les sessions d'un projet filtrées par scope (main = exact ; autre = tout sauf main)."""
+        if scope == "main":
+            return _get_store().list(project_id=pid, scope="main")
+        return [m for m in _get_store().list(project_id=pid) if m.scope != "main"]
+
+    def _new_session():
+        """Crée une nouvelle session pour le projet/scope courant et la retourne."""
+        return _get_store().create(
+            model=DEFAULT_MODEL,
+            system=_system_for(current_project, current_scope),
+            project_id=current_project.id,
+            scope=current_scope,
+        )
+
     def open_session(session_id: str) -> None:
         nonlocal current
         if state["busy"]:
@@ -185,12 +198,7 @@ def index() -> None:
         nonlocal current
         if state["busy"]:
             return
-        current = _get_store().create(
-            model=DEFAULT_MODEL,
-            system=_system_for(current_project, current_scope),
-            project_id=current_project.id,
-            scope=current_scope,
-        )
+        current = _new_session()
         _mirror_session_to_discord(current)     # crée le canal Discord (no-op si Discord off)
         _refresh()
 
@@ -212,18 +220,8 @@ def index() -> None:
             return
         current_project = proj
         # Charge la session la plus récente pour ce projet/scope, ou en crée une
-        metas = _get_store().list(project_id=pid, scope="main" if current_scope == "main" else None)
-        if current_scope != "main":
-            metas = [m for m in _get_store().list(project_id=pid) if m.scope != "main"]
-        if metas:
-            current = _get_store().load(metas[0].id)
-        else:
-            current = _get_store().create(
-                model=DEFAULT_MODEL,
-                system=_system_for(current_project, current_scope),
-                project_id=current_project.id,
-                scope=current_scope,
-            )
+        metas = _metas_for_scope(pid, current_scope)
+        current = _get_store().load(metas[0].id) if metas else _new_session()
         _refresh()
 
     def pick_scope(scope: str) -> None:
@@ -232,20 +230,8 @@ def index() -> None:
             return
         current_scope = scope
         # Charge la session la plus récente pour ce projet/scope, ou en crée une
-        if scope == "main":
-            metas = _get_store().list(project_id=current_project.id, scope="main")
-        else:
-            metas = [m for m in _get_store().list(project_id=current_project.id)
-                     if m.scope != "main"]
-        if metas:
-            current = _get_store().load(metas[0].id)
-        else:
-            current = _get_store().create(
-                model=DEFAULT_MODEL,
-                system=_system_for(current_project, current_scope),
-                project_id=current_project.id,
-                scope=current_scope,
-            )
+        metas = _metas_for_scope(current_project.id, scope)
+        current = _get_store().load(metas[0].id) if metas else _new_session()
         _refresh()
 
     def _scroll_bottom() -> None:
@@ -513,11 +499,7 @@ def index() -> None:
                 ui.html("<kbd>⌘N</kbd>")
 
             # Sessions filtrées par projet courant + scope courant
-            if current_scope == "main":
-                metas = store.list(project_id=current_project.id, scope="main")
-            else:
-                metas = [m for m in store.list(project_id=current_project.id)
-                         if m.scope != "main"]
+            metas = _metas_for_scope(current_project.id, current_scope)
             with ui.element("div").classes("sec-label"):
                 ui.label("SESSIONS")
                 ui.label(f"[{len(metas):02d}]").classes("n")

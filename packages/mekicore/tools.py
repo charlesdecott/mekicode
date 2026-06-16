@@ -19,9 +19,14 @@ def _workspace() -> Path:
     return Path(os.environ.get("MEKICORE_WORKSPACE") or os.getcwd()).resolve()
 
 
+def _resolve_ws(ws: Path | None) -> Path:
+    """Retourne ws s'il est fourni, sinon lit _workspace() (env ou cwd)."""
+    return ws if ws is not None else _workspace()
+
+
 def _safe_path(p: str, ws: Path | None = None) -> Path:
     """Résout p dans le workspace ; lève ValueError s'il s'en échappe (absolu hors racine, ../)."""
-    ws = ws if ws is not None else _workspace()
+    ws = _resolve_ws(ws)
     target = (ws / p).resolve()
     if target != ws and ws not in target.parents:
         raise ValueError(f"chemin hors du workspace : {p}")
@@ -48,7 +53,7 @@ def run_bash(command: str, cwd: Path | None = None) -> str:
 
 def read_file(path: str, ws: Path | None = None) -> str:
     """Lit un fichier texte (confiné au workspace)."""
-    ws = ws if ws is not None else _workspace()
+    ws = _resolve_ws(ws)
     try:
         p = _safe_path(path, ws)
     except ValueError as e:
@@ -63,7 +68,7 @@ def read_file(path: str, ws: Path | None = None) -> str:
 
 def write_file(path: str, content: str, ws: Path | None = None) -> str:
     """Crée ou écrase un fichier texte (crée les dossiers parents)."""
-    ws = ws if ws is not None else _workspace()
+    ws = _resolve_ws(ws)
     try:
         p = _safe_path(path, ws)
     except ValueError as e:
@@ -78,7 +83,7 @@ def write_file(path: str, content: str, ws: Path | None = None) -> str:
 
 def edit_file(path: str, old: str, new: str, ws: Path | None = None) -> str:
     """Remplace `old` par `new` si `old` apparaît exactement une fois (str-replace)."""
-    ws = ws if ws is not None else _workspace()
+    ws = _resolve_ws(ws)
     try:
         p = _safe_path(path, ws)
     except ValueError as e:
@@ -103,7 +108,7 @@ def edit_file(path: str, old: str, new: str, ws: Path | None = None) -> str:
 
 def grep_files(pattern: str, path: str = ".", ws: Path | None = None) -> str:
     """Cherche une regex dans les fichiers texte sous `path` (confiné). Renvoie relpath:ligne: contenu."""
-    ws = ws if ws is not None else _workspace()
+    ws = _resolve_ws(ws)
     try:
         root = _safe_path(path, ws)
         rx = re.compile(pattern)
@@ -141,7 +146,7 @@ def grep_files(pattern: str, path: str = ".", ws: Path | None = None) -> str:
 def glob_files(pattern: str, ws: Path | None = None) -> str:
     """Liste les fichiers correspondant au motif (ex. **/*.py) sous le workspace, chemins relatifs.
     Ignore les correspondances qui s'échappent du workspace (motifs avec ../, absolus)."""
-    ws = ws if ws is not None else _workspace()
+    ws = _resolve_ws(ws)
     matches: list[str] = []
     try:
         for p in ws.glob(pattern):

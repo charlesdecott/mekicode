@@ -33,21 +33,16 @@ def main() -> None:
     front = os.environ.get("MEKIHUB_FRONT", "on").lower() != "off"
     discord_on = os.environ.get("MEKIHUB_DISCORD", "off").lower() == "on"
     if discord_on and not front:
-        # headless : boucle asyncio Discord seule
+        # headless : boucle asyncio Discord seule (provisioning + miroir bidirectionnel)
         import asyncio
-        from adapters.discord import DiscordAdapter
+        from adapters.discord import run_discord
         hub = build_hub()
         token = os.environ["DISCORD_BOT_TOKEN"]
-        mapping = {}  # à renseigner via DISCORD_CHANNEL_SESSION_MAP (clé=canal, val=session)
-        # Point d'intégration reconcile : lors de la validation manuelle avec un vrai token,
-        # câbler ici :
-        #   from adapters.discord import provisioner_from_env
-        #   provisioner = provisioner_from_env(hub.registry, <client_reel>)
-        #   if provisioner:
-        #       asyncio.run(provisioner.reconcile(hub.store))
-        # Le client réel est finalisé dans connect_real (voir DiscordAdapter.connect_real).
-        adapter = DiscordAdapter(hub=hub, client=None, channel_session=mapping)
-        asyncio.run(adapter.connect_real(token))
+        asyncio.run(run_discord(
+            hub, hub.registry, hub.store, token=token,
+            guild_id=os.environ.get("DISCORD_GUILD_ID") or None,
+            admin_user_id=os.environ.get("MEKICODE_ADMIN_USER_ID") or None,
+        ))
         return
     # front activé : déléguer à l'app NiceGUI (qui crée son propre hub module-level)
     sys.path.insert(0, str(HERE.parent / "mekichat"))

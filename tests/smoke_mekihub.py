@@ -415,8 +415,10 @@ def test_reconcile_creates_missing_channels():
             store.create(model="m", project_id=p.id, scope="main")
             client = FakeDiscordClient()
             prov = DiscordProvisioner(registry=reg, client=client, guild_id="g1")
-            n = await prov.reconcile(store)
+            mapping = {}
+            n = await prov.reconcile(store, mapping=mapping)
             assert n == 2 and client.channel_count() >= 2
+            assert len(mapping) == 2                     # mapping canal→session rempli en un seul scan
             assert await prov.reconcile(store) == 0     # idempotent : tout est déjà posé
     asyncio.run(scenario())
 
