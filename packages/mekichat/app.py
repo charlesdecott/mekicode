@@ -353,7 +353,7 @@ def index() -> None:
                     body, lbl = views.render_stream_bubble()
                     stream_ref["body"], stream_ref["lbl"], stream_ref["text"] = body, lbl, ""
                 stream_ref["text"] = stream_ref["text"] + event.text
-                stream_ref["lbl"].set_text(stream_ref["text"])
+                stream_ref["lbl"].set_content(stream_ref["text"])   # preview markdown live
             return
 
         if name == "AgentDone":

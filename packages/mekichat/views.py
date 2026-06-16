@@ -223,14 +223,14 @@ def render_thread(messages: list, authors: dict | None = None) -> None:
 
 
 def render_stream_bubble():
-    """Bulle assistant en cours de streaming. Renvoie (conteneur_body, label_texte) :
-    on met à jour le label à chaque token, puis on finalise via finalize_stream()."""
+    """Bulle assistant en cours de streaming. Renvoie (conteneur_body, élément_markdown) :
+    on met à jour le markdown à chaque token (preview live), puis on finalise via finalize_stream()."""
     _, col = _msg_shell("assistant")
     with col:
         body = ui.element("div").classes("body streaming")
         with body:
-            lbl = ui.label("")
-    return body, lbl
+            md = ui.markdown("", extras=_MD_EXTRAS)   # preview markdown live (pas seulement à la fin)
+    return body, md
 
 
 def finalize_stream(body, text: str) -> None:
