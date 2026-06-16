@@ -218,6 +218,7 @@ class DiscordAdapter:
         self.channel_session = channel_session     # channel_id -> session_id
         self.tool_style = tool_style               # "text" (blocs) | "embed" (cartes)
         self._tasks: dict[str, asyncio.Task] = {}
+        self._queues: dict = {}                    # channel_id -> {"active","pending","qmsg"}
 
     async def handle_message(self, msg: FakeMessage) -> None:
         if msg.is_bot:
@@ -239,21 +240,59 @@ class DiscordAdapter:
             )
         self.hub.submit(session_id, msg.content, author=author)
 
+    def _qstate(self, channel_id) -> dict:
+        """État de file d'attente par canal : run actif, messages en attente, id de l'embed file."""
+        return self._queues.setdefault(channel_id, {"active": False, "pending": {}, "qmsg": None})
+
+    async def _emit(self, channel_id, text="", embed=None):
+        """Poste un message de CONTENU puis re-pose l'embed file d'attente TOUT EN BAS (delete+repost,
+        comme le cadre du front). Renvoie l'id du message de contenu."""
+        q = self._qstate(channel_id)
+        if q["qmsg"] is not None:        # retire l'embed file : il sera reposté en dessous du contenu
+            try:
+                await self.client.delete(channel_id, q["qmsg"])
+            except Exception:
+                pass
+            q["qmsg"] = None
+        mid = await self.client.send(channel_id, text, embed=embed)
+        await self._sync_queue(channel_id)     # repose la file en bas (si des messages attendent)
+        return mid
+
+    async def _sync_queue(self, channel_id):
+        """(Re)pose / met à jour / supprime l'embed file d'attente selon l'état du canal.
+        Embed jaune compact listant les messages en attente, toujours posé en dernier."""
+        q = self._qstate(channel_id)
+        pending = q["pending"]
+        if pending:
+            lines = "\n".join(f"• {v}" for v in list(pending.values())[:10])
+            if len(pending) > 10:
+                lines += f"\n… (+{len(pending) - 10})"
+            embed = {"title": f"⏳ File d'attente ({len(pending)})", "color": 0xF7FF12,
+                     "fields": [{"name": "messages en attente", "value": lines[:1000], "inline": False}]}
+            if q["qmsg"] is None:
+                q["qmsg"] = await self.client.send(channel_id, "", embed=embed)
+            else:
+                await self.client.edit(channel_id, q["qmsg"], "", embed=embed)
+        elif q["qmsg"] is not None:
+            try:
+                await self.client.delete(channel_id, q["qmsg"])
+            except Exception:
+                pass
+            q["qmsg"] = None
+
     async def _render_loop(self, channel_id: str, session_id: str, persistent: bool = False) -> None:
         msg_id = None
         buffer = ""
         last_edit = 0.0                # throttle des éditions de streaming (anti rate-limit Discord)
         tool_msgs: dict = {}           # tool_call_id -> {"mid", "summary"}
-        active = False                 # un run est en cours (entre RunStarted et RunFinished)
-        pending: dict = {}             # item_id -> "**auteur**: texte" (messages en file d'attente)
-        qmsg = None                    # id du message Discord « file d'attente »
+        q = self._qstate(channel_id)   # état de file partagé pour ce canal
         async for event in self.hub.subscribe(session_id):
             name = type(event).__name__
             if name == "Idle":         # hors try : doit toujours boucler/sortir proprement
-                active = False
-                if pending or qmsg is not None:
-                    pending.clear()
-                    qmsg = await self._sync_queue(channel_id, pending, qmsg)
+                q["active"] = False
+                if q["pending"] or q["qmsg"] is not None:
+                    q["pending"].clear()
+                    await self._sync_queue(channel_id)
                 if persistent:
                     continue           # miroir permanent : on reste abonné entre les runs
                 break
@@ -262,23 +301,23 @@ class DiscordAdapter:
                     buffer = ""
                     msg_id = None      # ne PAS poster ici : la question (MessagePosted) doit précéder
                     tool_msgs.clear()
-                    active = True
-                    if pending.pop(event.item_id, None) is not None:
-                        qmsg = await self._sync_queue(channel_id, pending, qmsg)
+                    q["active"] = True
+                    if q["pending"].pop(event.item_id, None) is not None:
+                        await self._sync_queue(channel_id)
                 elif name == "RunFinished":
-                    active = False
+                    q["active"] = False
                 elif name == "QueueEnqueued":
-                    if active:         # n'affiche que ce qui attend DERRIÈRE un run en cours
-                        pending[event.item_id] = f"**{event.author_name}**: {event.text[:70]}"
-                        qmsg = await self._sync_queue(channel_id, pending, qmsg)
+                    if q["active"]:    # n'affiche que ce qui attend DERRIÈRE un run en cours
+                        q["pending"][event.item_id] = f"**{event.author_name}**: {event.text[:70]}"
+                        await self._sync_queue(channel_id)
                 elif name == "QueueItemDeleted":
-                    if pending.pop(event.item_id, None) is not None:
-                        qmsg = await self._sync_queue(channel_id, pending, qmsg)
+                    if q["pending"].pop(event.item_id, None) is not None:
+                        await self._sync_queue(channel_id)
                 elif name == "AgentDelta":
                     buffer += event.text
                     now = asyncio.get_event_loop().time()
                     if msg_id is None:        # 1er fragment : on crée le message APRÈS la question
-                        msg_id = await self.client.send(channel_id, buffer or "…")
+                        msg_id = await self._emit(channel_id, buffer or "…")
                         last_edit = now
                     elif now - last_edit >= 1.2:      # ~1 édition / 1.2s pendant le stream
                         await self.client.edit(channel_id, msg_id, buffer)
@@ -287,16 +326,16 @@ class DiscordAdapter:
                     if msg_id is not None:    # édition finale garantie (texte complet)
                         await self.client.edit(channel_id, msg_id, event.text)
                     elif event.text:          # réponse sans streaming (ex. outil seul) : poster
-                        await self.client.send(channel_id, event.text)
+                        await self._emit(channel_id, event.text)
                     msg_id = None
                 elif name == "ToolStarted":
                     summary = _tool_summary(event.name, event.args)
                     if self.tool_style == "embed":
-                        mid = await self.client.send(
+                        mid = await self._emit(
                             channel_id, "", embed=_tool_embed(event.name, summary, "running", None))
                     else:
                         head = f"🔧 `{event.name}`" + (f" · `{summary}`" if summary else "")
-                        mid = await self.client.send(channel_id, head[:2000])
+                        mid = await self._emit(channel_id, head[:2000])
                     tool_msgs[event.id] = {"mid": mid, "summary": summary}
                 elif name == "ToolFinished":
                     info = tool_msgs.pop(event.id, None)
@@ -309,46 +348,26 @@ class DiscordAdapter:
                         if mid is not None:
                             await self.client.edit(channel_id, mid, "", embed=embed)
                         else:
-                            await self.client.send(channel_id, "", embed=embed)
+                            await self._emit(channel_id, "", embed=embed)
                     else:
                         block = f"\n```\n{out[:600]}\n```" if out and out != "(no output)" else ""
                         txt = f"🔧 `{event.name}` {'✓' if ok else '✗'}{block}"
                         if mid is not None:
                             await self.client.edit(channel_id, mid, txt[:2000])
                         else:
-                            await self.client.send(channel_id, txt[:2000])
+                            await self._emit(channel_id, txt[:2000])
                 elif name == "RunError":
                     txt = f"⚠ erreur : {event.message}"
                     if msg_id is not None:
                         await self.client.edit(channel_id, msg_id, txt)
                     else:
-                        await self.client.send(channel_id, txt)
+                        await self._emit(channel_id, txt)
                     msg_id = None
                 elif name == "MessagePosted":
                     if getattr(event, "source", None) != f"discord:{channel_id}":
-                        await self.client.send(channel_id, f"**{event.author_name}**: {event.text}")
+                        await self._emit(channel_id, f"**{event.author_name}**: {event.text}")
             except Exception as e:     # JAMAIS tuer la boucle persistante sur une erreur Discord
                 print(f"[discord] rendu '{name}' sur {channel_id} échoué : {type(e).__name__}: {e}")
-
-    async def _sync_queue(self, channel_id, pending: dict, qmsg):
-        """Crée / met à jour / supprime le message « file d'attente » selon `pending`.
-        Embed jaune compact listant les messages en attente. Renvoie le nouvel id (ou None)."""
-        if pending:
-            lines = "\n".join(f"• {v}" for v in list(pending.values())[:10])
-            if len(pending) > 10:
-                lines += f"\n… (+{len(pending) - 10})"
-            embed = {"title": f"⏳ File d'attente ({len(pending)})", "color": 0xF7FF12,
-                     "fields": [{"name": "messages en attente", "value": lines[:1000], "inline": False}]}
-            if qmsg is None:
-                return await self.client.send(channel_id, "", embed=embed)
-            await self.client.edit(channel_id, qmsg, "", embed=embed)
-            return qmsg
-        if qmsg is not None:
-            try:
-                await self.client.delete(channel_id, qmsg)
-            except Exception:
-                pass
-        return None
 
     async def flush(self) -> None:
         """Attend que les tâches de rendu en cours se terminent (tests)."""
