@@ -657,6 +657,79 @@ def test_approve_worktree_failure_is_graceful():
     asyncio.run(scenario())
 
 
+def test_permission_ask_allow_once():
+    """s15 : un outil `rm` (tier ask) met le run en pause -> PermissionRequested ; 'once' l'autorise."""
+    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeToolLLM
+    from mekihub.hub import SessionHub
+    from mekihub.session import Author, SessionStore
+
+    async def scenario():
+        store = SessionStore(directory=str(ROOT / ".sessions"))
+        sess = store.create(model="m", system="sys")
+        llm = FakeToolLLM(tool_name="bash", tool_args={"command": "rm temp.txt"}, final="fini")
+        hub = SessionHub(store=store, llm_factory=lambda: llm, tools=[],
+                         dispatch={"bash": lambda a: "ran " + a["command"]})
+        author = Author(id="c1", name="alice", color="#fff")
+        seen = []
+        sub = hub.subscribe(sess.id); await sub.__anext__()
+
+        async def collect():
+            async for e in sub:
+                seen.append(e)
+                if type(e).__name__ == "PermissionRequested":
+                    hub.resolve_permission(e.request_id, "once", actor=author)
+                if type(e).__name__ == "Idle":
+                    break
+
+        t = asyncio.create_task(collect())
+        await asyncio.sleep(0.02)
+        hub.submit(sess.id, "supprime temp", author=author)
+        await asyncio.wait_for(t, timeout=8)
+        names = [type(e).__name__ for e in seen]
+        assert "PermissionRequested" in names, names
+        tf = [e for e in seen if type(e).__name__ == "ToolFinished"]
+        assert tf and "Denied" not in tf[0].output and "ran" in tf[0].output, tf
+        store.delete(sess.id)
+
+    asyncio.run(scenario())
+
+
+def test_permission_ask_timeout_denies():
+    """s15 : si personne ne tranche, le tier ask retombe sur deny au bout du timeout."""
+    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeToolLLM
+    from mekihub.hub import SessionHub
+    from mekihub.session import Author, SessionStore
+
+    async def scenario():
+        os.environ["MEKICODE_ASK_TIMEOUT"] = "0.5"
+        try:
+            store = SessionStore(directory=str(ROOT / ".sessions"))
+            sess = store.create(model="m", system="sys")
+            llm = FakeToolLLM(tool_name="bash", tool_args={"command": "rm temp.txt"}, final="fini")
+            hub = SessionHub(store=store, llm_factory=lambda: llm, tools=[],
+                             dispatch={"bash": lambda a: "ran"})
+            author = Author(id="c1", name="alice", color="#fff")
+            seen = []
+            sub = hub.subscribe(sess.id); await sub.__anext__()
+
+            async def collect():
+                async for e in sub:
+                    seen.append(e)
+                    if type(e).__name__ == "Idle":
+                        break
+
+            t = asyncio.create_task(collect())
+            hub.submit(sess.id, "supprime temp", author=author)   # jamais résolu -> timeout
+            await asyncio.wait_for(t, timeout=8)
+            tf = [e for e in seen if type(e).__name__ == "ToolFinished"]
+            assert tf and "Denied" in tf[0].output, tf
+            store.delete(sess.id)
+        finally:
+            os.environ.pop("MEKICODE_ASK_TIMEOUT", None)
+
+    asyncio.run(scenario())
+
+
 if __name__ == "__main__":
     test_author_and_queueitem()
     test_session_authors_separate_from_messages()
@@ -686,4 +759,6 @@ if __name__ == "__main__":
     test_discord_queue_shows_pending()
     test_discord_agent_reply_references_question()
     test_approve_worktree_failure_is_graceful()
+    test_permission_ask_allow_once()
+    test_permission_ask_timeout_denies()
     print("OK - tous les smoke mekihub passent")

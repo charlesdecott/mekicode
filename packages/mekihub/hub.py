@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import queue as _queue
+import re
 import uuid
 
 from session import Author, QueueItem, Session, SessionState, SessionStore, now_iso  # noqa: F401
@@ -83,6 +86,8 @@ class _Room:
         self.subscribers: set[asyncio.Queue] = set()
         self.worker: asyncio.Task | None = None
         self.pending_worktrees: dict = {}          # proposal_id -> proposal dict
+        self.pending_permissions: dict = {}        # request_id -> _queue.Queue (décision du tier ask)
+        self.session_overrides: dict = {"always_deny": [], "always_allow": [], "ask_user": []}
 
 
 class SessionHub:
@@ -100,6 +105,7 @@ class SessionHub:
         self.registry = registry
         self.provisioner = provisioner
         self._rooms: dict[str, _Room] = {}
+        self._pending_meta: dict = {}            # request_id -> (session_id, pattern, reason, actor_id)
 
     def _room(self, session_id: str) -> _Room:
         room = self._rooms.get(session_id)
@@ -227,7 +233,8 @@ class SessionHub:
                 dispatch = {**dispatch, "spawn_worktree": lambda a, _p=proposals: _record_proposal(_p, a)}
             else:
                 tools_run = self.tools
-            gen = run_agent(sess.messages, llm, tools_run, dispatch, stream=True)
+            bus = self._build_permission_bus(session_id, room, item, sess)
+            gen = run_agent(sess.messages, llm, tools_run, dispatch, stream=True, hooks=bus)
             try:
                 while True:
                     e = await asyncio.to_thread(next, gen, _DONE)
@@ -246,6 +253,83 @@ class SessionHub:
                     name=pr["nom"], prompt=pr["prompt_amorce"], base=pr.get("base")))
             room.running = None
         self._publish(session_id, ev.Idle())
+
+    def _build_permission_bus(self, session_id, room, item, sess):
+        """Construit le HookBus du run : permissions s15 branchées en `pre_tool`.
+
+        Le tier `ask` est résolu de façon ASYNC malgré que run_agent tourne dans un thread :
+        `ask_resolver` (exécuté dans le thread) publie PermissionRequested sur la boucle via
+        `call_soon_threadsafe`, puis BLOQUE sur une `queue.Queue`. `resolve_permission` (appelé
+        depuis un handler UI, sur la boucle) y dépose la décision -> le thread se débloque.
+        """
+        from hooks import HookBus
+        from permissions import load_rules, make_permission_hook
+        from mekihub.permissions_store import load_project_overrides
+
+        loop = asyncio.get_running_loop()
+        rules = load_rules()
+        timeout = float(os.environ.get("MEKICODE_ASK_TIMEOUT", "120"))
+
+        def overrides_provider():
+            proj = load_project_overrides(sess.project_id)
+            return {t: list(room.session_overrides.get(t, [])) + list(proj.get(t, []))
+                    for t in ("always_deny", "always_allow", "ask_user")}
+
+        def ask_resolver(tool, target, reason):
+            request_id = uuid.uuid4().hex[:8]
+            q = _queue.Queue(maxsize=1)
+            room.pending_permissions[request_id] = q
+            actor_id = item.author.id if item.author else None
+            self._pending_meta[request_id] = (session_id, re.escape(target), reason, actor_id)
+            event = ev.PermissionRequested(
+                request_id=request_id, item_id=item.item_id, tool=tool, target=target[:120],
+                reason=reason, options=["once", "session", "project", "deny", "blacklist"],
+                actor_id=actor_id)
+            loop.call_soon_threadsafe(lambda: self._publish(session_id, event))
+            try:
+                decision = q.get(timeout=timeout)
+            except _queue.Empty:
+                decision = "deny"
+            finally:
+                room.pending_permissions.pop(request_id, None)
+                self._pending_meta.pop(request_id, None)
+            return decision in ("once", "session", "project")
+
+        bus = HookBus()
+        bus.on("pre_tool", make_permission_hook(rules, ask_resolver,
+                                                overrides_provider=overrides_provider))
+        return bus
+
+    def resolve_permission(self, request_id: str, choice: str, *, actor=None) -> bool:
+        """Tranche un `ask`. choice ∈ {once, session, project, deny, blacklist}.
+
+        Applique la portée (session/projet/blacklist) puis débloque le worker. Seuls l'auteur du
+        run ou l'admin (MEKICODE_ADMIN_USER_ID) peuvent trancher. Renvoie False si inconnu/non autorisé.
+        """
+        meta = self._pending_meta.get(request_id)
+        if meta is None:
+            return False
+        session_id, pattern, reason, allowed_actor = meta
+        admin = os.environ.get("MEKICODE_ADMIN_USER_ID") or None
+        if actor is not None and allowed_actor is not None:
+            if actor.id != allowed_actor and (admin is None or actor.id != admin):
+                return False
+        room = self._room(session_id)
+        q = room.pending_permissions.get(request_id)
+        if q is None:
+            return False
+        if choice == "session":
+            room.session_overrides["always_allow"].append({"pattern": pattern, "reason": "session"})
+        elif choice in ("project", "blacklist"):
+            from mekihub.permissions_store import add_project_rule
+            sess = self.store.load(session_id)
+            tier = "always_allow" if choice == "project" else "always_deny"
+            add_project_rule(sess.project_id, tier, pattern, choice)
+        try:
+            q.put_nowait(choice)
+        except Exception:
+            pass
+        return True
 
     @staticmethod
     def _translate(e):
