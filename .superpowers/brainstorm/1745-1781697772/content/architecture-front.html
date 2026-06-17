@@ -1,0 +1,71 @@
+<h2>Comment fait-on cohabiter le chat et le canvas ?</h2>
+<p class="subtitle">Le chat actuel = <b>NiceGUI</b> (UI pilotée en Python). Le canvas mekistudio = <b>FastAPI + Jinja + Alpine.js + JS pur</b> (cables.js, collision.js, canvas.js…). Les deux partagent le même back (mekicore + mekihub). Question : quelle stratégie d'intégration ?</p>
+
+<style>
+  .diag { font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.5; background: rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.12); border-radius:8px; padding:10px 12px; margin-top:8px; white-space:pre; overflow-x:auto; }
+  .tag { display:inline-block; padding:1px 7px; border-radius:6px; font-size:11px; font-weight:600; }
+  .keep { background:#0c3; color:#031; }
+  .new  { background:#f7ff12; color:#222; }
+  .drop { background:#f44; color:#fff; }
+  .reco { color:#39ff14; font-weight:700; }
+  .option .content p { margin:.35em 0; }
+  ul.tiny { margin:.3em 0 .2em 1.1em; padding:0; font-size:12.5px; }
+  ul.tiny li { margin:.15em 0; }
+</style>
+
+<div class="options">
+
+  <div class="option" data-choice="A" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Canvas embarqué DANS NiceGUI <span class="reco">★ recommandé</span></h3>
+      <p>Un seul serveur (NiceGUI tourne déjà sur FastAPI/uvicorn). Le canvas mekistudio est servi comme bundle statique + une route WebSocket FastAPI montée sur l'app NiceGUI. Onglet « Chat » = page NiceGUI ; onglet « Canvas » = la page canvas. Les deux lisent <code>mekihub.subscribe()</code>.</p>
+      <div class="diag">┌──────────── 1 serveur (NiceGUI/FastAPI, 1 port) ───────────┐
+│  Tab CHAT  (NiceGUI)        Tab CANVAS (Alpine+JS pur)      │
+│      │                            │                         │
+│      └──────── mekihub events ────┘   (WS bridge)           │
+│                    │                                        │
+│            mekicore run_agent + nos hooks                   │
+└────────────────────────────────────────────────────────────┘</div>
+      <ul class="tiny">
+        <li><span class="tag keep">garde</span> tout mekichat/mekihub/Discord, 1 port, réutilise le JS canvas quasi tel quel</li>
+        <li><span class="tag new">à faire</span> la « colle » : route WS qui traduit events mekihub → impulsions canvas + REST node CRUD</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="option" data-choice="B" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Tout reconstruire sur la stack mekistudio</h3>
+      <p>On abandonne NiceGUI. On reprend le front mekistudio en entier (Jinja + Alpine + WS) et on réécrit le chat dans ce style, en branchant mekicore/mekihub à la place du Claude SDK. Canvas, multi-canvas, éditeur, terminal « gratuits ».</p>
+      <div class="diag">┌──── 1 serveur (FastAPI + Jinja + Alpine, stack unique) ─────┐
+│  Tab CHAT (réécrit Alpine)   Tab CANVAS (mekistudio natif) │
+│                  même moteur de rendu                      │
+└────────────────────────────────────────────────────────────┘</div>
+      <ul class="tiny">
+        <li><span class="tag keep">garde</span> stack 100 % cohérente, UX mekistudio éprouvée, canvas natif</li>
+        <li><span class="tag drop">jette</span> le front NiceGUI (UI chat, tool-cards, thème Phosphore) → gros réécriture</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="option" data-choice="C" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Deux sous-apps montées, onglets = 2 « mondes »</h3>
+      <p>Coquille FastAPI qui monte (1) NiceGUI pour le monde chat et (2) les routes mekistudio pour le monde canvas, chacune dans son iframe/route. La barre d'onglets est dans la coquille. Back mekihub partagé.</p>
+      <div class="diag">┌──────────── coquille FastAPI + barre d'onglets ────────────┐
+│  iframe CHAT (NiceGUI)   │   iframe CANVAS (mekistudio)     │
+│        └──────── mekihub partagé ────────┘                 │
+└────────────────────────────────────────────────────────────┘</div>
+      <ul class="tiny">
+        <li><span class="tag keep">garde</span> chaque monde dans sa stack native, réécriture minimale</li>
+        <li><span class="tag drop">coût</span> 2 fronts à maintenir, sync inter-onglets via iframe pénible, « 2 apps » au lieu d'1</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:14px">Mon conseil : <span class="reco">A</span> — on préserve l'énorme investissement mekichat/mekihub/Discord, un seul port, et le JS du canvas mekistudio est <i>pur</i> et autonome donc réutilisable presque tel quel. Le vrai travail devient la « colle » events↔impulsions, pas une réécriture.</p>

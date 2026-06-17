@@ -45,9 +45,9 @@ def main() -> None:
         ))
         return
     # front activé : déléguer à l'app NiceGUI (qui crée son propre hub module-level)
-    sys.path.insert(0, str(HERE.parent / "mekichat"))
+    sys.path.insert(0, str(HERE.parent / "mekistudio" / "mekichat"))
     import app  # noqa: F401  (app.py appelle ui.run sous son garde __main__)
-    print("mekihub: front mekichat — lancer via `python packages/mekichat/app.py`")
+    print("mekihub: front mekichat — lancer via `python packages/mekistudio/mekichat/app.py`")
 
 
 if __name__ in {"__main__", "__mp_main__"}:

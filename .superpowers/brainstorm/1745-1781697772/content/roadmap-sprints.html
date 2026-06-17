@@ -1,0 +1,78 @@
+<h2>Découpage en sprints — où trace-t-on la ligne du Sprint 1 ?</h2>
+<p class="subtitle">Le tout est trop gros pour un seul plan. Voici la roadmap complète. Le <b class="s1">Sprint 1</b> est ma reco de première tranche démo-able (verticale, livrable). Dis-moi si tu veux tirer des éléments des sprints suivants dans le Sprint 1, ou en sortir.</p>
+
+<style>
+  .board { display:flex; gap:12px; flex-wrap:wrap; margin-top:10px; }
+  .lane { flex:1; min-width:230px; background:rgba(0,0,0,.22); border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:10px 12px; }
+  .lane h3 { margin:.1em 0 .55em; font-size:15px; }
+  .s1 { color:#39ff14; }
+  .lane.s1lane { border-color:#39ff14; box-shadow:0 0 0 1px #39ff1455 inset; }
+  .lane ul { margin:.2em 0; padding-left:1.05em; font-size:12.8px; line-height:1.5; }
+  .lane li { margin:.28em 0; }
+  .perm { color:#f7ff12; font-weight:700; }
+  .new  { color:#ff2bd6; font-weight:700; }
+  .tag { font-size:11px; color:#9aa; }
+</style>
+
+<div class="board">
+  <div class="lane s1lane">
+    <h3 class="s1">▶ Sprint 1 — Fondations + Canvas MVP</h3>
+    <ul>
+      <li><b>Refactor chat → <code>ChatComponent</code></b> NiceGUI réutilisable (extrait de mekichat)</li>
+      <li><b>HookBus</b> dans mekicore : <code>pre_tool</code>/<code>post_tool</code>/<code>on_event</code> autour de <code>dispatch_tools</code> <span class="tag">(nos hooks)</span></li>
+      <li><span class="perm">s15 — Permissions 3 tiers</span> autour de dispatch (deny / allow / ask), « ask » async surfacé en événement</li>
+      <li><b>Coquille à onglets</b> : Tab Chat | Tab Canvas (NiceGUI)</li>
+      <li><b>Canvas NiceGUI</b> : pan/zoom + couche câbles SVG 45° + comètes (réutilise géométrie pure mekistudio)</li>
+      <li><b>BaseNode / BaseComponent</b> + registry + parenting déduit</li>
+      <li>Nodes : <b>KernelNode</b>, <b>ChatNode</b> (=ChatComponent), <span class="new">QueueNode</span> (sous le chat)</li>
+      <li>Impulsions branchées sur le HookBus (comète + glow par appel d'outil)</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <h3>Sprint 2 — Fichiers</h3>
+    <ul>
+      <li><b>ExplorerNode</b> (FileTreeComponent, lazy, sandboxé)</li>
+      <li><b>EditorNode</b> + <b>preview</b> (CodeMirror, save atomique)</li>
+      <li><b>FolderNode</b> (chaîne de dossiers matérialisée)</li>
+      <li><b>SubcanvasNode</b> (cadre auto-borné)</li>
+      <li>Éditeurs <b>éphémères</b> auto-spawn quand l'agent lit un fichier (+ pin, TTL)</li>
+      <li>Impulsions fichier : read/write/edit → comète vers l'éditeur</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <h3>Sprint 3 — Multi-user temps réel sur le canvas</h3>
+    <ul>
+      <li>Présence (curseurs/avatars) sur le canvas</li>
+      <li>File d'attente partagée visible dans la QueueNode (multi-auteurs)</li>
+      <li>Sync canvas multi-clients (état partagé, broadcast)</li>
+      <li><b>TerminalNode</b> (PTY) + <b>GitNode</b> (statut branche)</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <h3>Sprint 4 — Échelle &amp; polish</h3>
+    <ul>
+      <li>Multi-canvas (plusieurs onglets canvas)</li>
+      <li>Worktrees git = subcanvas imbriqués</li>
+      <li>QCM / <code>ask_user</code> de l'agent en plein tour</li>
+      <li>Palette d'ajout de nodes, thème, perfs</li>
+    </ul>
+  </div>
+</div>
+
+<div class="options" style="margin-top:16px">
+  <div class="option" data-choice="reco" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content"><h3>Sprint 1 tel quel</h3><p>On part sur la tranche verte ci-dessus (fondations + canvas MVP + chat node + queue node + s15).</p></div>
+  </div>
+  <div class="option" data-choice="plus-files" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content"><h3>Sprint 1 + Fichiers</h3><p>On tire aussi Explorer/Editor/Preview (Sprint 2) dans le Sprint 1 — plus ambitieux, plus long.</p></div>
+  </div>
+  <div class="option" data-choice="autre" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content"><h3>Autre découpage</h3><p>Je te dis quoi déplacer.</p></div>
+  </div>
+</div>

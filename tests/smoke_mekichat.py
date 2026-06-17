@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "packages" / "mekichat"))  # import sessions
+sys.path.insert(0, str(ROOT / "packages" / "mekistudio" / "mekichat"))  # import sessions
 sys.path.insert(0, str(ROOT / "packages"))               # import mekihub
 
 import sessions as S  # noqa: E402

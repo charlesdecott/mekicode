@@ -7,10 +7,13 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))                      # import sessions, views
-sys.path.insert(0, str(HERE.parent))               # import mekillm (packages/)
-sys.path.insert(0, str(HERE.parent / "mekicore"))  # import base, tools, events
+HERE = Path(__file__).resolve().parent             # packages/mekistudio/mekichat/
+STUDIO = HERE.parent                               # packages/mekistudio/
+PACKAGES = STUDIO.parent                           # packages/
+sys.path.insert(0, str(HERE))                      # sessions, views, component (locaux)
+sys.path.insert(0, str(STUDIO))                    # mekicanvas (paquet sœur, futur)
+sys.path.insert(0, str(PACKAGES))                  # mekillm, mekihub (packages/)
+sys.path.insert(0, str(PACKAGES / "mekicore"))     # base, tools, events
 
 from nicegui import app as nicegui_app, run, ui  # noqa: E402
 

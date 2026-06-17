@@ -6,7 +6,7 @@ vérité est désormais mekihub. (Retrait de ce shim = piste différée, cf. doc
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))   # packages/ → mekihub
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))   # packages/ → mekihub
 
 from mekihub.session import (  # noqa: F401
     Author, QueueItem, Session, SessionMeta, SessionState, SessionStore,
