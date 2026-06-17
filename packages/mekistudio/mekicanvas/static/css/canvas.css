@@ -180,6 +180,12 @@ svg.cables circle.comet { fill: #eaffea; filter: drop-shadow(0 0 6px #39ff14) dr
 .term-in { width: 100%; }
 .term-in .q-field__native, .term-in input { color: #f7ff12 !important; font-family: 'Share Tech Mono', ui-monospace, monospace; }
 
+/* node dossier (groupement organique des éditeurs), bleu doux */
+.node-wrap[data-kind="dir"] .node-card { border-color: rgba(120, 160, 255, .45); box-shadow: 0 0 10px rgba(120, 160, 255, .12); background: #0a0e16; }
+.node-wrap[data-kind="dir"] .nhead { color: #9ab8ff; border-color: rgba(120, 160, 255, .22); background: rgba(120, 160, 255, .05); }
+.node-wrap[data-kind="dir"] .nbody { display: none; }
+.node-wrap[data-kind="dir"] .resize-handle { display: none; }
+
 /* ===== carte de permission (s15, façon Claude Code) ===== */
 .perm-request {
   border: 1px solid rgba(247, 255, 18, .5); border-radius: 10px; background: rgba(247, 255, 18, .06);

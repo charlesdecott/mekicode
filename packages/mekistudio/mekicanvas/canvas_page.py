@@ -7,6 +7,7 @@ apparaît sous l'explorateur + une comète file du chat vers lui (abonnement par
 from __future__ import annotations
 
 import json
+import posixpath
 from pathlib import Path
 
 from nicegui import ui
@@ -167,6 +168,7 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
 
     spawned: dict = {}   # (ws_str, rel) -> editor id
     eph_timers: dict = {}  # eid -> timer TTL (pour annulation au pin)
+    dirs: dict = {}      # (ws_str, dir_rel) -> dir node id (groupement organique des éditeurs)
     seq = {"n": 0}
 
     # --- 2. canvas + world ---
@@ -185,6 +187,28 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
         ui.run_javascript(
             f"(()=>{{const w=document.querySelector('.node-wrap[data-id=\"{eid}\"]');"
             f"if(w)w.remove(); window.MekiCanvas && window.MekiCanvas.redraw();}})()")
+
+    def _ensure_dir(ws_str, rel, exp):
+        """Crée (ou réutilise) un node dossier pour le dossier parent de `rel` → les éditeurs d'un même
+        dossier s'y rattachent (groupement organique). Racine → parent = explorateur."""
+        base = exp["id"] if exp else _KERNEL_ID
+        dpath = posixpath.dirname(rel)
+        if not dpath:
+            return base
+        dkey = (ws_str, dpath)
+        if dkey in dirs:
+            return dirs[dkey]
+        seq["n"] += 1
+        did = f"dir:{seq['n']}"
+        dirs[dkey] = did
+        n = len(dirs)
+        dx = (exp["x"] - 250.0) if exp else -400.0
+        dy = (exp["y"] if exp else 0.0) + 24.0 + n * 66.0
+        with world:
+            _build_node(dict(id=did, kind="dir", x=dx, y=dy, w=210.0, h=52.0, src=base,
+                             glyph="\U0001F4C1", text=dpath.split("/")[-1] or dpath, sid=None, payload=None),
+                        focus_sid, hub, author, explorers, _spawn_editor, _remove_editor)
+        return did
 
     def _spawn_editor(ws, rel, from_id, *, ephemeral) -> None:
         rel = normalize_path(rel)
@@ -217,8 +241,9 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
                 f"(()=>{{const w=document.querySelector('.node-wrap[data-id=\"{_eid}\"]');"
                 f"if(w)w.classList.remove('ephemeral');}})()")
 
+        dir_src = _ensure_dir(ws_str, rel, exp)
         with world:
-            _build_node(dict(id=eid, kind="editor", x=ex, y=ey, w=_EDITOR_W, h=_EDITOR_H, src=exp["id"],
+            _build_node(dict(id=eid, kind="editor", x=ex, y=ey, w=_EDITOR_W, h=_EDITOR_H, src=dir_src,
                              glyph="✎", text=Path(rel).name, sid=None, payload={"ws": ws_str, "rel": rel}),
                         focus_sid, hub, author, explorers, _spawn_editor, _remove_editor,
                         ephemeral=ephemeral, close_key=key, on_pin=(_pin if ephemeral else None))
