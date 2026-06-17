@@ -26,10 +26,20 @@ def language_for(rel: str):
     return _LANG.get(Path(rel).suffix.lower())
 
 
+def _git_diff(root, rel: str) -> str:
+    import subprocess
+    try:
+        return subprocess.run(["git", "-C", str(root), "diff", "--no-color", "HEAD", "--", rel],
+                              capture_output=True, text=True, timeout=5).stdout
+    except Exception:
+        return ""
+
+
 def render_editor(container, root, rel: str, on_close, *, ephemeral=False, on_pin=None) -> None:
     name = Path(rel).name
     is_md = language_for(rel) == "Markdown"
-    st = {"cm": None, "dot": None, "preview": None, "host": None, "pin": None, "show_preview": False}
+    st = {"cm": None, "dot": None, "preview": None, "host": None, "pin": None, "diff": None,
+          "show_preview": False, "show_diff": False}
 
     def _set_dirty(v: bool) -> None:
         if st["dot"] is not None:
@@ -61,6 +71,35 @@ def render_editor(container, root, rel: str, on_close, *, ephemeral=False, on_pi
         if st["pin"] is not None:
             st["pin"].style("display:none")
 
+    def _toggle_diff() -> None:
+        st["show_diff"] = not st["show_diff"]
+        sd = st["show_diff"]
+        if sd and st["diff"] is not None:
+            st["diff"].clear()
+            diff = _git_diff(root, rel)
+            with st["diff"]:
+                if not diff.strip():
+                    ui.label("(aucune modification vs HEAD)").classes("diff-empty")
+                else:
+                    for line in diff.splitlines():
+                        cls = "diff-line"
+                        if line.startswith("+++") or line.startswith("---") or line.startswith(("diff ", "index ")):
+                            cls += " meta"
+                        elif line.startswith("+"):
+                            cls += " add"
+                        elif line.startswith("-"):
+                            cls += " del"
+                        elif line.startswith("@@"):
+                            cls += " hunk"
+                        ui.label(line or " ").classes(cls)
+        st["show_preview"] = False
+        if st["host"] is not None:
+            st["host"].style(f"display:{'none' if sd else 'flex'}")
+        if st["preview"] is not None:
+            st["preview"].style("display:none")
+        if st["diff"] is not None:
+            st["diff"].style(f"display:{'block' if sd else 'none'}")
+
     with container:
         with ui.element("div").classes("editor-embed"):
             with ui.element("div").classes("editor-bar"):
@@ -71,6 +110,7 @@ def render_editor(container, root, rel: str, on_close, *, ephemeral=False, on_pi
                     st["pin"] = ui.button("📌", on_click=lambda: _pin()).props("flat dense").classes("editor-act").tooltip("épingler")
                 if is_md:
                     ui.button("👁", on_click=lambda: _toggle_preview()).props("flat dense").classes("editor-act").tooltip("aperçu / éditer")
+                ui.button("⇄", on_click=lambda: _toggle_diff()).props("flat dense").classes("editor-act").tooltip("diff vs HEAD")
                 ui.button("💾", on_click=lambda: _save()).props("flat dense").classes("editor-act")
                 ui.button("✕", on_click=lambda: on_close()).props("flat dense").classes("editor-act")
             try:
@@ -85,3 +125,5 @@ def render_editor(container, root, rel: str, on_close, *, ephemeral=False, on_pi
             if is_md:
                 st["preview"] = ui.markdown(content).classes("editor-preview")
                 st["preview"].style("display:none")
+            st["diff"] = ui.element("div").classes("editor-diff")
+            st["diff"].style("display:none")
