@@ -1,11 +1,10 @@
-"""shell.py — coquille studio à 3 modes (Chat / Canvas / Mix) + sélecteur de session.
+"""shell.py — coquille studio 3 modes (Chat / Canvas / Mix) + sélecteur de session.
 
-`build_studio(container, hub, store, author, *, make_session)` pose : une barre (marque +
-sélecteur de mode + sélecteur de session + « nouvelle session ») et la scène :
-- Chat   : ChatComponent plein cadre ;
-- Canvas : le canvas (Kernel/Chat/Queue) plein cadre ;
-- Mix    : ChatComponent (focus) à gauche + canvas à droite.
-Le MÊME ChatComponent est instancié partout (panneau focus + node canvas).
+- Chat   : ChatComponent plein cadre (la session courante).
+- Canvas : une node chat PAR session (clic sans effet de focus ici — chaque node est éditable).
+- Mix    : ChatComponent focus à gauche + canvas à droite ; cliquer l'en-tête d'une node chat
+           la met en focus à gauche (sans reconstruire le canvas).
+Le MÊME ChatComponent est instancié partout.
 """
 from __future__ import annotations
 
@@ -23,6 +22,7 @@ def build_studio(container, hub, store, author, *, make_session) -> None:
         make_session()
         metas = store.list()
     state = {"mode": app.storage.user.get("studio_mode", "mix"), "sid": metas[0].id}
+    refs = {"left": None}
 
     with container:
         bar = ui.element("div").classes("studio-modes")
@@ -39,9 +39,18 @@ def build_studio(container, hub, store, author, *, make_session) -> None:
             _render()
 
     def _new() -> None:
-        sess = make_session()
-        state["sid"] = sess.id
+        state["sid"] = make_session().id
         _render()
+
+    def _focus(sid: str) -> None:
+        """Mode Mix : met `sid` en focus à gauche SANS reconstruire le canvas (pas de flicker)."""
+        state["sid"] = sid
+        if refs["left"] is not None:
+            refs["left"].clear()
+            ChatComponent(refs["left"], hub, sid, author)
+        ui.run_javascript(
+            "document.querySelectorAll('.node-wrap[data-kind=\"chat\"]').forEach("
+            "w=>w.classList.toggle('focused', w.dataset.session==='" + sid + "'));")
 
     def _render() -> None:
         sessions = store.list()
@@ -60,17 +69,24 @@ def build_studio(container, hub, store, author, *, make_session) -> None:
             ui.select(options=opts, value=state["sid"],
                       on_change=lambda e: _switch(e.value)).props("dense outlined options-dense").classes("studio-sel")
             ui.button("+ session", on_click=lambda _=None: _new()).props("flat dense").classes("mode-btn")
-            ui.label(f"// {sess.title}").classes("studio-sub")
+            ui.label(f"{len(sessions)} chats").classes("studio-sub")
 
         stage.clear()
         stage.classes(remove="mode-chat mode-canvas mode-mix")
         stage.classes(f"mode-{state['mode']}")
+        refs["left"] = None
         with stage:
-            if state["mode"] in ("chat", "mix"):
+            if state["mode"] == "chat":
                 left = ui.element("div").classes("stage-chat")
                 ChatComponent(left, hub, sess.id, author)
-            if state["mode"] in ("canvas", "mix"):
+            elif state["mode"] == "canvas":
                 right = ui.element("div").classes("stage-canvas")
-                render_canvas(right, hub, sess.id, author, inject=False)
+                render_canvas(right, hub, store, author, focus_sid=state["sid"], inject=False)
+            else:  # mix
+                left = ui.element("div").classes("stage-chat")
+                refs["left"] = left
+                ChatComponent(left, hub, sess.id, author)
+                right = ui.element("div").classes("stage-canvas")
+                render_canvas(right, hub, store, author, focus_sid=state["sid"], on_focus=_focus, inject=False)
 
     _render()

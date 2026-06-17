@@ -593,10 +593,10 @@ def canvas_route() -> None:
     sera intégrée à la coquille 3 modes (shell.py) en Phase 7."""
     ui.add_head_html(FONTS)
     ui.query("body").props('data-theme=phosphor')
-    current = _ensure_current()
+    _ensure_current()
     author = realtime.author_for_client()
     stage = ui.element("div").style("position:fixed;inset:0;")
-    render_canvas(stage, _get_hub(), current.id, author)
+    render_canvas(stage, _get_hub(), _get_store(), author)
 
 
 @ui.page("/studio")

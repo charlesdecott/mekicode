@@ -81,6 +81,11 @@ svg.cables circle.comet { fill: #eaffea; filter: drop-shadow(0 0 6px #39ff14) dr
 .chat-embed .composer { flex: 0 0 auto; }
 .node-wrap[data-kind="chat"] .nbody-chat { padding: 0; height: 100%; min-height: 0; display: flex; }
 .node-wrap[data-kind="chat"] .node-card { overflow: hidden; }
+.nhead-focus { cursor: pointer; }
+.nhead-focus:hover { background: rgba(57, 255, 20, .1); }
+.nhead-focus .focus-dot { margin-left: auto; opacity: .5; font-size: 11px; }
+.node-wrap.focused .node-card { border-color: #39ff14 !important; box-shadow: 0 0 26px rgba(57, 255, 20, .55) !important; }
+.node-wrap.focused .focus-dot { opacity: 1; color: #39ff14; }
 
 /* ===== carte de permission (s15, façon Claude Code) ===== */
 .perm-request {
