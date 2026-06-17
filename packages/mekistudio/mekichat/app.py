@@ -26,7 +26,8 @@ from mekihub.hub import SessionHub  # noqa: E402
 from mekihub.session import SessionStore as _HubSessionStore  # noqa: E402
 from tools import DISPATCH, TOOLS, make_dispatch  # noqa: E402
 from mekihub.projects import ProjectRegistry  # noqa: E402
-from mekicanvas.canvas_page import render_canvas  # noqa: E402  (canvas studio — route /canvas)
+from mekicanvas.canvas_page import inject_assets, render_canvas  # noqa: E402  (canvas studio)
+from shell import build_studio  # noqa: E402  (coquille 3 modes — route /studio)
 
 STATIC = HERE / "static"
 DEFAULT_MODEL = mekillm.config.resolve()["model"]
@@ -596,6 +597,18 @@ def canvas_route() -> None:
     author = realtime.author_for_client()
     stage = ui.element("div").style("position:fixed;inset:0;")
     render_canvas(stage, _get_hub(), current.id, author)
+
+
+@ui.page("/studio")
+def studio_route() -> None:
+    """Coquille studio 3 modes (Chat / Canvas / Mix) — la cible du Sprint 1."""
+    ui.add_head_html(FONTS)
+    ui.query("body").props('data-theme=phosphor')
+    inject_assets()                       # JS + CSS chargés UNE fois au build
+    current = _ensure_current()
+    author = realtime.author_for_client()
+    studio = ui.element("div").classes("studio")
+    build_studio(studio, _get_hub(), current, author)
 
 
 if __name__ in {"__main__", "__mp_main__"}:   # garde requise par NiceGUI (reload/multiprocessing)

@@ -293,6 +293,34 @@ def render_worktree_proposal(name: str, prompt: str, on_approve, on_reject):
     return card
 
 
+_PERM_LABELS = {
+    "once": "Autoriser une fois", "session": "Autoriser (session)",
+    "project": "Autoriser (projet)", "deny": "Refuser",
+    "blacklist": "Refuser + ne plus demander",
+}
+
+
+def render_permission_request(tool: str, target: str, reason: str, options, on_choice):
+    """Carte de demande de permission (s15, style Phosphore), façon Claude Code.
+
+    `on_choice(choice)` est appelé au clic (choice ∈ options) ; la carte se supprime ensuite.
+    Renvoie l'élément racine (supprimable via .delete()).
+    """
+    card = ui.element("div").classes("perm-request")
+    with card:
+        with ui.element("div").classes("perm-head"):
+            ui.label(f"⚿ permission requise : {tool}").classes("perm-title")
+        ui.label(target).classes("perm-target")
+        ui.label(reason).classes("perm-reason")
+        with ui.element("div").classes("perm-actions"):
+            for opt in options:
+                danger = opt in ("deny", "blacklist")
+                btn = ui.button(_PERM_LABELS.get(opt, opt),
+                                on_click=lambda _=None, o=opt: (on_choice(o), card.delete()))
+                btn.classes("perm-btn " + ("reject" if danger else "approve")).props("flat dense")
+    return card
+
+
 def render_project_selector(projects, current_project_id, current_scope,
                              on_pick_project, on_pick_scope, on_add_project):
     """Sélecteur Projet → scope (main / worktrees) dans la sidebar, style Phosphore.

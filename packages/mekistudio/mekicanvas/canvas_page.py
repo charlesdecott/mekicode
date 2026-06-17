@@ -17,11 +17,14 @@ from mekicanvas.impulses import impulse_from_hub_event
 
 _JS = Path(__file__).resolve().parent / "static" / "js"
 _CSS = Path(__file__).resolve().parent / "static" / "css" / "canvas.css"
+_CHAT_CSS = Path(__file__).resolve().parent.parent / "mekichat" / "static" / "mekichat.css"
 
 
-def _load_assets() -> None:
+def inject_assets() -> None:
+    """Injecte JS (géométrie + pont) + CSS (chat + canvas). À appeler UNE FOIS au build de page."""
     for fname in ("cables.js", "collision.js", "canvas.js"):
         ui.add_body_html(f"<script>{(_JS / fname).read_text(encoding='utf-8')}</script>")
+    ui.add_css(_CHAT_CSS.read_text(encoding="utf-8"))   # styles du chat embarqué (node chat)
     ui.add_css(_CSS.read_text(encoding="utf-8"))
 
 
@@ -45,8 +48,9 @@ def _node_body(node) -> None:
             ui.label(node.kind)
 
 
-def render_canvas(container, hub, session_id: str, author) -> None:
-    _load_assets()
+def render_canvas(container, hub, session_id: str, author, *, inject: bool = True) -> None:
+    if inject:
+        inject_assets()
     state = default_canvas()
     with container:
         canvas = ui.element("div").classes("mc-canvas")
@@ -64,7 +68,14 @@ def render_canvas(container, hub, session_id: str, author) -> None:
                     wrap.props(f'data-id="{n.id}" data-kind="{n.kind}" data-source="{n.source_id or ""}"')
                     with wrap:
                         with ui.element("div").classes("node-card"):
-                            _node_body(n)
+                            if n.kind == "chat":
+                                with ui.element("div").classes("nhead"):
+                                    ui.label("💬 chat")
+                                body = ui.element("div").classes("nbody nbody-chat")
+                                from component import ChatComponent  # mekichat (sys.path posé par l'app)
+                                ChatComponent(body, hub, session_id, author)
+                            else:
+                                _node_body(n)
 
     # init pan/zoom + tracé des câbles (après que le DOM des nodes soit posé)
     ui.timer(0.25, lambda: ui.run_javascript(

@@ -49,3 +49,45 @@ svg.cables circle.comet { fill: #eaffea; filter: drop-shadow(0 0 6px #39ff14) dr
 .node-wrap.glow-strong .node-card { box-shadow: 0 0 26px rgba(57, 255, 20, .65); border-color: #39ff14; }
 .node-wrap.glow-error  .node-card { box-shadow: 0 0 26px rgba(255, 59, 59, .6); border-color: #ff3b3b; }
 .node-wrap.glow-notif  .node-card { box-shadow: 0 0 24px rgba(247, 255, 18, .55); border-color: #f7ff12; }
+
+/* ===== coquille studio 3 modes ===== */
+.studio { position: fixed; inset: 0; display: flex; flex-direction: column; background: #060806; }
+.studio-modes {
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px; flex: 0 0 auto;
+  border-bottom: 1px solid rgba(57, 255, 20, .25); background: #0a0f0a;
+  font-family: 'Share Tech Mono', ui-monospace, monospace; color: #9fe89f; z-index: 5;
+}
+.studio-brand { color: #39ff14; font-weight: 700; letter-spacing: .06em; }
+.studio-sub { margin-left: auto; opacity: .55; font-size: 12px; }
+.mode-btn {
+  color: #7da; background: transparent; border: 1px solid rgba(57, 255, 20, .25);
+  border-radius: 7px; padding: 3px 14px !important; font-size: 13px; text-transform: none;
+}
+.mode-btn.on { background: rgba(57, 255, 20, .14); color: #39ff14; border-color: rgba(57, 255, 20, .6); font-weight: 700; }
+.studio-stage { position: relative; flex: 1 1 auto; min-height: 0; display: flex; }
+.studio-stage.mode-mix .stage-chat { flex: 0 0 40%; max-width: 40%; border-right: 1px solid rgba(57, 255, 20, .2); }
+.studio-stage.mode-mix .stage-canvas { flex: 1 1 auto; }
+.stage-chat { position: relative; height: 100%; min-width: 0; display: flex; flex-direction: column; background: #0a0e0a; }
+.stage-canvas { position: relative; height: 100%; flex: 1 1 auto; min-width: 0; }
+
+/* ===== chat embarqué (onglet, node canvas, panneau focus) ===== */
+.chat-embed { display: flex; flex-direction: column; height: 100%; min-height: 0; background: #0a0e0a; }
+.chat-embed .thread { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 8px 10px; }
+.chat-embed .presence-row { flex: 0 0 auto; padding: 2px 10px; }
+.chat-embed .queue-bar { flex: 0 0 auto; }
+.chat-embed .composer { flex: 0 0 auto; }
+.node-wrap[data-kind="chat"] .nbody-chat { padding: 0; height: 100%; min-height: 0; display: flex; }
+.node-wrap[data-kind="chat"] .node-card { overflow: hidden; }
+
+/* ===== carte de permission (s15, façon Claude Code) ===== */
+.perm-request {
+  border: 1px solid rgba(247, 255, 18, .5); border-radius: 10px; background: rgba(247, 255, 18, .06);
+  padding: 9px 11px; margin: 8px 0; font-family: 'Share Tech Mono', ui-monospace, monospace;
+}
+.perm-head .perm-title { color: #f7ff12; font-weight: 700; font-size: 13px; }
+.perm-target { color: #ffe; font-size: 12px; margin: 4px 0; word-break: break-all; }
+.perm-reason { color: #bbc; font-size: 11px; opacity: .8; }
+.perm-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.perm-btn { border-radius: 6px; font-size: 11px !important; padding: 2px 10px !important; text-transform: none; }
+.perm-btn.approve { color: #39ff14; border: 1px solid rgba(57, 255, 20, .4); }
+.perm-btn.reject { color: #ff6b6b; border: 1px solid rgba(255, 107, 107, .4); }
