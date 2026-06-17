@@ -276,5 +276,7 @@
     }
   }
 
-  window.MekiCanvas = { initWorld, redraw, impulse, fitView, _state: state };
+  function cometTo(fromId, toId, level) { pulseTo(fromId, toId, level || 'strong'); }
+
+  window.MekiCanvas = { initWorld, redraw, impulse, fitView, cometTo, _state: state };
 })();

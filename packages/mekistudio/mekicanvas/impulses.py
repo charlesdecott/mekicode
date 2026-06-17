@@ -15,7 +15,9 @@ def normalize_path(p: str) -> str:
     p = p.replace("\\", "/")
     while "//" in p:
         p = p.replace("//", "/")
-    return p.lstrip("./").rstrip("/")
+    while p.startswith("./"):        # retire un PRÉFIXE "./" (pas les caractères : préserve ".env")
+        p = p[2:]
+    return p.rstrip("/")
 
 
 def impulse_for(event: dict) -> dict | None:

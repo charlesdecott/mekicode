@@ -114,6 +114,35 @@ svg.cables circle.comet { fill: #eaffea; filter: drop-shadow(0 0 6px #39ff14) dr
 .node-wrap[data-kind="folder"] .nhead { color: #2bd6ff; border-color: rgba(43, 214, 255, .25); background: rgba(43, 214, 255, .05); }
 .node-wrap[data-kind="folder"] .nbody { display: none; }
 
+/* === Sprint 2a : explorateur + éditeur === */
+/* node explorateur (cyan clair) */
+.node-wrap[data-kind="explorer"] .node-card { border-color: rgba(120, 200, 255, .5); box-shadow: 0 0 14px rgba(120, 200, 255, .15); background: #081016; }
+.node-wrap[data-kind="explorer"] .nhead { color: #8fd0ff; border-color: rgba(120, 200, 255, .25); background: rgba(120, 200, 255, .05); }
+.nbody-fs { padding: 4px 4px 8px; font-family: 'Share Tech Mono', ui-monospace, monospace; font-size: 12px; color: #cfe; }
+.fs-tree { display: flex; flex-direction: column; }
+.fs-file { display: flex; align-items: center; gap: 6px; padding: 2px 6px; border-radius: 5px; cursor: pointer; user-select: none; }
+.fs-file:hover { background: rgba(120, 200, 255, .12); }
+.fs-ico { opacity: .8; }
+.fs-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fs-err { color: #ff8b8b; font-size: 11px; padding: 4px 6px; }
+.node-wrap[data-kind="explorer"] .q-expansion-item { font-size: 12px; }
+.node-wrap[data-kind="explorer"] .q-item { min-height: 24px; padding: 0 6px; color: #aee; }
+.node-wrap[data-kind="explorer"] .q-item__section--avatar { min-width: 18px; padding-right: 4px; }
+
+/* node éditeur (bleu fichier) */
+.node-wrap[data-kind="editor"] .node-card { border-color: rgba(43, 214, 255, .55); box-shadow: 0 0 16px rgba(43, 214, 255, .2); background: #06121a; }
+.node-wrap[data-kind="editor"] .nhead { color: #2bd6ff; border-color: rgba(43, 214, 255, .25); background: rgba(43, 214, 255, .05); }
+.node-wrap[data-kind="editor"].ephemeral .node-card { border-style: dashed; }
+.nbody-editor { padding: 0; height: 100%; min-height: 0; display: flex; }
+.editor-embed { display: flex; flex-direction: column; height: 100%; min-height: 0; width: 100%; }
+.editor-bar { display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-bottom: 1px solid rgba(43, 214, 255, .2); background: rgba(43, 214, 255, .04); font-family: 'Share Tech Mono', ui-monospace, monospace; }
+.editor-name { flex: 1 1 auto; color: #2bd6ff; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.editor-dirty { color: #f7ff12; font-size: 11px; }
+.editor-act { font-size: 12px !important; min-height: 0 !important; padding: 0 4px !important; color: #9fe; }
+.editor-cm { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.editor-cm .cm-editor { height: 100%; }
+.editor-err { color: #ff8b8b; padding: 8px; font-size: 12px; }
+
 /* ===== carte de permission (s15, façon Claude Code) ===== */
 .perm-request {
   border: 1px solid rgba(247, 255, 18, .5); border-radius: 10px; background: rgba(247, 255, 18, .06);

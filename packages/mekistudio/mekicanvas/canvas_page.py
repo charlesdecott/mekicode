@@ -1,20 +1,20 @@
-"""canvas_page.py — rend le canvas : kernel → folders (scopes) → chats groupés.
+"""canvas_page.py — rend le canvas : kernel → folders (scopes) → [explorateur + chats] → éditeurs.
 
-Une node "folder" n'est PAS un dossier FS : c'est un **espace de travail** = (projet, scope).
-- scope "main"  : le repo de base, on affiche la branche git courante ;
-- autre scope   : un worktree (dossier séparé), on affiche son nom de branche.
-Les chats sont groupés SOUS leur folder (en grille), reliés par câbles 45°. IDs stables
-(session_id pour les chats, "folder:<projet>:<scope>" pour les folders, "kernel") → le drag
-persiste les positions côté client (localStorage). Cliquer la pastille ◎ d'un chat → focus à gauche.
+Sprint 2a : chaque folder (workspace) gagne un ExplorerNode (arbre fichiers sandboxé). Double-clic
+fichier → EditorNode épinglé. Quand l'agent LIT un fichier (read/grep/glob), un EditorNode éphémère
+apparaît sous l'explorateur + une comète file du chat vers lui (abonnement par session).
 """
 from __future__ import annotations
 
-import subprocess
+import json
 from pathlib import Path
 
 from nicegui import ui
 
-from mekicanvas.nodes import kernel as kernel_node
+from mekicanvas import editor as editor_mod
+from mekicanvas import explorer as explorer_mod
+from mekicanvas.impulses import impulse_from_hub_event, normalize_path
+from mekicanvas.nodes import kernel as kernel_node  # noqa: F401  (réservé)
 
 _JS = Path(__file__).resolve().parent / "static" / "js"
 _CSS = Path(__file__).resolve().parent / "static" / "css" / "canvas.css"
@@ -22,12 +22,14 @@ _CHAT_CSS = Path(__file__).resolve().parent.parent / "mekichat" / "static" / "me
 
 _CHAT_W, _CHAT_H = 400.0, 440.0
 _COL_GAP, _ROW_GAP = 460.0, 480.0
-_FOLDER_GAP = 1040.0
+_FOLDER_GAP = 1320.0
+_EXPLORER_W, _EXPLORER_H = 340.0, 560.0
+_EDITOR_W, _EDITOR_H = 520.0, 380.0
 _KERNEL_ID = "kernel"
+_EPH_TTL_S = 600  # 10 min
 
 
 def inject_assets() -> None:
-    """Injecte JS (géométrie + pont) + CSS (chat + canvas). À appeler UNE FOIS au build de page."""
     for fname in ("cables.js", "collision.js", "canvas.js"):
         ui.add_body_html(f"<script>{(_JS / fname).read_text(encoding='utf-8')}</script>")
     ui.add_css(_CHAT_CSS.read_text(encoding="utf-8"))
@@ -35,16 +37,24 @@ def inject_assets() -> None:
 
 
 def _branch_for(repo_path: str) -> str:
+    import subprocess
     try:
         out = subprocess.run(["git", "-C", repo_path, "rev-parse", "--abbrev-ref", "HEAD"],
                              capture_output=True, text=True, timeout=3)
-        return (out.stdout.strip() or "?")
+        return out.stdout.strip() or "?"
     except Exception:
         return "?"
 
 
-def _groups(metas, registry):
-    """Groupe les sessions par (project_id, scope) → liste ordonnée de groupes décrits."""
+def _workspace_path(store, registry, meta) -> Path:
+    try:
+        from mekihub.projects import workspace_for
+        return Path(workspace_for(store.load(meta.id), registry)).resolve()
+    except Exception:
+        return Path.cwd().resolve()
+
+
+def _groups(metas, store, registry):
     by_key: dict = {}
     order: list = []
     for m in metas:
@@ -53,19 +63,20 @@ def _groups(metas, registry):
             by_key[key] = []
             order.append(key)
         by_key[key].append(m)
-    # main d'abord, puis worktrees, pour un placement stable
     order.sort(key=lambda k: (k[1] != "main", k[0], k[1]))
     out = []
     for pid, scope in order:
         project = registry.get(pid) if registry else None
         name = project.name if project else pid
+        sessions = by_key[(pid, scope)]
+        ws = _workspace_path(store, registry, sessions[0])
         if scope == "main":
             branch = _branch_for(project.repo_path) if project else "main"
-            label, glyph = f"{name} · ⎇ {branch}", "\U0001F4C1"   # 📁 + ⎇
+            label, glyph = f"{name} · ⎇ {branch}", "\U0001F4C1"
         else:
-            label, glyph = f"{name} · ⎇ {scope}", "\U0001F33F"     # 🌿 worktree
+            label, glyph = f"{name} · ⎇ {scope}", "\U0001F33F"
         out.append({"key": f"folder:{pid}:{scope}", "label": label, "glyph": glyph,
-                    "sessions": by_key[(pid, scope)]})
+                    "sessions": sessions, "ws": ws})
     return out
 
 
@@ -74,53 +85,164 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
         inject_assets()
     metas = store.list()
     registry = getattr(hub, "registry", None)
-    groups = _groups(metas, registry)
+    groups = _groups(metas, store, registry)
 
-    # --- positions (coordonnées MONDE) ---
-    placed = []   # (id, kind, x, y, w, h, source_id, head_glyph, head_text, session_id)
-    placed.append((_KERNEL_ID, "kernel", 0.0, 0.0, None, None, None, "◉", "kernel", None))
+    # --- 1. positions (coords MONDE) + maps ---
+    placed = []   # dict par node
+    placed.append(dict(id=_KERNEL_ID, kind="kernel", x=0.0, y=0.0, w=None, h=None,
+                       src=None, glyph="◉", text="kernel", sid=None, payload=None))
+    session_ws: dict = {}      # sid -> ws Path
+    explorers: dict = {}       # ws_str -> {id, x, y, count}
     n_groups = max(1, len(groups))
     for gi, g in enumerate(groups):
         fx = (gi - (n_groups - 1) / 2.0) * _FOLDER_GAP
         fy = 220.0
-        placed.append((g["key"], "folder", fx - 150.0, fy, 300.0, 66.0, _KERNEL_ID,
-                       g["glyph"], g["label"], None))
+        fid = g["key"]
+        placed.append(dict(id=fid, kind="folder", x=fx - 150.0, y=fy, w=300.0, h=66.0,
+                           src=_KERNEL_ID, glyph=g["glyph"], text=g["label"], sid=None, payload=None))
+        ws = g["ws"]; ws_str = str(ws)
+        exp_id = f"explorer:{g['key']}"
+        exp_x, exp_y = fx - _COL_GAP - _EXPLORER_W - 80.0, fy + 200.0
+        placed.append(dict(id=exp_id, kind="explorer", x=exp_x, y=exp_y, w=_EXPLORER_W, h=_EXPLORER_H,
+                           src=fid, glyph="\U0001F5C2", text="fichiers", sid=None, payload=ws_str))
+        explorers[ws_str] = {"id": exp_id, "x": exp_x, "y": exp_y, "count": 0}
         for si, m in enumerate(g["sessions"]):
             col, row = si % 2, si // 2
             cx = fx + (col - 0.5) * _COL_GAP - _CHAT_W / 2.0
             cy = fy + 200.0 + row * _ROW_GAP
-            title = (m.title or m.id)[:22]
-            placed.append((m.id, "chat", cx, cy, _CHAT_W, _CHAT_H, g["key"],
-                           "\U0001F4AC", title, m.id))
+            placed.append(dict(id=m.id, kind="chat", x=cx, y=cy, w=_CHAT_W, h=_CHAT_H, src=fid,
+                               glyph="\U0001F4AC", text=(m.title or m.id)[:22], sid=m.id, payload=None))
+            session_ws[m.id] = ws
 
+    spawned: dict = {}   # (ws_str, rel) -> editor id
+    seq = {"n": 0}
+
+    # --- 2. canvas + world ---
     with container:
         canvas = ui.element("div").classes("mc-canvas")
         with canvas:
+            # précharge la lib CodeMirror dès le build (sinon le 1er éditeur spawné dynamiquement
+            # ne monte pas : la dépendance JS n'est pas encore chargée).
+            ui.codemirror(value="", theme="basicDark").style(
+                "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px").classes("cm-preload")
             world = ui.element("div").classes("mc-world")
-            with world:
-                for nid, kind, x, y, w, h, src, glyph, text, sid in placed:
-                    cls = "node-wrap" + (" focused" if sid and sid == focus_sid else "")
-                    wrap = ui.element("div").classes(cls)
-                    style = f"left:{x}px;top:{y}px;"
-                    if w:
-                        style += f"width:{w}px;"
-                    if h:
-                        style += f"height:{h}px;"
-                    wrap.style(style)
-                    wrap.props(f'data-id="{nid}" data-kind="{kind}" '
-                               f'data-source="{src or ""}" data-session="{sid or ""}"')
-                    with wrap:
-                        with ui.element("div").classes("node-card"):
-                            with ui.element("div").classes("nhead"):
-                                ui.label(f"{glyph} {text}").classes("nhead-label")
-                            if kind == "chat":
-                                body = ui.element("div").classes("nbody nbody-chat")
-                                with body:
-                                    scale = ui.element("div").classes("chat-scale")
-                                from component import ChatComponent  # mekichat (sys.path posé par l'app)
-                                ChatComponent(scale, hub, sid, author)
-                            if kind != "kernel":   # poignée de redimensionnement (coin bas-droite)
-                                ui.element("div").classes("resize-handle")
 
-    ui.timer(0.25, lambda: ui.run_javascript(
-        "window.MekiCanvas && window.MekiCanvas.initWorld();"), once=True)
+    # --- 3. spawn / remove (closures) ---
+    def _remove_editor(key, eid) -> None:
+        spawned.pop(key, None)
+        ui.run_javascript(
+            f"(()=>{{const w=document.querySelector('.node-wrap[data-id=\"{eid}\"]');"
+            f"if(w)w.remove(); window.MekiCanvas && window.MekiCanvas.redraw();}})()")
+
+    def _spawn_editor(ws, rel, from_id, *, ephemeral) -> None:
+        rel = normalize_path(rel)
+        ws_str = str(Path(ws).resolve())
+        exp = explorers.get(ws_str)
+        if exp is None or not rel:
+            return
+        key = (ws_str, rel)
+        existing = spawned.get(key)
+        if existing:
+            ui.run_javascript(f"window.MekiCanvas && window.MekiCanvas.cometTo({json.dumps(from_id)},{json.dumps(existing)})")
+            return
+        seq["n"] += 1
+        eid = f"editor:{seq['n']}"
+        spawned[key] = eid
+        i = exp["count"]; exp["count"] = i + 1
+        ex, ey = exp["x"] - _EDITOR_W - 60.0, exp["y"] + i * (_EDITOR_H + 40.0)
+        with world:
+            _build_node(dict(id=eid, kind="editor", x=ex, y=ey, w=_EDITOR_W, h=_EDITOR_H, src=exp["id"],
+                             glyph="✎", text=Path(rel).name, sid=None, payload={"ws": ws_str, "rel": rel}),
+                        focus_sid, hub, author, explorers, _spawn_editor, _remove_editor,
+                        ephemeral=ephemeral, close_key=key)
+
+        def _after(_from=from_id, _eid=eid) -> None:
+            ui.run_javascript("window.MekiCanvas && window.MekiCanvas.redraw();")
+            ui.run_javascript(f"window.MekiCanvas && window.MekiCanvas.cometTo({json.dumps(_from)},{json.dumps(_eid)})")
+        ui.timer(0.06, _after, once=True)
+        if ephemeral:
+            def _expire(_key=key, _eid=eid) -> None:
+                if spawned.get(_key) == _eid:
+                    _remove_editor(_key, _eid)
+            ui.timer(_EPH_TTL_S, _expire, once=True)
+
+    # --- 4. rendu initial ---
+    with world:
+        for p in placed:
+            _build_node(p, focus_sid, hub, author, explorers, _spawn_editor, _remove_editor)
+
+    ui.timer(0.25, lambda: ui.run_javascript("window.MekiCanvas && window.MekiCanvas.initWorld();"), once=True)
+
+    # --- 5. abonnements par session : spawn éphémère + comète sur lecture de l'agent ---
+    for sid, ws in session_ws.items():
+        _start_file_watch(hub, sid, ws, _spawn_editor)
+
+
+def _explorer_id_for(ws_str, explorers):
+    e = explorers.get(str(ws_str))
+    return e["id"] if e else _KERNEL_ID
+
+
+def _build_node(p, focus_sid, hub, author, explorers, spawn_fn, remove_fn,
+                *, ephemeral=False, close_key=None) -> None:
+    kind, sid = p["kind"], p["sid"]
+    cls = "node-wrap" + (" focused" if sid and sid == focus_sid else "") + (" ephemeral" if ephemeral else "")
+    wrap = ui.element("div").classes(cls)
+    style = f"left:{p['x']}px;top:{p['y']}px;"
+    if p["w"]:
+        style += f"width:{p['w']}px;"
+    if p["h"]:
+        style += f"height:{p['h']}px;"
+    wrap.style(style)
+    wrap.props(f'data-id="{p["id"]}" data-kind="{kind}" data-source="{p["src"] or ""}" data-session="{sid or ""}"')
+    with wrap:
+        with ui.element("div").classes("node-card"):
+            with ui.element("div").classes("nhead"):
+                ui.label(f"{p['glyph']} {p['text']}").classes("nhead-label")
+            if kind == "chat":
+                body = ui.element("div").classes("nbody nbody-chat")
+                from component import ChatComponent  # mekichat
+                ChatComponent(body, hub, sid, author)
+            elif kind == "explorer":
+                body = ui.element("div").classes("nbody nbody-fs")
+                ws = p["payload"]
+                explorer_mod.render_explorer(
+                    body, ws,
+                    lambda rel, _ws=ws: spawn_fn(_ws, rel, _explorer_id_for(_ws, explorers), ephemeral=False))
+            elif kind == "editor":
+                body = ui.element("div").classes("nbody nbody-editor")  # noqa: F841
+                editor_mod.render_editor(body, p["payload"]["ws"], p["payload"]["rel"],
+                                         lambda _k=close_key, _id=p["id"]: remove_fn(_k, _id))
+            if kind != "kernel":
+                ui.element("div").classes("resize-handle")
+
+
+def _start_file_watch(hub, sid, ws, spawn_editor) -> None:
+    args_by_id: dict = {}
+
+    async def _watch() -> None:
+        async for ev in hub.subscribe(sid):
+            name = type(ev).__name__
+            if name == "ToolStarted":
+                args_by_id[ev.id] = ev.args
+            elif name == "ToolFinished":
+                try:
+                    setattr(ev, "args", args_by_id.get(ev.id, {}))
+                except Exception:
+                    pass
+                try:
+                    intent = impulse_from_hub_event(ev)
+                except Exception:
+                    intent = None
+                tgt = (intent or {}).get("target", {})
+                is_read = getattr(ev, "name", "").lower() == "read"   # read = un seul fichier (grep/glob = dossier)
+                if is_read and intent and intent.get("kind") == "comet" and tgt.get("by") == "file":
+                    try:
+                        spawn_editor(ws, tgt["value"], sid, ephemeral=True)
+                    except RuntimeError as e:
+                        if "deleted" in str(e):
+                            return   # canvas obsolète (changement de mode) → on arrête cet abonnement
+                    except Exception:
+                        pass
+
+    ui.timer(0.15, _watch, once=True)
