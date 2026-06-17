@@ -31,3 +31,6 @@ trailer/out/*.mp4
 
 # NiceGUI (cache local)
 .nicegui/
+
+# Compagnon visuel brainstorming (ephemere)
+.superpowers/

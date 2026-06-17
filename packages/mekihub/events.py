@@ -105,3 +105,16 @@ class WorktreeCreated:
     proposal_id: str
     child_session_id: str
     channel_id: str | None = None
+
+
+@dataclass
+class PermissionRequested:
+    """Un appel d'outil a déclenché le tier `ask` (s15). Le run est en pause jusqu'à
+    `SessionHub.resolve_permission(request_id, choice, actor)`."""
+    request_id: str
+    item_id: str            # run/queue item concerné
+    tool: str
+    target: str             # 1re valeur d'input, tronquée
+    reason: str
+    options: list           # ["once", "session", "project", "deny", "blacklist"]
+    actor_id: str | None    # auteur autorisé à trancher (None => admin requis)
