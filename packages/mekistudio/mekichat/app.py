@@ -26,6 +26,7 @@ from mekihub.hub import SessionHub  # noqa: E402
 from mekihub.session import SessionStore as _HubSessionStore  # noqa: E402
 from tools import DISPATCH, TOOLS, make_dispatch  # noqa: E402
 from mekihub.projects import ProjectRegistry  # noqa: E402
+from mekicanvas.canvas_page import render_canvas  # noqa: E402  (canvas studio — route /canvas)
 
 STATIC = HERE / "static"
 DEFAULT_MODEL = mekillm.config.resolve()["model"]
@@ -583,6 +584,18 @@ def _chip(key: str, value: str, extra: str):
         ui.label(key).classes("k")
         lbl = ui.label(value).classes("v")
     return lbl
+
+
+@ui.page("/canvas")
+def canvas_route() -> None:
+    """Aperçu du canvas studio (Kernel/Chat/Queue + câbles 45° + comètes). Route temporaire :
+    sera intégrée à la coquille 3 modes (shell.py) en Phase 7."""
+    ui.add_head_html(FONTS)
+    ui.query("body").props('data-theme=phosphor')
+    current = _ensure_current()
+    author = realtime.author_for_client()
+    stage = ui.element("div").style("position:fixed;inset:0;")
+    render_canvas(stage, _get_hub(), current.id, author)
 
 
 if __name__ in {"__main__", "__mp_main__"}:   # garde requise par NiceGUI (reload/multiprocessing)
