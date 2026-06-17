@@ -69,11 +69,18 @@ def _get_llm():
 
 
 def _llm_factory():
-    """Fabrique le provider LLM consommé par le SessionHub. Si MEKICHAT_FAKE_LLM est posée,
-    renvoie un FakeLLM déterministe (validation Playwright réseau-free, runs lents observables)."""
+    """Fabrique le provider LLM consommé par le SessionHub. Modes de test réseau-free :
+    - MEKICHAT_FAKE_LLM  : FakeLLM déterministe (réponse texte lente, observable) ;
+    - MEKICHAT_FAKE_TOOL : FakeToolLLM appelant `bash rm …` (déclenche le tier `ask` de s15)."""
     import os
+    tests_dir = str(HERE.parent.parent.parent / "tests")   # racine/tests (fakes)
+    if os.environ.get("MEKICHAT_FAKE_TOOL"):
+        sys.path.insert(0, tests_dir)
+        from fakes import FakeToolLLM
+        return FakeToolLLM(tool_name="bash", tool_args={"command": "rm fichier_demo.txt"},
+                           final="C'est fait.")
     if os.environ.get("MEKICHAT_FAKE_LLM"):
-        sys.path.insert(0, str(HERE.parent.parent / "tests"))   # tests/ (fakes)
+        sys.path.insert(0, tests_dir)
         from fakes import FakeLLM
         return FakeLLM(reply="reponse simulee lente", delay=0.6)
     return mekillm.LLM()
