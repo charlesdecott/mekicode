@@ -120,7 +120,7 @@ C'est volontaire : on reconstruit proprement à partir du socle, on ne recopie p
 - **Phase 4 livrée** : navigation multi-projet + carte de validation worktree.
 - **Outils étendus** (post-phase-3) : les six outils de mekicore rendus en blocs colorés/repliables.
 
-### `packages/mekistudio/` — front studio 3 modes (Sprint 1, en cours)
+### `packages/mekistudio/` — front studio 3 modes (Sprints 1 + 2 + extraits 3/4 livrés)
 Intègre le canvas de **mekistudio** (projet d'étude `C:\mekistudio`) dans notre harness. Spec/plan :
 `docs/superpowers/specs/2026-06-17-…` et `docs/superpowers/plans/2026-06-17-sprint1-mekistudio-canvas.md`.
 - **Restructure** : `packages/mekichat/` → `packages/mekistudio/mekichat/` ; nouveau module
@@ -136,8 +136,23 @@ Intègre le canvas de **mekistudio** (projet d'étude `C:\mekistudio`) dans notr
 - **Lecture au zoom** : zoom-in densifie le texte du chat (plus de texte/ligne) ; molette dans un chat
   = scroll du fil ; pas de scroll horizontal. Entrées : `python packages/mekistudio/mekichat/app.py`
   (`/` accueil, **`/studio`** 3 modes) ou `.\start-studio.ps1`.
-- **Reste Sprint 1 / différé** : dédupliquer l'accueil `/` pour qu'il réutilise `ChatComponent` ;
-  carte de permission dupliquée en mode Mix (2 instances) à dédoublonner ; wiki `packages/` à compléter.
+- **Sprint 2 — Fichiers (livré, vérifié Playwright)** : `mekicanvas/fs.py` (helpers sandboxés
+  list/read/write atomique, `smoke_mekicanvas_fs`), **ExplorerNode** (`explorer.py`, arbre lazy
+  `ui.expansion`, clic fichier→éditeur), **EditorNode** (`editor.py`, `ui.codemirror` coloré par
+  extension, sauvegarde, **pin** des éphémères, **aperçu markdown**, **diff vs HEAD** coloré),
+  **spawn auto d'un éditeur éphémère + comète quand l'agent `read` un fichier**, **nodes dossiers**
+  (groupement organique : éditeur→dossier→explorateur, dédup par dossier parent).
+- **Sprint 3 — Nodes outils (livré)** : **node Git** (branche + ahead/behind + modifs, rafraîchie),
+  **node Terminal** (`terminal.py`, runner de commandes shell dans le workspace, non-bloquant).
+- **Sprint 4 — Interactivité (livré)** : outil agent **`ask_user`** (QCM/réponse libre en plein tour,
+  bloque jusqu'à la réponse ; event `AskRequested` + `SessionHub.resolve_ask` + carte chat),
+  **palette de nodes** (`+` → Terminal / Ouvrir un fichier par chemin).
+- **Reste (multi-utilisateur temps réel, le plus lourd)** : présence/curseurs sur le canvas, sync des
+  positions de nodes entre clients (actuellement localStorage par navigateur), subcanvas conteneur,
+  multi-canvas (onglets). Polish : dédup accueil `/`→`ChatComponent`, carte permission/ask dédupliquée
+  en Mix (2 instances), chaîne de dossiers multi-niveaux (actuellement 1 niveau).
+- Modes test front : `MEKICHAT_FAKE_READ=1` (agent lit CLAUDE.md → éditeur), `MEKICHAT_FAKE_ASK=1`
+  (agent pose une question QCM), `MEKICHAT_FAKE_TOOL=1` (bash `rm` → carte permission).
 
 ### Confort projet
 - Lanceurs `start.ps1` / `start.sh` (mekicore) et `start-chat.ps1` (mekichat) à la racine.

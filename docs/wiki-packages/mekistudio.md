@@ -97,10 +97,45 @@ Quand l'agent appelle un outil du tier *ask* (ex. `bash rm …`), `mekicore` met
 applique la portée puis débloque le worker. *(Détail connu : en Mix, le chat est rendu 2× → 2 cartes ;
 en résoudre une exécute l'action mais l'autre reste — à dédoublonner.)*
 
+## Sprint 2 — fichiers (explorateur, éditeur, dossiers)
+
+- **`mekicanvas/fs.py`** : helpers **sandboxés** à une racine de workspace — `safe_path` (refuse les
+  échappées), `list_dir` (dirs avant fichiers, exclusions `__pycache__/.git/...`), `read_text`
+  (UTF-8, ≤ 1 Mo, refuse le binaire), `write_text` (écriture atomique tmp+replace). Tests :
+  `tests/smoke_mekicanvas_fs.py`.
+- **`explorer.py`** (`render_explorer`) : arbre de fichiers **lazy** (`ui.expansion`, enfants chargés au
+  1er dépli via `fs.list_dir`) ; **clic** sur un fichier → ouvre un éditeur. Une **ExplorerNode** par
+  workspace.
+- **`editor.py`** (`render_editor`) : **`ui.codemirror`** (coloration par extension, thème `basicDark`),
+  barre nom / ● modifié / **📌 pin** (éphémères) / **👁 aperçu** (markdown, `ui.markdown`) / **⇄ diff**
+  (vs `HEAD`, lignes `+`/`-`/`@@` colorées) / **💾 sauver** / **✕ fermer**. *Pièges réglés :* précharge
+  un `ui.codemirror` caché au build du canvas (sinon le 1er éditeur dynamique ne monte pas) ;
+  `normalize_path` retire un **préfixe** `./` sans manger le `.` des dotfiles.
+- **Spawn sur lecture** (`canvas_page._start_file_watch`) : un abonnement par session ; quand l'agent
+  `read` un fichier, un **éditeur éphémère** (bordure pointillée, TTL 10 min, **pin** pour garder) apparaît
+  + une **comète** file du chat vers lui (`MekiCanvas.cometTo`).
+- **Nodes dossiers** (`_ensure_dir`) : les éditeurs d'un même dossier parent se rattachent à un même node
+  `📁` (dédup) → **éditeur → dossier → explorateur → folder → kernel**.
+
+## Sprint 3/4 — nodes outils, interactivité, palette
+
+- **Node Git** (`_render_git`/`_git_status`) : branche + `↑ahead`/`↓behind` + `● N modifs`, rafraîchie (8 s).
+- **Node Terminal** (`terminal.py`) : **runner** de commandes shell dans le workspace (subprocess en
+  thread, non-bloquant ; c'est l'utilisateur qui lance, donc hors gouvernance s15).
+- **`ask_user`** (outil agent, `mekihub`) : l'agent pose une **question** (QCM via `options`, ou réponse
+  libre) **en plein tour** et **bloque** jusqu'à la réponse (queue cross-thread, comme le tier *ask* des
+  permissions) ; event `AskRequested`, `SessionHub.resolve_ask`, carte `views.render_ask_request`.
+- **Palette** (`.mc-palette`) : `+` → **Terminal** (spawn) / **Ouvrir un fichier** (dialog chemin → éditeur),
+  comète depuis le kernel.
+
 ## Entrées & vérification
 
 - **Lancement** : `python packages/mekistudio/mekichat/app.py` (ou `.\start-studio.ps1`) → `/` (accueil),
   **`/studio`** (3 modes), `/canvas` (canvas seul). `.\start-chat.ps1` lance le même serveur.
+- **Modes test front** (LLM/outils factices, réseau-free) : `MEKICHAT_FAKE_READ=1` (l'agent lit CLAUDE.md
+  → éditeur éphémère), `MEKICHAT_FAKE_ASK=1` (l'agent pose une question QCM), `MEKICHAT_FAKE_TOOL=1`
+  (`bash rm` → carte permission), `MEKICHAT_FAKE_LLM=1` (réponses figées).
 - **Tests réseau-free** : `tests/smoke_mekicanvas.py` (modèle/registry/parenting/impulses),
-  `tests/smoke_mekichat.py` (sessions), géométrie `node --test …/static/js/*.test.js`. Vérification
-  visuelle du front via Playwright (un HTTP 200 ne suffit pas).
+  `tests/smoke_mekicanvas_fs.py` (fs sandboxé), `tests/smoke_mekichat.py` (sessions),
+  géométrie `node --test …/static/js/*.test.js`. Vérification visuelle du front via Playwright
+  (un HTTP 200 ne suffit pas).
