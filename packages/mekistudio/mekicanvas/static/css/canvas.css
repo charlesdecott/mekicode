@@ -81,11 +81,20 @@ svg.cables circle.comet { fill: #eaffea; filter: drop-shadow(0 0 6px #39ff14) dr
 .chat-embed .composer { flex: 0 0 auto; }
 .node-wrap[data-kind="chat"] .nbody-chat { padding: 0; height: 100%; min-height: 0; display: flex; }
 .node-wrap[data-kind="chat"] .node-card { overflow: hidden; }
-.nhead-focus { cursor: pointer; }
-.nhead-focus:hover { background: rgba(57, 255, 20, .1); }
-.nhead-focus .focus-dot { margin-left: auto; opacity: .5; font-size: 11px; }
+/* en-tête = poignée de déplacement (drag) */
+.nhead { cursor: move; user-select: none; }
+.nhead-label { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nhead .focus-dot { cursor: pointer; opacity: .5; font-size: 12px; padding: 0 2px; }
+.nhead .focus-dot:hover { opacity: 1; }
+.node-wrap.dragging { z-index: 50; }
+.node-wrap.dragging .node-card { box-shadow: 0 0 30px rgba(57, 255, 20, .5); }
 .node-wrap.focused .node-card { border-color: #39ff14 !important; box-shadow: 0 0 26px rgba(57, 255, 20, .55) !important; }
 .node-wrap.focused .focus-dot { opacity: 1; color: #39ff14; }
+
+/* node "folder" = espace de travail (repo main / worktree), cyan */
+.node-wrap[data-kind="folder"] .node-card { border-color: rgba(43, 214, 255, .5); box-shadow: 0 0 14px rgba(43, 214, 255, .16); background: #08131a; }
+.node-wrap[data-kind="folder"] .nhead { color: #2bd6ff; border-color: rgba(43, 214, 255, .25); background: rgba(43, 214, 255, .05); }
+.node-wrap[data-kind="folder"] .nbody { display: none; }
 
 /* ===== carte de permission (s15, façon Claude Code) ===== */
 .perm-request {

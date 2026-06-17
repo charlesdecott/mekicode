@@ -121,19 +121,60 @@
     state.view.y = rect.height / 2 - (y0 + bh / 2) * zoom;
   }
 
+  // positions persistées côté client (drag des nodes), par id de node stable
+  const POS_KEY = 'meki:canvas:pos';
+  function loadPos() { try { return JSON.parse(localStorage.getItem(POS_KEY) || '{}'); } catch (e) { return {}; } }
+  function savePos(id, x, y) {
+    const p = loadPos(); p[id] = { x, y };
+    try { localStorage.setItem(POS_KEY, JSON.stringify(p)); } catch (e) { /* quota */ }
+  }
+  function applySaved() {
+    const p = loadPos();
+    document.querySelectorAll('.node-wrap').forEach((w) => {
+      const s = p[w.dataset.id];
+      if (s) { w.style.left = s.x + 'px'; w.style.top = s.y + 'px'; }
+    });
+  }
+
   function initWorld() {
-    const cv = canvasEl(); if (!cv || cv._mekiInit) { redraw(); return; }
+    const cv = canvasEl(); if (!cv) return;
+    if (cv._mekiInit) { applySaved(); fitView(); applyTransform(); redraw(); return; }
     cv._mekiInit = true;
+    let drag = null;
     cv.addEventListener('mousedown', (e) => {
-      if (e.target.closest('.node-wrap')) return;
+      const head = e.target.closest('.nhead');
+      if (head && !e.target.closest('.focus-dot')) {            // poignée = en-tête (hors pastille focus)
+        const wrap = head.closest('.node-wrap');
+        if (wrap) {
+          e.preventDefault();
+          drag = { wrap, sx: e.clientX, sy: e.clientY,
+                   ox: parseFloat(wrap.style.left) || 0, oy: parseFloat(wrap.style.top) || 0, moved: false };
+          wrap.classList.add('dragging');
+          return;
+        }
+      }
+      if (e.target.closest('.node-wrap')) return;                // clic dans le corps d'une node → ni pan ni drag
       state.panning = true; state.last = { x: e.clientX, y: e.clientY }; cv.classList.add('panning');
     });
     window.addEventListener('mousemove', (e) => {
+      if (drag) {
+        const z = state.view.zoom || 1;
+        drag.wrap.style.left = (drag.ox + (e.clientX - drag.sx) / z) + 'px';
+        drag.wrap.style.top = (drag.oy + (e.clientY - drag.sy) / z) + 'px';
+        drag.moved = true; redraw(); return;
+      }
       if (!state.panning) return;
       state.view.x += e.clientX - state.last.x; state.view.y += e.clientY - state.last.y;
       state.last = { x: e.clientX, y: e.clientY }; applyTransform();
     });
-    window.addEventListener('mouseup', () => { state.panning = false; cv.classList.remove('panning'); });
+    window.addEventListener('mouseup', () => {
+      if (drag) {
+        drag.wrap.classList.remove('dragging');
+        if (drag.moved) savePos(drag.wrap.dataset.id, parseFloat(drag.wrap.style.left) || 0, parseFloat(drag.wrap.style.top) || 0);
+        drag = null; return;
+      }
+      state.panning = false; cv.classList.remove('panning');
+    });
     cv.addEventListener('wheel', (e) => {
       e.preventDefault();
       const f = e.deltaY < 0 ? 1.1 : 0.9;
@@ -143,7 +184,7 @@
       const wx = (mx - state.view.x) / state.view.zoom, wy = (my - state.view.y) / state.view.zoom;
       state.view.x = mx - wx * nz; state.view.y = my - wy * nz; state.view.zoom = nz; applyTransform();
     }, { passive: false });
-    fitView(); applyTransform(); redraw();
+    applySaved(); fitView(); applyTransform(); redraw();
   }
 
   // --- impulsions ---
