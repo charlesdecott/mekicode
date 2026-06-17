@@ -1,0 +1,18 @@
+# Gouvernance s15 — 3 tiers. Évaluation : always_deny -> always_allow -> ask_user -> ALLOW par défaut.
+# `pattern` = regex Python (re.IGNORECASE) testée sur la 1re valeur d'input de l'outil
+# (commande pour bash, chemin pour read/write/edit/grep/glob).
+permissions:
+  always_deny:
+    - { pattern: "rm\\s+-rf\\s+[/~]",            reason: "Suppression récursive racine bloquée" }
+    - { pattern: "\\bsudo\\b",                    reason: "Élévation de privilèges bloquée" }
+    - { pattern: "\\b(shutdown|reboot|halt)\\b",  reason: "Commandes d'arrêt système bloquées" }
+    - { pattern: ":\\(\\)\\s*\\{",                reason: "Fork bomb bloquée" }
+  always_allow:
+    - { pattern: "^ls( |$)",                      reason: "Lister un dossier est sûr" }
+    - { pattern: "^git (status|log|diff|show|branch|tag)", reason: "Git lecture seule sûr" }
+    - { pattern: "^(cat|head|tail|pwd|whoami|echo)\\b",    reason: "Lecture/inspection sûre" }
+  ask_user:
+    - { pattern: "^rm ",                          reason: "Suppression de fichier" }
+    - { pattern: "^git (commit|push|merge|rebase|reset)",  reason: "Écriture git" }
+    - { pattern: "\\.env",                        reason: "Accès à un fichier .env" }
+    - { pattern: "\\b(curl|wget|Invoke-WebRequest)\\b",    reason: "Accès réseau sortant" }
