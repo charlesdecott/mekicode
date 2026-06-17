@@ -9,6 +9,15 @@
 }
 .mc-canvas.panning { cursor: grabbing; }
 
+/* palette : ajouter des nodes à la volée (Sprint 4) */
+.mc-palette { position: absolute; top: 12px; left: 12px; z-index: 30; cursor: pointer; }
+.pal-trigger { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; border: 1px solid rgba(57, 255, 20, .5); background: rgba(8, 12, 8, .85); color: #39ff14; font-size: 20px; font-weight: 700; box-shadow: 0 0 12px rgba(57, 255, 20, .2); }
+.pal-trigger:hover { background: rgba(57, 255, 20, .12); }
+.pal-dialog { background: #08110a !important; border: 1px solid rgba(57, 255, 20, .4); color: #dfe; }
+.pal-dlg-title { color: #39ff14; font-size: 13px; }
+.pal-dlg-in { min-width: 320px; }
+.pal-dlg-btn { color: #39ff14 !important; }
+
 .mc-world {
   position: absolute; left: 0; top: 0; width: 100%; height: 100%;
   transform-origin: 0 0; overflow: visible;

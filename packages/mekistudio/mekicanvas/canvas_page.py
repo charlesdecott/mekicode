@@ -238,6 +238,49 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
         for p in placed:
             _build_node(p, focus_sid, hub, author, explorers, _spawn_editor, _remove_editor)
 
+    # --- palette : ajouter des nodes à la volée ---
+    _default_ws = str(groups[0]["ws"]) if groups else str(Path.cwd())
+    pal = {"n": 0}
+
+    def _spawn_generic(kind, payload, glyph, text, w, h) -> None:
+        pal["n"] += 1
+        nid = f"{kind}:pal:{pal['n']}"
+        x, y = 220.0 + (pal["n"] % 3) * (w + 40.0), -260.0 - (pal["n"] // 3) * (h + 40.0)
+        with world:
+            _build_node(dict(id=nid, kind=kind, x=x, y=y, w=w, h=h, src=_KERNEL_ID,
+                             glyph=glyph, text=text, sid=None, payload=payload),
+                        focus_sid, hub, author, explorers, _spawn_editor, _remove_editor)
+
+        def _after(_nid=nid) -> None:
+            ui.run_javascript("window.MekiCanvas && window.MekiCanvas.redraw();")
+            ui.run_javascript(f"window.MekiCanvas && window.MekiCanvas.cometTo('kernel',{json.dumps(_nid)})")
+        ui.timer(0.06, _after, once=True)
+
+    def _open_path_dialog() -> None:
+        dlg = ui.dialog()
+        with dlg, ui.card().classes("pal-dialog"):
+            ui.label("Ouvrir un fichier (chemin relatif au workspace)").classes("pal-dlg-title")
+            inp = ui.input(placeholder="ex. packages/mekicore/tools.py").classes("pal-dlg-in")
+
+            def _go(_=None):
+                rel = (inp.value or "").strip()
+                if rel:
+                    _spawn_editor(_default_ws, rel, _KERNEL_ID, ephemeral=False)
+                dlg.close()
+
+            inp.on("keydown.enter", _go)
+            with ui.row():
+                ui.button("Ouvrir", on_click=_go).props("flat").classes("pal-dlg-btn")
+                ui.button("Annuler", on_click=dlg.close).props("flat").classes("pal-dlg-btn")
+        dlg.open()
+
+    with canvas:
+        with ui.element("div").classes("mc-palette"):
+            ui.label("＋").classes("pal-trigger")
+            with ui.menu().classes("pal-menu"):
+                ui.menu_item("⌨  Terminal", lambda: _spawn_generic("terminal", _default_ws, "⌨", "terminal", 340.0, 220.0))
+                ui.menu_item("✎  Ouvrir un fichier…", _open_path_dialog)
+
     ui.timer(0.25, lambda: ui.run_javascript("window.MekiCanvas && window.MekiCanvas.initWorld();"), once=True)
 
     # --- 5. abonnements par session : spawn éphémère + comète sur lecture de l'agent ---
