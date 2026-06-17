@@ -12,6 +12,10 @@
   function applyTransform() {
     const w = worldEl(); if (!w) return;
     w.style.transform = `translate(${state.view.x}px, ${state.view.y}px) scale(${state.view.zoom})`;
+    // facteur de "densité de texte" du chat : au zoom-in (zoom>1), le contenu chat est mis en page
+    // dans une zone plus large puis contre-scalé → police écran ~constante, MAIS plus de texte par
+    // ligne (moins de retours à la ligne). Au zoom-out (zoom<=1) : facteur 1 = comportement normal.
+    w.style.setProperty('--mc-f', String(Math.max(1, state.view.zoom)));
     const cv = canvasEl();
     if (cv) {
       const s = 40 * state.view.zoom;
