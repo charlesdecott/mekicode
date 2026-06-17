@@ -31,12 +31,16 @@ def dispatch_tools(tool_calls, dispatch) -> list:
     return results
 
 
-def run_agent(messages, llm, tools, dispatch, *, stream=False):
+def run_agent(messages, llm, tools, dispatch, *, stream=False, hooks=None):
     """Boucle « penser-agir » émettant des événements.
 
     Mute `messages` en place. Si `stream=True`, le texte assistant arrive en `AssistantDelta`
     (puis un `AssistantDone` final) via `llm.stream()` ; sinon un seul `AssistantDone` via
     `llm.complete()`. Les outils fonctionnent dans les deux cas.
+
+    `hooks` (HookBus optionnel) : avant chaque outil, `emit_pre_tool` peut opposer un veto
+    (raison de refus -> l'outil n'est pas exécuté, la raison devient la sortie) ; après une
+    exécution autorisée, `emit_post_tool` notifie les abonnés. Les permissions s15 se branchent ici.
     """
     while True:
         yield ThinkingStarted()
@@ -66,12 +70,18 @@ def run_agent(messages, llm, tools, dispatch, *, stream=False):
             return
         for tc in resp.tool_calls:
             yield ToolStarted(tc.id, tc.name, tc.arguments)
-            handler = dispatch.get(tc.name)
-            try:
-                output = handler(tc.arguments) if handler else f"Error: Unknown tool '{tc.name}'"
-            except Exception as e:
-                output = f"Error during tool execution: {e}"
-            output = str(output)
+            deny = hooks.emit_pre_tool(tc.name, tc.arguments) if hooks else None
+            if deny:
+                output = str(deny)
+            else:
+                handler = dispatch.get(tc.name)
+                try:
+                    output = handler(tc.arguments) if handler else f"Error: Unknown tool '{tc.name}'"
+                except Exception as e:
+                    output = f"Error during tool execution: {e}"
+                output = str(output)
+                if hooks:
+                    hooks.emit_post_tool(tc.name, tc.arguments, output)
             messages.append({"role": "tool", "tool_call_id": tc.id, "content": output})
             yield ToolFinished(tc.id, tc.name, output)
 
