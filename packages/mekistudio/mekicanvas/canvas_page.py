@@ -69,7 +69,7 @@ def _groups(metas, registry):
     return out
 
 
-def render_canvas(container, hub, store, author, *, focus_sid=None, on_focus=None, inject: bool = True) -> None:
+def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool = True) -> None:
     if inject:
         inject_assets()
     metas = store.list()
@@ -111,18 +111,16 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, on_focus=Non
                                f'data-source="{src or ""}" data-session="{sid or ""}"')
                     with wrap:
                         with ui.element("div").classes("node-card"):
-                            head = ui.element("div").classes("nhead")
-                            with head:
+                            with ui.element("div").classes("nhead"):
                                 ui.label(f"{glyph} {text}").classes("nhead-label")
-                                if kind == "chat" and on_focus:
-                                    dot = ui.label("◎").classes("focus-dot").tooltip("focus à gauche")
-                                    dot.on("click", lambda _=None, s=sid: on_focus(s))
                             if kind == "chat":
                                 body = ui.element("div").classes("nbody nbody-chat")
                                 with body:
                                     scale = ui.element("div").classes("chat-scale")
                                 from component import ChatComponent  # mekichat (sys.path posé par l'app)
                                 ChatComponent(scale, hub, sid, author)
+                            if kind != "kernel":   # poignée de redimensionnement (coin bas-droite)
+                                ui.element("div").classes("resize-handle")
 
     ui.timer(0.25, lambda: ui.run_javascript(
         "window.MekiCanvas && window.MekiCanvas.initWorld();"), once=True)

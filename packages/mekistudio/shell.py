@@ -37,7 +37,10 @@ def build_studio(container, hub, store, author, *, make_session) -> None:
         _render()
 
     def _focus(sid: str) -> None:
-        """Mode Mix : met `sid` en focus à gauche SANS reconstruire le canvas (pas de flicker)."""
+        """Focus d'un chat : highlight de sa node (déjà posé côté JS) + en mode Mix il passe à
+        gauche. On mémorise l'id pour qu'au passage en Mix ce soit le chat de gauche."""
+        if not sid:
+            return
         state["sid"] = sid
         if refs["left"] is not None:
             refs["left"].clear()
@@ -45,6 +48,12 @@ def build_studio(container, hub, store, author, *, make_session) -> None:
         ui.run_javascript(
             "document.querySelectorAll('.node-wrap[data-kind=\"chat\"]').forEach("
             "w=>w.classList.toggle('focused', w.dataset.session==='" + sid + "'));")
+
+    def _on_focus_event(e) -> None:
+        args = getattr(e, "args", None)
+        _focus(args.get("session") if isinstance(args, dict) else None)
+
+    ui.on("meki_focus", _on_focus_event)   # clic sur une node chat (canvas.js) → focus côté Python
 
     def _render() -> None:
         sessions = store.list()
@@ -79,6 +88,6 @@ def build_studio(container, hub, store, author, *, make_session) -> None:
                 refs["left"] = left
                 ChatComponent(left, hub, sess.id, author)
                 right = ui.element("div").classes("stage-canvas")
-                render_canvas(right, hub, store, author, focus_sid=state["sid"], on_focus=_focus, inject=False)
+                render_canvas(right, hub, store, author, focus_sid=state["sid"], inject=False)
 
     _render()

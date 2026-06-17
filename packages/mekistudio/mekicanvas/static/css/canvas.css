@@ -92,15 +92,22 @@ svg.cables circle.comet { fill: #eaffea; filter: drop-shadow(0 0 6px #39ff14) dr
 .chat-embed, .chat-embed .thread, .chat-embed .thread-inner { overflow-x: hidden; }
 .chat-embed .thread-inner, .chat-embed .body, .chat-embed .msg, .chat-embed p { overflow-wrap: anywhere; word-break: break-word; }
 .chat-embed pre, .chat-embed code { white-space: pre-wrap; overflow-wrap: anywhere; }
-/* en-tête = poignée de déplacement (drag) */
+/* en-tête = poignée de déplacement (drag) ; clic court = focus */
 .nhead { cursor: move; user-select: none; }
 .nhead-label { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nhead .focus-dot { cursor: pointer; opacity: .5; font-size: 12px; padding: 0 2px; }
-.nhead .focus-dot:hover { opacity: 1; }
+.node-card { position: relative; }
 .node-wrap.dragging { z-index: 50; }
 .node-wrap.dragging .node-card { box-shadow: 0 0 30px rgba(57, 255, 20, .5); }
 .node-wrap.focused .node-card { border-color: #39ff14 !important; box-shadow: 0 0 26px rgba(57, 255, 20, .55) !important; }
-.node-wrap.focused .focus-dot { opacity: 1; color: #39ff14; }
+/* poignée de redimensionnement (coin bas-droite) */
+.resize-handle {
+  position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; z-index: 6;
+  background: linear-gradient(135deg, transparent 45%, rgba(57, 255, 20, .55) 45%, rgba(57, 255, 20, .55) 58%,
+    transparent 58%, transparent 70%, rgba(57, 255, 20, .55) 70%, rgba(57, 255, 20, .55) 83%, transparent 83%);
+  opacity: 0; transition: opacity .12s;
+}
+.node-wrap:hover .resize-handle { opacity: .85; }
+.resize-handle:hover { opacity: 1; }
 
 /* node "folder" = espace de travail (repo main / worktree), cyan */
 .node-wrap[data-kind="folder"] .node-card { border-color: rgba(43, 214, 255, .5); box-shadow: 0 0 14px rgba(43, 214, 255, .16); background: #08131a; }

@@ -125,56 +125,80 @@
     state.view.y = rect.height / 2 - (y0 + bh / 2) * zoom;
   }
 
-  // positions persistées côté client (drag des nodes), par id de node stable
-  const POS_KEY = 'meki:canvas:pos';
-  function loadPos() { try { return JSON.parse(localStorage.getItem(POS_KEY) || '{}'); } catch (e) { return {}; } }
-  function savePos(id, x, y) {
-    const p = loadPos(); p[id] = { x, y };
-    try { localStorage.setItem(POS_KEY, JSON.stringify(p)); } catch (e) { /* quota */ }
+  // géométrie persistée côté client (position + taille), par id de node stable
+  const GEO_KEY = 'meki:canvas:geo';
+  function loadGeo() { try { return JSON.parse(localStorage.getItem(GEO_KEY) || '{}'); } catch (e) { return {}; } }
+  function saveGeo(id, patch) {
+    const g = loadGeo(); g[id] = Object.assign({}, g[id], patch);
+    try { localStorage.setItem(GEO_KEY, JSON.stringify(g)); } catch (e) { /* quota */ }
   }
   function applySaved() {
-    const p = loadPos();
+    const g = loadGeo();
     document.querySelectorAll('.node-wrap').forEach((w) => {
-      const s = p[w.dataset.id];
-      if (s) { w.style.left = s.x + 'px'; w.style.top = s.y + 'px'; }
+      const s = g[w.dataset.id]; if (!s) return;
+      if (s.x != null) w.style.left = s.x + 'px';
+      if (s.y != null) w.style.top = s.y + 'px';
+      if (s.w != null) w.style.width = s.w + 'px';
+      if (s.h != null) w.style.height = s.h + 'px';
     });
+  }
+
+  // clic simple sur une node chat → focus (highlight local + notifie Python via emitEvent)
+  function focusNode(wrap) {
+    document.querySelectorAll('.node-wrap[data-kind="chat"]').forEach((w) => w.classList.toggle('focused', w === wrap));
+    const sid = wrap.dataset.session;
+    if (sid && typeof emitEvent === 'function') emitEvent('meki_focus', { session: sid });
   }
 
   function initWorld() {
     const cv = canvasEl(); if (!cv) return;
     if (cv._mekiInit) { applySaved(); fitView(); applyTransform(); redraw(); return; }
     cv._mekiInit = true;
-    let drag = null;
+    let drag = null, resize = null;
     cv.addEventListener('mousedown', (e) => {
-      const head = e.target.closest('.nhead');
-      if (head && !e.target.closest('.focus-dot')) {            // poignée = en-tête (hors pastille focus)
-        const wrap = head.closest('.node-wrap');
-        if (wrap) {
-          e.preventDefault();
-          drag = { wrap, sx: e.clientX, sy: e.clientY,
-                   ox: parseFloat(wrap.style.left) || 0, oy: parseFloat(wrap.style.top) || 0, moved: false };
-          wrap.classList.add('dragging');
-          return;
-        }
+      const wrap = e.target.closest('.node-wrap');
+      if (wrap && e.target.closest('.resize-handle')) {          // coin bas-droite → redimensionner
+        e.preventDefault();
+        resize = { wrap, sx: e.clientX, sy: e.clientY,
+                   ow: parseFloat(wrap.style.width) || wrap.offsetWidth, oh: parseFloat(wrap.style.height) || wrap.offsetHeight };
+        wrap.classList.add('dragging'); return;
       }
-      if (e.target.closest('.node-wrap')) return;                // clic dans le corps d'une node → ni pan ni drag
+      if (wrap && e.target.closest('.nhead')) {                   // en-tête → clic (focus) ou maintenu+bougé (déplacer)
+        e.preventDefault();
+        drag = { wrap, sx: e.clientX, sy: e.clientY,
+                 ox: parseFloat(wrap.style.left) || 0, oy: parseFloat(wrap.style.top) || 0, moved: false };
+        wrap.classList.add('dragging'); return;
+      }
+      if (wrap) return;                                           // corps d'une node (chat) → interaction, pas de pan
       state.panning = true; state.last = { x: e.clientX, y: e.clientY }; cv.classList.add('panning');
     });
     window.addEventListener('mousemove', (e) => {
+      const z = state.view.zoom || 1;
+      if (resize) {
+        resize.wrap.style.width = Math.max(220, resize.ow + (e.clientX - resize.sx) / z) + 'px';
+        resize.wrap.style.height = Math.max(140, resize.oh + (e.clientY - resize.sy) / z) + 'px';
+        redraw(); return;
+      }
       if (drag) {
-        const z = state.view.zoom || 1;
         drag.wrap.style.left = (drag.ox + (e.clientX - drag.sx) / z) + 'px';
         drag.wrap.style.top = (drag.oy + (e.clientY - drag.sy) / z) + 'px';
-        drag.moved = true; redraw(); return;
+        if (Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) > 3) drag.moved = true;
+        redraw(); return;
       }
       if (!state.panning) return;
       state.view.x += e.clientX - state.last.x; state.view.y += e.clientY - state.last.y;
       state.last = { x: e.clientX, y: e.clientY }; applyTransform();
     });
     window.addEventListener('mouseup', () => {
+      if (resize) {
+        resize.wrap.classList.remove('dragging');
+        saveGeo(resize.wrap.dataset.id, { w: parseFloat(resize.wrap.style.width) || 0, h: parseFloat(resize.wrap.style.height) || 0 });
+        resize = null; redraw(); return;
+      }
       if (drag) {
         drag.wrap.classList.remove('dragging');
-        if (drag.moved) savePos(drag.wrap.dataset.id, parseFloat(drag.wrap.style.left) || 0, parseFloat(drag.wrap.style.top) || 0);
+        if (drag.moved) saveGeo(drag.wrap.dataset.id, { x: parseFloat(drag.wrap.style.left) || 0, y: parseFloat(drag.wrap.style.top) || 0 });
+        else if (drag.wrap.dataset.kind === 'chat') focusNode(drag.wrap);   // clic court = focus
         drag = null; return;
       }
       state.panning = false; cv.classList.remove('panning');
