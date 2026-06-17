@@ -160,6 +160,17 @@ svg.cables circle.comet { fill: #eaffea; filter: drop-shadow(0 0 6px #39ff14) dr
 .nbody-git { padding: 8px 10px; font-family: 'Share Tech Mono', ui-monospace, monospace; font-size: 13px; }
 .git-line { color: #f7baea; }
 
+/* node terminal (runner de commandes), ambre */
+.node-wrap[data-kind="terminal"] .node-card { border-color: rgba(247, 255, 18, .45); box-shadow: 0 0 14px rgba(247, 255, 18, .13); background: #0f0f06; }
+.node-wrap[data-kind="terminal"] .nhead { color: #f7ff12; border-color: rgba(247, 255, 18, .25); background: rgba(247, 255, 18, .05); }
+.nbody-term { padding: 0; display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.term-out { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 6px 8px; font-family: 'Share Tech Mono', ui-monospace, monospace; font-size: 11.5px; }
+.term-cmd { color: #f7ff12; white-space: pre-wrap; display: block; }
+.term-line { color: #cfd6b0; white-space: pre-wrap; word-break: break-all; display: block; margin-bottom: 4px; }
+.term-bar { border-top: 1px solid rgba(247, 255, 18, .2); padding: 2px 6px; }
+.term-in { width: 100%; }
+.term-in .q-field__native, .term-in input { color: #f7ff12 !important; font-family: 'Share Tech Mono', ui-monospace, monospace; }
+
 /* ===== carte de permission (s15, façon Claude Code) ===== */
 .perm-request {
   border: 1px solid rgba(247, 255, 18, .5); border-radius: 10px; background: rgba(247, 255, 18, .06);

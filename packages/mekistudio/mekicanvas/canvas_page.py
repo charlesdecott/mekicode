@@ -13,6 +13,7 @@ from nicegui import ui
 
 from mekicanvas import editor as editor_mod
 from mekicanvas import explorer as explorer_mod
+from mekicanvas import terminal as terminal_mod
 from mekicanvas.impulses import impulse_from_hub_event, normalize_path
 from mekicanvas.nodes import kernel as kernel_node  # noqa: F401  (réservé)
 
@@ -152,6 +153,10 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
         # node git (statut de branche, à droite du cluster)
         placed.append(dict(id=f"git:{g['key']}", kind="git", x=fx + _COL_GAP + 60.0, y=fy + 200.0,
                            w=300.0, h=72.0, src=fid, glyph="⎇", text="git", sid=None, payload=ws_str))
+        # node terminal (runner de commandes, sous le git)
+        placed.append(dict(id=f"term:{g['key']}", kind="terminal", x=fx + _COL_GAP + 60.0, y=fy + 320.0,
+                           w=340.0, h=220.0, src=f"git:{g['key']}", glyph="⌨", text="terminal",
+                           sid=None, payload=ws_str))
         for si, m in enumerate(g["sessions"]):
             col, row = si % 2, si // 2
             cx = fx + (col - 0.5) * _COL_GAP - _CHAT_W / 2.0
@@ -279,6 +284,9 @@ def _build_node(p, focus_sid, hub, author, explorers, spawn_fn, remove_fn,
             elif kind == "git":
                 body = ui.element("div").classes("nbody nbody-git")
                 _render_git(body, p["payload"])
+            elif kind == "terminal":
+                body = ui.element("div").classes("nbody nbody-term")
+                terminal_mod.render_terminal(body, p["payload"])
             if kind != "kernel":
                 ui.element("div").classes("resize-handle")
 
