@@ -161,6 +161,7 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
             session_ws[m.id] = ws
 
     spawned: dict = {}   # (ws_str, rel) -> editor id
+    eph_timers: dict = {}  # eid -> timer TTL (pour annulation au pin)
     seq = {"n": 0}
 
     # --- 2. canvas + world ---
@@ -196,11 +197,26 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
         spawned[key] = eid
         i = exp["count"]; exp["count"] = i + 1
         ex, ey = exp["x"] - _EDITOR_W - 60.0, exp["y"] + i * (_EDITOR_H + 40.0)
+
+        def _pin(_eid=eid) -> None:
+            t = eph_timers.pop(_eid, None)
+            if t is not None:
+                try:
+                    t.cancel()
+                except Exception:
+                    try:
+                        t.active = False
+                    except Exception:
+                        pass
+            ui.run_javascript(
+                f"(()=>{{const w=document.querySelector('.node-wrap[data-id=\"{_eid}\"]');"
+                f"if(w)w.classList.remove('ephemeral');}})()")
+
         with world:
             _build_node(dict(id=eid, kind="editor", x=ex, y=ey, w=_EDITOR_W, h=_EDITOR_H, src=exp["id"],
                              glyph="✎", text=Path(rel).name, sid=None, payload={"ws": ws_str, "rel": rel}),
                         focus_sid, hub, author, explorers, _spawn_editor, _remove_editor,
-                        ephemeral=ephemeral, close_key=key)
+                        ephemeral=ephemeral, close_key=key, on_pin=(_pin if ephemeral else None))
 
         def _after(_from=from_id, _eid=eid) -> None:
             ui.run_javascript("window.MekiCanvas && window.MekiCanvas.redraw();")
@@ -210,7 +226,7 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
             def _expire(_key=key, _eid=eid) -> None:
                 if spawned.get(_key) == _eid:
                     _remove_editor(_key, _eid)
-            ui.timer(_EPH_TTL_S, _expire, once=True)
+            eph_timers[eid] = ui.timer(_EPH_TTL_S, _expire, once=True)
 
     # --- 4. rendu initial ---
     with world:
@@ -230,7 +246,7 @@ def _explorer_id_for(ws_str, explorers):
 
 
 def _build_node(p, focus_sid, hub, author, explorers, spawn_fn, remove_fn,
-                *, ephemeral=False, close_key=None) -> None:
+                *, ephemeral=False, close_key=None, on_pin=None) -> None:
     kind, sid = p["kind"], p["sid"]
     cls = "node-wrap" + (" focused" if sid and sid == focus_sid else "") + (" ephemeral" if ephemeral else "")
     wrap = ui.element("div").classes(cls)
@@ -258,7 +274,8 @@ def _build_node(p, focus_sid, hub, author, explorers, spawn_fn, remove_fn,
             elif kind == "editor":
                 body = ui.element("div").classes("nbody nbody-editor")  # noqa: F841
                 editor_mod.render_editor(body, p["payload"]["ws"], p["payload"]["rel"],
-                                         lambda _k=close_key, _id=p["id"]: remove_fn(_k, _id))
+                                         lambda _k=close_key, _id=p["id"]: remove_fn(_k, _id),
+                                         ephemeral=ephemeral, on_pin=on_pin)
             elif kind == "git":
                 body = ui.element("div").classes("nbody nbody-git")
                 _render_git(body, p["payload"])

@@ -139,8 +139,12 @@ svg.cables circle.comet { fill: #eaffea; filter: drop-shadow(0 0 6px #39ff14) dr
 .editor-name { flex: 1 1 auto; color: #2bd6ff; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .editor-dirty { color: #f7ff12; font-size: 11px; }
 .editor-act { font-size: 12px !important; min-height: 0 !important; padding: 0 4px !important; color: #9fe; }
-.editor-cm { flex: 1 1 auto; min-height: 0; overflow: hidden; }
-.editor-cm .cm-editor { height: 100%; }
+.editor-cm { flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; }
+.editor-cm .cm-editor { height: 100%; width: 100%; }
+.editor-preview { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 8px 14px; color: #dfe; font-size: 13px; line-height: 1.5; }
+.editor-preview h1, .editor-preview h2, .editor-preview h3 { color: #8fd0ff; }
+.editor-preview code { color: #2bd6ff; background: rgba(43,214,255,.08); padding: 1px 4px; border-radius: 4px; }
+.editor-preview pre { background: #081016; padding: 8px; border-radius: 6px; overflow: auto; }
 .editor-err { color: #ff8b8b; padding: 8px; font-size: 12px; }
 
 /* node git (statut de branche), magenta */

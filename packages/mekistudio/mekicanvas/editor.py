@@ -1,7 +1,8 @@
-"""editor.py — rendu d'un éditeur de code (ui.codemirror natif) dans une node canvas.
+"""editor.py — rendu d'un éditeur de code (ui.codemirror) dans une node canvas.
 
-`render_editor(container, root, rel, on_close)` : lit `rel` (sandboxé sous `root`) dans un CodeMirror,
-barre nom/modifié/sauver/fermer. Ctrl+S et le bouton sauvent (write_text atomique). Pur NiceGUI.
+`render_editor(container, root, rel, on_close, *, ephemeral=False, on_pin=None)` : CodeMirror
+(coloration par extension) + barre nom/modifié/[épingler]/[aperçu md]/sauver/fermer. Pour les `.md`,
+toggle aperçu (ui.markdown). Le bouton 📌 (éphémères) appelle `on_pin()` pour rendre la node permanente.
 """
 from __future__ import annotations
 
@@ -25,32 +26,51 @@ def language_for(rel: str):
     return _LANG.get(Path(rel).suffix.lower())
 
 
-def render_editor(container, root, rel: str, on_close) -> None:
+def render_editor(container, root, rel: str, on_close, *, ephemeral=False, on_pin=None) -> None:
     name = Path(rel).name
-    state = {"dirty": False, "cm": None, "dot": None}
+    is_md = language_for(rel) == "Markdown"
+    st = {"cm": None, "dot": None, "preview": None, "host": None, "pin": None, "show_preview": False}
 
     def _set_dirty(v: bool) -> None:
-        state["dirty"] = v
-        if state["dot"] is not None:
-            state["dot"].style(f"visibility:{'visible' if v else 'hidden'}")
+        if st["dot"] is not None:
+            st["dot"].style(f"visibility:{'visible' if v else 'hidden'}")
 
     def _save() -> None:
-        cm = state["cm"]
-        if cm is None:
+        if st["cm"] is None:
             return
         try:
-            fs.write_text(root, rel, cm.value or "")
+            fs.write_text(root, rel, st["cm"].value or "")
             _set_dirty(False)
             ui.notify(f"{name} sauvé", type="positive")
         except Exception as e:  # noqa: BLE001
             ui.notify(f"Erreur sauvegarde : {e}", type="negative")
 
+    def _toggle_preview() -> None:
+        st["show_preview"] = not st["show_preview"]
+        sp = st["show_preview"]
+        if sp and st["preview"] is not None:
+            st["preview"].set_content(st["cm"].value or "")
+        if st["host"] is not None:
+            st["host"].style(f"display:{'none' if sp else 'flex'}")
+        if st["preview"] is not None:
+            st["preview"].style(f"display:{'block' if sp else 'none'}")
+
+    def _pin() -> None:
+        if on_pin:
+            on_pin()
+        if st["pin"] is not None:
+            st["pin"].style("display:none")
+
     with container:
         with ui.element("div").classes("editor-embed"):
             with ui.element("div").classes("editor-bar"):
                 ui.label("✎ " + name).classes("editor-name")
-                state["dot"] = ui.label("●").classes("editor-dirty")
-                state["dot"].style("visibility:hidden")
+                st["dot"] = ui.label("●").classes("editor-dirty")
+                st["dot"].style("visibility:hidden")
+                if ephemeral and on_pin:
+                    st["pin"] = ui.button("📌", on_click=lambda: _pin()).props("flat dense").classes("editor-act").tooltip("épingler")
+                if is_md:
+                    ui.button("👁", on_click=lambda: _toggle_preview()).props("flat dense").classes("editor-act").tooltip("aperçu / éditer")
                 ui.button("💾", on_click=lambda: _save()).props("flat dense").classes("editor-act")
                 ui.button("✕", on_click=lambda: on_close()).props("flat dense").classes("editor-act")
             try:
@@ -58,7 +78,10 @@ def render_editor(container, root, rel: str, on_close) -> None:
             except Exception as e:  # noqa: BLE001
                 ui.label(f"⚠ {e}").classes("editor-err")
                 return
-            state["cm"] = ui.codemirror(
-                value=content, language=language_for(rel), theme="basicDark",
-                line_wrapping=True, on_change=lambda _=None: _set_dirty(True),
-            ).classes("editor-cm")
+            st["host"] = ui.element("div").classes("editor-cm")
+            with st["host"]:
+                st["cm"] = ui.codemirror(value=content, language=language_for(rel), theme="basicDark",
+                                         line_wrapping=True, on_change=lambda _=None: _set_dirty(True))
+            if is_md:
+                st["preview"] = ui.markdown(content).classes("editor-preview")
+                st["preview"].style("display:none")
