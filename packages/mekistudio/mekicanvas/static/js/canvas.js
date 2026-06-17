@@ -176,6 +176,8 @@
       state.panning = false; cv.classList.remove('panning');
     });
     cv.addEventListener('wheel', (e) => {
+      // molette à l'intérieur d'un chat → on laisse défiler le fil de CE chat (scroll natif), pas de zoom
+      if (e.target.closest('.nbody-chat')) return;
       e.preventDefault();
       const f = e.deltaY < 0 ? 1.1 : 0.9;
       const nz = Math.min(4, Math.max(0.2, state.view.zoom * f));
