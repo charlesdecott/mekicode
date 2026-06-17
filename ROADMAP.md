@@ -42,7 +42,7 @@ existe déjà, validé, dans `src_scratch/`).
 | s12 | worktree task isolation (isolation git) | ✅ | 🟡 `projects.py` : `add_worktree`/`list_worktrees`/`remove_worktree` + `workspace_for` ; outil `spawn_worktree` propose/approve/reject via le hub (validation humaine requise) |
 | s13 | streaming (réponses en flux) | ✅ | ✅ (`LLM.stream` + streaming dans le front mekichat) |
 | s14 | tools extended (read/write/grep/glob/revert) | ✅ | 🟡 read/write/edit/grep/glob **confinés au workspace** (revert hors périmètre — YAGNI) |
-| s15 | permissions (gouvernance 3 tiers) | ✅ | ⬜ |
+| s15 | permissions (gouvernance 3 tiers) | ✅ | ✅ (HookBus + couches session/projet/global, tier *ask* async, carte 5 choix) |
 | s16 | event bus (hooks d'événements) | ✅ | 🟡 mekihub = bus de session pub/sub (events de salle + run) ; hooks d'observabilité mekillm côté LLM |
 | s17 | session management (persistance/reprise) | ✅ | ⬜ |
 | s18 | parallel tools (exécution parallèle) | ✅ | ⬜ |
@@ -120,6 +120,25 @@ C'est volontaire : on reconstruit proprement à partir du socle, on ne recopie p
 - **Phase 4 livrée** : navigation multi-projet + carte de validation worktree.
 - **Outils étendus** (post-phase-3) : les six outils de mekicore rendus en blocs colorés/repliables.
 
+### `packages/mekistudio/` — front studio 3 modes (Sprint 1, en cours)
+Intègre le canvas de **mekistudio** (projet d'étude `C:\mekistudio`) dans notre harness. Spec/plan :
+`docs/superpowers/specs/2026-06-17-…` et `docs/superpowers/plans/2026-06-17-sprint1-mekistudio-canvas.md`.
+- **Restructure** : `packages/mekichat/` → `packages/mekistudio/mekichat/` ; nouveau module
+  `packages/mekistudio/mekicanvas/` ; back (`mekicore`/`mekillm`/`mekihub`) en packages frères.
+- **`ChatComponent`** réutilisable (extrait du chat monolithique) : utilisé dans l'onglet, la node chat
+  du canvas et le panneau focus. Carte de permission s15 intégrée.
+- **Canvas NiceGUI** : géométrie câbles 45° vendorée (MIT, testée `node --test`), pont `canvas.js`
+  (pan/zoom + comètes + **drag/resize** des nodes, positions persistées localStorage), modèle
+  Node/Component (pydantic) + registry/parenting.
+- **Coquille 3 modes** (`shell.py`) : **Chat** (= accueil historique `/`), **Canvas** (une node chat
+  par session, **groupées par espace de travail** : folder = repo main / worktrees + branche affichée),
+  **Mix** (chat focus à gauche + canvas) ; **clic sur un chat = focus/highlight**, repris à gauche en Mix.
+- **Lecture au zoom** : zoom-in densifie le texte du chat (plus de texte/ligne) ; molette dans un chat
+  = scroll du fil ; pas de scroll horizontal. Entrées : `python packages/mekistudio/mekichat/app.py`
+  (`/` accueil, **`/studio`** 3 modes) ou `.\start-studio.ps1`.
+- **Reste Sprint 1 / différé** : dédupliquer l'accueil `/` pour qu'il réutilise `ChatComponent` ;
+  carte de permission dupliquée en mode Mix (2 instances) à dédoublonner ; wiki `packages/` à compléter.
+
 ### Confort projet
 - Lanceurs `start.ps1` / `start.sh` (mekicore) et `start-chat.ps1` (mekichat) à la racine.
 - Tests réseau-free : `python tests/smoke_packages.py` (mekillm + mekicore), `python tests/smoke_mekichat.py`
@@ -142,7 +161,10 @@ C'est volontaire : on reconstruit proprement à partir du socle, on ne recopie p
   `DiscordProvisioner` (provisioning idempotent), anti-écho Discord.
   - Différé : validation Discord live (token bot requis), backfill historique de sessions existantes,
     transfert de propriété serveur.
-- [ ] s15 — gouvernance des permissions (3 tiers) autour de `dispatch_tools`.
+- [x] s15 — gouvernance des permissions (3 tiers) autour de l'exécution d'outils : **livré** (Sprint 1).
+  `mekicore` HookBus (`pre_tool` vetoable) + `permissions.py`/`permissions.yaml` (deny/allow/ask +
+  résolution en couches session→projet→global) ; `mekihub` `PermissionRequested` + `resolve_permission`
+  (tier *ask* async cross-thread, timeout→deny, gate auteur/admin) ; carte 5 choix dans le chat.
 - [ ] s06 — compaction du contexte quand l'historique grossit.
 
 ### Moyen terme

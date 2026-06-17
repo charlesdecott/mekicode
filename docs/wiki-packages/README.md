@@ -1,7 +1,11 @@
 # Wiki — `packages/`
 
-Documentation du code de `packages/` (mekillm + mekicore + mekichat + mekihub) : ce que fait chaque fichier,
-ses fonctions et variables, et surtout les **relations** entre eux.
+Documentation du code de `packages/` : back/logique (mekillm + mekicore + mekihub) + front
+(**mekistudio** = chat + canvas, 3 modes). Ce que fait chaque fichier, ses fonctions et variables, et
+surtout les **relations** entre eux.
+
+> ⚠️ Restructure Sprint 1 : `packages/mekichat/` a été **déplacé** sous `packages/mekistudio/mekichat/`
+> ; `mekistudio.md` décrit le package front complet (coquille 3 modes + canvas + chat embarqué).
 
 > Numéros de ligne **indicatifs** (wiki rédigé à la main, il vieillit à chaque édition du code).
 > La source fait foi.
@@ -14,7 +18,8 @@ ses fonctions et variables, et surtout les **relations** entre eux.
 | [mekillm.md](mekillm.md) | **Le provider LLM** (`packages/mekillm/`). Détaille `config.py` (résolution de config), `client.py` (`LLM`, `complete` + `stream`, normalisation/réassemblage du flux, types `LLMResponse`/`ToolCall`/`Usage`), `observability.py` (`CallRecord`, `emit`, hooks, JSONL) et `__init__.py` (API publique + raccourci `complete`). Liste les variables d'environnement consommées. |
 | [mekicore.md](mekicore.md) | **Le mini-harness** (`packages/mekicore/`). Détaille `tools.py` (six outils : `bash` + `read`/`write`/`edit`/`grep`/`glob` confinés au workspace via `_safe_path`, `TOOLS`, `DISPATCH`), `events.py` (événements), `base.py` (`run_agent` à événements + `agent_loop`, `dispatch_tools`), `main.py` (REPL, bootstrap `sys.path`). |
 | [mekichat.md](mekichat.md) | **Le front web** (`packages/mekichat/`). Interface NiceGUI in-process, mode conversation type Discord. Détaille `sessions.py` (persistance JSON sous `.sessions/`), `static/mekichat.css` (thème Phosphore), `views.py` (helpers de rendu), `app.py` (page NiceGUI, port 8080). Phases 1-3 livrées : sessions + UI (1), chat + outil `bash` (2), streaming + markdown (3) ; puis **outils étendus** (blocs d'outils colorés/repliables pour les six outils, diff `edit`). Devenu adaptateur NiceGUI du hub. |
-| [mekihub.md](mekihub.md) | **Le hub temps réel** (`packages/mekihub/`). Bus de session multi-utilisateur multi-canal : salle partagée, file FIFO auto-drain, pub/sub mémoire, adaptateurs de canal. Détaille `session.py` (couche session canonique : `Author`, `QueueItem`, `Session`, `SessionState`, `SessionStore`), `events.py` (13 events de salle + run), `hub.py` (`PendingQueue`, `SessionHub`, worker asyncio), `adapters/discord.py` (`DiscordAdapter`, stubs réseau-free). |
+| [mekihub.md](mekihub.md) | **Le hub temps réel** (`packages/mekihub/`). Bus de session multi-utilisateur multi-canal : salle partagée, file FIFO auto-drain, pub/sub mémoire, adaptateurs de canal. Détaille `session.py` (couche session canonique : `Author`, `QueueItem`, `Session`, `SessionState`, `SessionStore`), `events.py` (13 events de salle + run **+ `PermissionRequested`**), `hub.py` (`PendingQueue`, `SessionHub`, worker asyncio, **`resolve_permission` / tier ask async**), `permissions_store.py` (surcharges projet), `adapters/discord.py`. |
+| [mekistudio.md](mekistudio.md) | **Le front studio** (`packages/mekistudio/`, Sprint 1). Coquille **3 modes** (Chat / Canvas / Mix) regroupant le chat (`mekichat/` : `ChatComponent` réutilisable + accueil `/` + carte permission s15) et le **canvas** (`mekicanvas/` : modèle Node/Component pydantic, registry/parenting, nodes Kernel/Chat/Queue groupées par espace de travail, géométrie câbles 45° vendorée + pont `canvas.js` pan/zoom/comètes/**drag-resize-focus**). Entrée : `/studio`. |
 
 ## Carte rapide des fichiers
 

@@ -23,21 +23,35 @@ L'état d'avancement et la feuille de route sont dans **[`ROADMAP.md`](ROADMAP.m
 - `src_scratch/` — refonte dédupliquée de claude-code-from-scratch : 11 modules + config.yaml
   (~2 000 lignes, toutes les features s01–s23, bugs source corrigés `FIX(mekicode)`) ;
   entrée : `python src_scratch/main.py` ; non-régression : `python .refactor-tmp/smoke_all.py`
-- `packages/` — paquets autonomes réutilisables, importables par chemin (à côté de `src_scratch/`) :
+- `packages/` — paquets autonomes réutilisables, importables par chemin (à côté de `src_scratch/`).
+  Couche back/logique (`mekillm`/`mekicore`/`mekihub`) + couche front (`mekistudio`) :
   - `packages/mekillm/` — provider LLM généraliste : wrapper du SDK `openai` → OpenRouter
     (bascule ollama/litellm via le seul `.env`), avec observabilité intégrée (logging + JSONL +
     hooks). Importable n'importe où (`mekillm.LLM`, `mekillm.complete`, `mekillm.observe`).
-  - `packages/mekicore/` — mini-harness = le s01 de claude-code-from-scratch adapté, branché sur
-    mekillm (format OpenAI tool-calling, outils `bash` + `read`/`write`/`edit`/`grep`/`glob` —
-    ces outils fichiers confinés au workspace, `bash` libre —, boucle à événements `run_agent` +
-    streaming). Entrée : `python packages/mekicore/main.py`.
-  - `packages/mekichat/` — front web NiceGUI (mode conversation type Discord, thème cyberpunk
-    Phosphore) : chat branché sur l'agent, blocs d'outils colorés/repliables (glyphe + couleur par
-    outil, métrique d'en-tête, diff `edit`), streaming, markdown, sessions persistées.
-    Importe mekicore/mekillm en in-process. Entrée : `python packages/mekichat/app.py` (ou
-    `.\start-chat.ps1`) → http://localhost:8080.
+  - `packages/mekicore/` — mini-harness branché sur mekillm (format OpenAI tool-calling, outils
+    `bash` + `read`/`write`/`edit`/`grep`/`glob` confinés au workspace, boucle `run_agent` + streaming).
+    **+ `hooks.py`** (HookBus pre_tool vetoable / post_tool) et **`permissions.py`+`permissions.yaml`**
+    (s15 : gouvernance 3 tiers deny/allow/ask + résolution en couches session→projet→global).
+    Entrée REPL : `python packages/mekicore/main.py`.
+  - `packages/mekihub/` — orchestrateur temps réel : `SessionHub` (file FIFO multi-user, présence,
+    pub/sub, worker), sessions persistées (`.sessions/`), projets + worktrees, événement
+    `PermissionRequested` + `resolve_permission` (tier *ask* async, cross-thread), adaptateur Discord
+    (miroir bidirectionnel). Partagé par le front et Discord.
+  - `packages/mekistudio/` — **package front (NiceGUI)** qui regroupe l'UI :
+    - `mekistudio/mekichat/` — composant `ChatComponent` réutilisable (fil + composer + file +
+      présence + carte de permission), thème cyberpunk Phosphore ; page d'accueil historique (route `/`).
+    - `mekistudio/mekicanvas/` — canvas : modèle Node/Component (pydantic), registry/parenting, nodes
+      Kernel/Chat/Queue, géométrie câbles 45° vendorée (`static/js/cables.js`/`collision.js`, MIT),
+      pont `canvas.js` (pan/zoom + câbles + comètes + drag/resize), `impulse_for`.
+    - `mekistudio/shell.py` — coquille **3 modes** (Chat / Canvas / Mix) ; le canvas montre une node
+      chat par session, groupées par espace de travail (folder = repo main / worktrees + branche).
+    - Entrée : `python packages/mekistudio/mekichat/app.py` (ou `.\start-studio.ps1`) →
+      http://localhost:8080/ (accueil) et **http://localhost:8080/studio** (studio 3 modes).
+      `.\start-chat.ps1` lance le même serveur (alias historique).
 - `tests/` — tests du projet, à la racine. Non-régression de `packages/` (réseau-free, sans clé API) :
-  `python tests/smoke_packages.py` (mekillm + mekicore) et `python tests/smoke_mekichat.py` (mekichat).
+  `smoke_packages.py` (mekillm + mekicore), `smoke_mekichat.py` (sessions), `smoke_mekihub.py` (hub +
+  permissions ask), `smoke_mekicore_hooks.py`, `smoke_permissions.py`, `smoke_mekicanvas.py` ; géométrie
+  JS : `node --test packages/mekistudio/mekicanvas/static/js/*.test.js` (ou `tests/js/run_js_tests.ps1`).
 - `ROADMAP.md` (racine) — état d'avancement + features claude-code-from-scratch implémentées / restantes.
 - `docs/` — **documentation du projet** ; sommaire dans `docs/README.md`. Contient le wiki rédigé à la
   main de `packages/` (`docs/wiki-packages/`), les specs/plans (`docs/superpowers/`) et les **pistes de
