@@ -605,10 +605,11 @@ def studio_route() -> None:
     ui.add_head_html(FONTS)
     ui.query("body").props('data-theme=phosphor')
     inject_assets()                       # JS + CSS chargés UNE fois au build
-    current = _ensure_current()
+    _ensure_current()                     # garantit ≥1 session existante
     author = realtime.author_for_client()
     studio = ui.element("div").classes("studio")
-    build_studio(studio, _get_hub(), current, author)
+    build_studio(studio, _get_hub(), _get_store(), author,
+                 make_session=lambda: _get_store().create(model=DEFAULT_MODEL, system=SYSTEM))
 
 
 if __name__ in {"__main__", "__mp_main__"}:   # garde requise par NiceGUI (reload/multiprocessing)

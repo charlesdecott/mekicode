@@ -64,6 +64,9 @@ svg.cables circle.comet { fill: #eaffea; filter: drop-shadow(0 0 6px #39ff14) dr
   border-radius: 7px; padding: 3px 14px !important; font-size: 13px; text-transform: none;
 }
 .mode-btn.on { background: rgba(57, 255, 20, .14); color: #39ff14; border-color: rgba(57, 255, 20, .6); font-weight: 700; }
+.studio-sel { min-width: 170px; }
+.studio-sel .q-field__control, .studio-sel .q-field__native, .studio-sel .q-field__marginal { color: #9fe89f !important; }
+.studio-sel .q-field__control:before { border-color: rgba(57, 255, 20, .35) !important; }
 .studio-stage { position: relative; flex: 1 1 auto; min-height: 0; display: flex; }
 .studio-stage.mode-mix .stage-chat { flex: 0 0 40%; max-width: 40%; border-right: 1px solid rgba(57, 255, 20, .2); }
 .studio-stage.mode-mix .stage-canvas { flex: 1 1 auto; }
