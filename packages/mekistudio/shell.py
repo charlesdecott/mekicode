@@ -36,15 +36,6 @@ def build_studio(container, hub, store, author, *, make_session) -> None:
         app.storage.user["studio_mode"] = m
         _render()
 
-    def _switch(sid: str) -> None:
-        if sid and sid != state["sid"]:
-            state["sid"] = sid
-            _render()
-
-    def _new() -> None:
-        state["sid"] = make_session().id
-        _render()
-
     def _focus(sid: str) -> None:
         """Mode Mix : met `sid` en focus à gauche SANS reconstruire le canvas (pas de flicker)."""
         state["sid"] = sid
@@ -73,10 +64,6 @@ def build_studio(container, hub, store, author, *, make_session) -> None:
                 else:
                     b = ui.button(label, on_click=lambda _=None, mm=key: _set_mode(mm))
                     b.classes("mode-btn" + (" on" if state["mode"] == key else "")).props("flat dense")
-            opts = {m.id: ((m.title or m.id)[:30]) for m in sessions}
-            ui.select(options=opts, value=state["sid"],
-                      on_change=lambda e: _switch(e.value)).props("dense outlined options-dense").classes("studio-sel")
-            ui.button("+ session", on_click=lambda _=None: _new()).props("flat dense").classes("mode-btn")
             ui.label(f"{len(sessions)} chats").classes("studio-sub")
 
         stage.clear()
