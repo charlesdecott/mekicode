@@ -143,6 +143,12 @@ svg.cables circle.comet { fill: #eaffea; filter: drop-shadow(0 0 6px #39ff14) dr
 .editor-cm .cm-editor { height: 100%; }
 .editor-err { color: #ff8b8b; padding: 8px; font-size: 12px; }
 
+/* node git (statut de branche), magenta */
+.node-wrap[data-kind="git"] .node-card { border-color: rgba(255, 43, 214, .5); box-shadow: 0 0 14px rgba(255, 43, 214, .16); background: #160814; }
+.node-wrap[data-kind="git"] .nhead { color: #ff2bd6; border-color: rgba(255, 43, 214, .25); background: rgba(255, 43, 214, .05); }
+.nbody-git { padding: 8px 10px; font-family: 'Share Tech Mono', ui-monospace, monospace; font-size: 13px; }
+.git-line { color: #f7baea; }
+
 /* ===== carte de permission (s15, façon Claude Code) ===== */
 .perm-request {
   border: 1px solid rgba(247, 255, 18, .5); border-radius: 10px; background: rgba(247, 255, 18, .06);

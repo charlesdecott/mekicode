@@ -46,6 +46,49 @@ def _branch_for(repo_path: str) -> str:
         return "?"
 
 
+def _git_status(repo: str) -> dict:
+    import subprocess
+
+    def g(*args):
+        try:
+            return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, timeout=4).stdout
+        except Exception:
+            return ""
+
+    branch = (g("rev-parse", "--abbrev-ref", "HEAD").strip() or "?")
+    dirty = len([ln for ln in g("status", "--porcelain").splitlines() if ln.strip()])
+    ahead = behind = 0
+    ab = g("rev-list", "--left-right", "--count", "@{u}...HEAD").split()
+    if len(ab) == 2:
+        try:
+            behind, ahead = int(ab[0]), int(ab[1])
+        except ValueError:
+            pass
+    return {"branch": branch, "ahead": ahead, "behind": behind, "dirty": dirty}
+
+
+def _render_git(container, repo) -> None:
+    lbl = {"el": None}
+    with container:
+        lbl["el"] = ui.label("…").classes("git-line")
+
+    def _refresh() -> None:
+        s = _git_status(str(repo))
+        txt = f"⎇ {s['branch']}"
+        if s["ahead"]:
+            txt += f"  ↑{s['ahead']}"
+        if s["behind"]:
+            txt += f"  ↓{s['behind']}"
+        txt += f"  ● {s['dirty']} modifs" if s["dirty"] else "  ✓ propre"
+        try:
+            lbl["el"].set_text(txt)
+        except Exception:
+            pass
+
+    _refresh()
+    ui.timer(8.0, _refresh)
+
+
 def _workspace_path(store, registry, meta) -> Path:
     try:
         from mekihub.projects import workspace_for
@@ -106,6 +149,9 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
         placed.append(dict(id=exp_id, kind="explorer", x=exp_x, y=exp_y, w=_EXPLORER_W, h=_EXPLORER_H,
                            src=fid, glyph="\U0001F5C2", text="fichiers", sid=None, payload=ws_str))
         explorers[ws_str] = {"id": exp_id, "x": exp_x, "y": exp_y, "count": 0}
+        # node git (statut de branche, à droite du cluster)
+        placed.append(dict(id=f"git:{g['key']}", kind="git", x=fx + _COL_GAP + 60.0, y=fy + 200.0,
+                           w=300.0, h=72.0, src=fid, glyph="⎇", text="git", sid=None, payload=ws_str))
         for si, m in enumerate(g["sessions"]):
             col, row = si % 2, si // 2
             cx = fx + (col - 0.5) * _COL_GAP - _CHAT_W / 2.0
@@ -213,6 +259,9 @@ def _build_node(p, focus_sid, hub, author, explorers, spawn_fn, remove_fn,
                 body = ui.element("div").classes("nbody nbody-editor")  # noqa: F841
                 editor_mod.render_editor(body, p["payload"]["ws"], p["payload"]["rel"],
                                          lambda _k=close_key, _id=p["id"]: remove_fn(_k, _id))
+            elif kind == "git":
+                body = ui.element("div").classes("nbody nbody-git")
+                _render_git(body, p["payload"])
             if kind != "kernel":
                 ui.element("div").classes("resize-handle")
 
