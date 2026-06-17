@@ -79,16 +79,8 @@ svg.cables circle.comet { fill: #eaffea; filter: drop-shadow(0 0 6px #39ff14) dr
 .chat-embed .presence-row { flex: 0 0 auto; padding: 2px 10px; }
 .chat-embed .queue-bar { flex: 0 0 auto; }
 .chat-embed .composer { flex: 0 0 auto; }
-.node-wrap[data-kind="chat"] .nbody-chat { padding: 0; min-height: 0; position: relative; overflow: hidden; flex: 1 1 auto; }
+.node-wrap[data-kind="chat"] .nbody-chat { padding: 0; height: 100%; min-height: 0; display: flex; overflow: hidden; }
 .node-wrap[data-kind="chat"] .node-card { overflow: hidden; }
-/* contre-scaling du contenu chat : la police reste lisible à l'écran quel que soit le zoom.
-   .chat-scale est dimensionnée (100% * zoom) puis réduite (1/zoom) → taille écran ~constante,
-   et le texte wrappe dans la largeur de la node (pas de scroll horizontal). */
-.chat-scale {
-  position: absolute; top: 0; left: 0; transform-origin: 0 0;
-  width: calc(100% / var(--mc-inv, 1)); height: calc(100% / var(--mc-inv, 1));
-  transform: scale(var(--mc-inv, 1));
-}
 /* anti scroll horizontal dans le chat (wrap des longs mots / blocs de code) */
 .chat-embed, .chat-embed .thread, .chat-embed .thread-inner { overflow-x: hidden; }
 .chat-embed .thread-inner, .chat-embed .body, .chat-embed .msg, .chat-embed p { overflow-wrap: anywhere; word-break: break-word; }
