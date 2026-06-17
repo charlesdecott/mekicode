@@ -471,6 +471,10 @@ def index() -> None:
                 with ui.element("div"):
                     ui.html('<div class="glitch" data-t="MEKICHAT">MEKICHAT</div>')
                     ui.label("// harness v0.1 :: ROOT").classes("ver")
+                ui.button("◢ studio", on_click=lambda: ui.navigate.to("/studio")) \
+                    .props("flat dense").style(
+                    "margin-left:auto;color:#39ff14;border:1px solid rgba(57,255,20,.4);"
+                    "border-radius:7px;font-size:11px;padding:2px 9px")
 
             # Sélecteur Projet → scope (en tête de sidebar, avant les sessions)
             def _open_add_project_dialog():

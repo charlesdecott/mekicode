@@ -21,7 +21,10 @@ def build_studio(container, hub, store, author, *, make_session) -> None:
     if not metas:
         make_session()
         metas = store.list()
-    state = {"mode": app.storage.user.get("studio_mode", "mix"), "sid": metas[0].id}
+    mode0 = app.storage.user.get("studio_mode", "mix")
+    if mode0 not in ("canvas", "mix"):   # 'chat' = page d'accueil (route /), jamais persisté ici
+        mode0 = "mix"
+    state = {"mode": mode0, "sid": metas[0].id}
     refs = {"left": None}
 
     with container:
@@ -63,8 +66,13 @@ def build_studio(container, hub, store, author, *, make_session) -> None:
         with bar:
             ui.label("◢ mekistudio").classes("studio-brand")
             for key, label in _MODES:
-                b = ui.button(label, on_click=lambda _=None, mm=key: _set_mode(mm))
-                b.classes("mode-btn" + (" on" if state["mode"] == key else "")).props("flat dense")
+                if key == "chat":
+                    # Chat seul = la page d'accueil mekicode historique (sidebar cyberpunk).
+                    b = ui.button(label, on_click=lambda _=None: ui.navigate.to("/"))
+                    b.classes("mode-btn").props("flat dense")
+                else:
+                    b = ui.button(label, on_click=lambda _=None, mm=key: _set_mode(mm))
+                    b.classes("mode-btn" + (" on" if state["mode"] == key else "")).props("flat dense")
             opts = {m.id: ((m.title or m.id)[:30]) for m in sessions}
             ui.select(options=opts, value=state["sid"],
                       on_change=lambda e: _switch(e.value)).props("dense outlined options-dense").classes("studio-sel")
@@ -76,10 +84,7 @@ def build_studio(container, hub, store, author, *, make_session) -> None:
         stage.classes(f"mode-{state['mode']}")
         refs["left"] = None
         with stage:
-            if state["mode"] == "chat":
-                left = ui.element("div").classes("stage-chat")
-                ChatComponent(left, hub, sess.id, author)
-            elif state["mode"] == "canvas":
+            if state["mode"] == "canvas":
                 right = ui.element("div").classes("stage-canvas")
                 render_canvas(right, hub, store, author, focus_sid=state["sid"], inject=False)
             else:  # mix
