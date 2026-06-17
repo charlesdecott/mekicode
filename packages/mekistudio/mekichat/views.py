@@ -321,6 +321,33 @@ def render_permission_request(tool: str, target: str, reason: str, options, on_c
     return card
 
 
+def render_ask_request(question: str, options, on_answer):
+    """Carte « question de l'agent » (ask_user). Boutons si `options`, sinon champ libre.
+    `on_answer(reponse)` est appelé puis la carte se supprime. Renvoie l'élément racine."""
+    card = ui.element("div").classes("ask-request")
+    with card:
+        with ui.element("div").classes("ask-head"):
+            ui.label("❓ question de l'agent").classes("ask-title")
+        ui.label(question).classes("ask-q")
+        with ui.element("div").classes("ask-actions"):
+            if options:
+                for opt in options:
+                    ui.button(str(opt), on_click=lambda _=None, o=opt: (on_answer(o), card.delete())) \
+                        .classes("ask-btn").props("flat dense")
+            else:
+                inp = ui.input(placeholder="ta réponse…").classes("ask-input")
+
+                def _send(_=None):
+                    v = (inp.value or "").strip()
+                    if v:
+                        on_answer(v)
+                        card.delete()
+
+                inp.on("keydown.enter", _send)
+                ui.button("Répondre", on_click=_send).classes("ask-btn").props("flat dense")
+    return card
+
+
 def render_project_selector(projects, current_project_id, current_scope,
                              on_pick_project, on_pick_scope, on_add_project):
     """Sélecteur Projet → scope (main / worktrees) dans la sidebar, style Phosphore.

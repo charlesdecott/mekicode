@@ -222,6 +222,13 @@ class ChatComponent:
                 )
             self._handles["perm:" + event.request_id] = card
             return
+        if name == "AskRequested":
+            with inner:
+                card = views.render_ask_request(
+                    event.question, event.options,
+                    on_answer=lambda ans, rid=event.request_id: self._hub.resolve_ask(rid, ans))
+            self._handles["ask:" + event.request_id] = card
+            return
         if name == "WorktreeProposed":
             def _approve(pid=event.proposal_id):
                 asyncio.create_task(self._hub.approve_worktree(self._sid, pid))

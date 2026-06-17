@@ -108,6 +108,17 @@ class WorktreeCreated:
 
 
 @dataclass
+class AskRequested:
+    """L'agent a appelé l'outil `ask_user` : question posée en plein tour, le run attend la réponse
+    (`SessionHub.resolve_ask(request_id, answer)`)."""
+    request_id: str
+    item_id: str
+    question: str
+    options: list           # choix proposés (vide => réponse libre)
+    actor_id: str | None
+
+
+@dataclass
 class PermissionRequested:
     """Un appel d'outil a déclenché le tier `ask` (s15). Le run est en pause jusqu'à
     `SessionHub.resolve_permission(request_id, choice, actor)`."""

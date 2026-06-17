@@ -69,6 +69,17 @@ _WORKTREE_TOOL = {"type": "function", "function": {"name": "spawn_worktree",
     "required": ["nom", "prompt_amorce"]}}}
 
 
+_ASKUSER_TOOL = {"type": "function", "function": {"name": "ask_user",
+  "description": "Pose une question à l'utilisateur EN PLEIN TOUR et ATTEND sa réponse (choix entre "
+    "options, validation d'une décision, précision manquante). À utiliser quand une décision humaine "
+    "est nécessaire pour continuer. Renvoie la réponse de l'utilisateur.",
+  "parameters": {"type": "object", "properties": {
+    "question": {"type": "string", "description": "la question posée"},
+    "options": {"type": "array", "items": {"type": "string"},
+                "description": "choix proposés (optionnel ; sinon réponse libre)"}},
+    "required": ["question"]}}}
+
+
 def _record_proposal(proposals, args):
     pid = uuid.uuid4().hex[:8]
     proposals.append({"proposal_id": pid, "nom": args.get("nom"),
@@ -87,6 +98,7 @@ class _Room:
         self.worker: asyncio.Task | None = None
         self.pending_worktrees: dict = {}          # proposal_id -> proposal dict
         self.pending_permissions: dict = {}        # request_id -> _queue.Queue (décision du tier ask)
+        self.pending_asks: dict = {}               # request_id -> _queue.Queue (réponse ask_user)
         self.session_overrides: dict = {"always_deny": [], "always_allow": [], "ask_user": []}
 
 
@@ -233,6 +245,28 @@ class SessionHub:
                 dispatch = {**dispatch, "spawn_worktree": lambda a, _p=proposals: _record_proposal(_p, a)}
             else:
                 tools_run = self.tools
+            # outil ask_user : l'agent pose une question et BLOQUE jusqu'à la réponse (cross-thread)
+            tools_run = list(tools_run) + [_ASKUSER_TOOL]
+            _loop = asyncio.get_running_loop()
+
+            def _ask_user(args, _room=room, _item=item, _sid=session_id, _loop=_loop):
+                request_id = uuid.uuid4().hex[:8]
+                q = _queue.Queue(maxsize=1)
+                _room.pending_asks[request_id] = q
+                event = ev.AskRequested(request_id=request_id, item_id=_item.item_id,
+                                        question=str(args.get("question", "?")),
+                                        options=list(args.get("options") or []),
+                                        actor_id=(_item.author.id if _item.author else None))
+                _loop.call_soon_threadsafe(lambda: self._publish(_sid, event))
+                try:
+                    answer = q.get(timeout=float(os.environ.get("MEKICODE_ASKUSER_TIMEOUT", "300")))
+                except _queue.Empty:
+                    answer = "(aucune réponse)"
+                finally:
+                    _room.pending_asks.pop(request_id, None)
+                return f"Réponse de l'utilisateur : {answer}"
+
+            dispatch = {**dispatch, "ask_user": _ask_user}
             bus = self._build_permission_bus(session_id, room, item, sess)
             gen = run_agent(sess.messages, llm, tools_run, dispatch, stream=True, hooks=bus)
             try:
@@ -330,6 +364,19 @@ class SessionHub:
         except Exception:
             pass
         return True
+
+    def resolve_ask(self, request_id: str, answer: str) -> bool:
+        """Fournit la réponse à un `ask_user` en attente → débloque le tour de l'agent."""
+        for room in self._rooms.values():
+            q = room.pending_asks.get(request_id)
+            if q is None:
+                continue
+            try:
+                q.put_nowait(str(answer))
+            except Exception:
+                pass
+            return True
+        return False
 
     @staticmethod
     def _translate(e):
