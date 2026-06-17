@@ -119,8 +119,10 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, on_focus=Non
                                     dot.on("click", lambda _=None, s=sid: on_focus(s))
                             if kind == "chat":
                                 body = ui.element("div").classes("nbody nbody-chat")
+                                with body:
+                                    scale = ui.element("div").classes("chat-scale")
                                 from component import ChatComponent  # mekichat (sys.path posé par l'app)
-                                ChatComponent(body, hub, sid, author)
+                                ChatComponent(scale, hub, sid, author)
 
     ui.timer(0.25, lambda: ui.run_javascript(
         "window.MekiCanvas && window.MekiCanvas.initWorld();"), once=True)

@@ -12,6 +12,11 @@
   function applyTransform() {
     const w = worldEl(); if (!w) return;
     w.style.transform = `translate(${state.view.x}px, ${state.view.y}px) scale(${state.view.zoom})`;
+    w.style.setProperty('--mc-zoom', String(state.view.zoom));   // lu par le CSS pour garder le texte lisible
+    // facteur de contre-scaling du contenu chat, borné : texte ~constant à l'écran (zoom modéré),
+    // juste un peu réduit en dézoom/zoom extrême (évite des polices grotesques).
+    const inv = Math.max(0.6, Math.min(2.5, 1 / (state.view.zoom || 1)));
+    w.style.setProperty('--mc-inv', String(inv));
     const cv = canvasEl();
     if (cv) {
       const s = 40 * state.view.zoom;
