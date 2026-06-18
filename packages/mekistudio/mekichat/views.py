@@ -348,20 +348,10 @@ def render_ask_request(question: str, options, on_answer):
     return card
 
 
-def render_project_selector(projects, current_project_id, current_scope,
-                             on_pick_project, on_pick_scope, on_add_project,
-                             worktree_scopes=(), on_new_worktree=None):
-    """Sélecteur Projet → worktree dans la sidebar, style Phosphore.
-
-    `projects`          : list[Project]
-    `current_project_id`: str — projet sélectionné
-    `current_scope`     : str — "main" ou le scope d'un worktree
-    `on_pick_project`   : callable(pid)
-    `on_pick_scope`     : callable(scope) — sélectionne main / un worktree
-    `on_add_project`    : callable()
-    `worktree_scopes`   : list[str] — scopes des worktrees du projet (hors main)
-    `on_new_worktree`   : callable() | None — ouvre le dialog de création de worktree
-    """
+def render_project_selector(projects, current_project_id,
+                             on_pick_project, on_add_project):
+    """Liste des projets (PROJETS) dans la sidebar, style Phosphore. La navigation worktree/session
+    est gérée par `render_worktree_tree`."""
     with ui.element("div").classes("proj-selector"):
         with ui.element("div").classes("sec-label"):
             ui.label("PROJETS")
@@ -373,22 +363,79 @@ def render_project_selector(projects, current_project_id, current_scope,
                 ):
                     ui.label(">").classes("mk")
                     ui.label(p.name).classes("proj-name")
-
-        # Worktrees : main + un item par worktree + bouton « nouveau worktree »
-        with ui.element("div").classes("sec-label"):
-            ui.label("WORKTREES")
-            if on_new_worktree is not None:
-                with ui.element("button").classes("wt-new-btn").on("click", lambda _: on_new_worktree()):
-                    ui.label("+ worktree")
-        with ui.element("div").classes("wt-list"):
-            for scope_name in ("main", *worktree_scopes):
-                is_active = current_scope == scope_name
-                with ui.element("div").classes("wt-tab active" if is_active else "wt-tab").on(
-                    "click", lambda _, s=scope_name: on_pick_scope(s)
-                ):
-                    ui.label("🌿" if scope_name == "main" else "🌳").classes("wt-glyph")
-                    ui.label(scope_name).classes("wt-name")
-
         with ui.element("div").classes("proj-add-wrap"):
             with ui.element("button").classes("proj-add-btn").on("click", lambda _: on_add_project()):
                 ui.label("+ projet")
+
+
+def _wt_scope_parts(scope: str):
+    """Sépare un scope worktree 'nom_uuid' → ('nom', '_uuid') pour l'affichage ; sinon (scope, '')."""
+    import re
+    m = re.match(r"^(.*)_([0-9a-f]{6,})$", scope or "")
+    return (m.group(1), "_" + m.group(2)) if m else (scope, "")
+
+
+def _wt_session_line(meta, current_sid, on_open_session, on_delete):
+    """Ligne de session compacte (Design C) : puce + titre + ✕ au survol."""
+    is_on = meta.id == current_sid
+    with ui.element("div").classes("wtt-line on" if is_on else "wtt-line").on(
+        "click", lambda _, sid=meta.id: on_open_session(sid)
+    ):
+        ui.label("●").classes("b")
+        ui.label(meta.title or meta.id[:8]).classes("nm")
+        if on_delete is not None:
+            with ui.element("span").classes("x").on(
+                "click.stop", lambda _, sid=meta.id: on_delete(sid)
+            ):
+                ui.label("✕")
+
+
+def render_worktree_tree(main_sessions, worktrees, current_sid,
+                         on_open_session, on_new_session, on_new_worktree, on_delete=None):
+    """Sidebar hiérarchique « rail compact » (Design C) : catégorie main + catégorie worktrees
+    (sous-catégories repliables par worktree), sessions imbriquées, + session sous chaque groupe,
+    + new worktree.
+
+    `main_sessions` : list[SessionMeta] (scope main)
+    `worktrees`     : list[(scope, [SessionMeta])]
+    `current_sid`   : str — session active (surlignée)
+    `on_open_session(sid)` ; `on_new_session(scope)` ; `on_new_worktree()` ; `on_delete(sid)|None`
+    """
+    with ui.element("div").classes("wt-tree"):
+        # ── catégorie MAIN ──
+        with ui.element("div").classes("wtt-grp"):
+            with ui.element("div").classes("wtt-glabel"):
+                ui.label("🌿 MAIN")
+                ui.element("span").classes("bar")
+                with ui.element("span").classes("plus").on("click", lambda _: on_new_session("main")):
+                    ui.label("＋")
+            for m in main_sessions:
+                _wt_session_line(m, current_sid, on_open_session, on_delete)
+            with ui.element("div").classes("wtt-add").on("click", lambda _: on_new_session("main")):
+                ui.label("＋ session")
+
+        # ── catégorie WORKTREES ──
+        with ui.element("div").classes("wtt-grp"):
+            with ui.element("div").classes("wtt-glabel wts"):
+                ui.label("🌳 WORKTREES")
+                ui.element("span").classes("bar")
+                with ui.element("span").classes("plus").on("click", lambda _: on_new_worktree()):
+                    ui.label("＋")
+            for scope, sessions in worktrees:
+                name, uid = _wt_scope_parts(scope)
+                with ui.element("details").classes("wtt-chip").props("open"):
+                    with ui.element("summary"):
+                        ui.label("▸").classes("car")
+                        ui.label("🌳").classes("ic")
+                        ui.label(name).classes("nm")
+                        if uid:
+                            ui.label(uid).classes("uuid")
+                        ui.label(str(len(sessions))).classes("cnt")
+                    for m in sessions:
+                        _wt_session_line(m, current_sid, on_open_session, on_delete)
+                    with ui.element("div").classes("wtt-add").on(
+                        "click", lambda _, s=scope: on_new_session(s)
+                    ):
+                        ui.label("＋ session")
+            with ui.element("div").classes("wtt-newwt").on("click", lambda _: on_new_worktree()):
+                ui.label("＋ new worktree")

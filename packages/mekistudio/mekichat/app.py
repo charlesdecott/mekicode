@@ -225,12 +225,15 @@ def index() -> None:
         current = _get_store().load(session_id)
         _refresh()
 
-    def new_session() -> None:
-        nonlocal current
+    def new_session_in(scope: str) -> None:
+        """Crée une session DANS un scope précis (main ou un worktree) et bascule dessus."""
+        nonlocal current, current_scope
         if state["busy"]:
             return
-        current = _new_session()
-        _mirror_session_to_discord(current)     # crée le canal Discord (no-op si Discord off)
+        current_scope = scope
+        current = _get_store().create(model=DEFAULT_MODEL, system=_system_for(current_project, scope),
+                                      project_id=current_project.id, scope=scope)
+        _mirror_session_to_discord(current)
         _refresh()
 
     def delete_session(session_id: str) -> None:
@@ -252,16 +255,6 @@ def index() -> None:
         current_project = proj
         # Charge la session la plus récente pour ce projet/scope, ou en crée une
         metas = _metas_for_scope(pid, current_scope)
-        current = _get_store().load(metas[0].id) if metas else _new_session()
-        _refresh()
-
-    def pick_scope(scope: str) -> None:
-        nonlocal current, current_scope
-        if state["busy"]:
-            return
-        current_scope = scope
-        # Charge la session la plus récente pour ce projet/scope, ou en crée une
-        metas = _metas_for_scope(current_project.id, scope)
         current = _get_store().load(metas[0].id) if metas else _new_session()
         _refresh()
 
@@ -555,31 +548,24 @@ def index() -> None:
             views.render_project_selector(
                 projects=_get_registry().list(),
                 current_project_id=current_project.id,
-                current_scope=current_scope,
                 on_pick_project=pick_project,
-                on_pick_scope=pick_scope,
                 on_add_project=_open_add_project_dialog,
-                worktree_scopes=_worktree_scopes(current_project.id),
-                on_new_worktree=_open_worktree_dialog_home,
             )
 
-            _wt_label = "main" if current_scope == "main" else f"worktree « {current_scope} »"
-            with ui.element("button").classes("new-btn").on("click", lambda _: new_session()):
-                ui.label(f"+ nouvelle session dans {_wt_label}")
-                ui.html("<kbd>⌘N</kbd>")
+            # Arbre hiérarchique (Design C) : main + worktrees → sessions
+            main_metas = _metas_for_scope(current_project.id, "main")
+            worktrees = [(sc, _metas_for_scope(current_project.id, sc))
+                         for sc in _worktree_scopes(current_project.id)]
+            views.render_worktree_tree(
+                main_sessions=main_metas,
+                worktrees=worktrees,
+                current_sid=current.id,
+                on_open_session=open_session,
+                on_new_session=new_session_in,
+                on_new_worktree=_open_worktree_dialog_home,
+                on_delete=delete_session,
+            )
 
-            # Sessions filtrées par projet courant + scope courant
-            metas = _metas_for_scope(current_project.id, current_scope)
-            with ui.element("div").classes("sec-label"):
-                ui.label("SESSIONS")
-                ui.label(f"[{len(metas):02d}]").classes("n")
-            with ui.element("div").classes("sessions"):
-                for meta in metas:
-                    views.render_session_item(
-                        meta, active=(meta.id == current.id),
-                        on_click=lambda _, sid=meta.id: open_session(sid),
-                        on_delete=lambda _, sid=meta.id: delete_session(sid),
-                    )
             with ui.element("div").classes("sidebar-foot"):
                 ui.element("span").classes("led")
                 ui.label("OPENROUTER :: LINK_OK")

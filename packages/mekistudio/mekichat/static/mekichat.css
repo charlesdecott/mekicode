@@ -261,19 +261,48 @@
   letter-spacing:.1em;text-transform:uppercase;transition:color .15s,border-color .15s}
 .proj-add-btn:hover{color:var(--p1);border-color:var(--line)}
 
-/* ── LISTE WORKTREES (sidebar accueil) ── */
-.sec-label .wt-new-btn{background:transparent;border:1px solid var(--line-dim);color:var(--p1);
-  font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;
-  padding:2px 7px;cursor:pointer;clip-path:var(--clip-sm);transition:color .15s,border-color .15s}
-.sec-label .wt-new-btn:hover{border-color:var(--p1);box-shadow:var(--p1-glow)}
-.wt-list{display:flex;flex-direction:column;gap:3px;padding:2px 10px 4px}
-.wt-tab{display:flex;align-items:center;gap:7px;padding:6px 10px;cursor:pointer;
-  font-family:var(--mono);font-size:11px;color:var(--muted);clip-path:var(--clip-sm);
-  border:1px solid transparent;transition:color .15s,background .15s}
-.wt-tab:hover{color:var(--text);background:var(--p1-bg)}
-.wt-tab.active{color:var(--p1);background:var(--p1-bg);border-color:var(--line);text-shadow:var(--p1-glow)}
-.wt-tab .wt-glyph{flex:none}
-.wt-tab .wt-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ── ARBRE WORKTREES « rail compact » (Design C) — sidebar accueil ── */
+.wt-tree{padding:2px 0 6px}
+.wtt-grp{padding:2px 0 6px}
+.wtt-glabel{display:flex;align-items:center;gap:8px;padding:9px 13px 5px;font-family:var(--mono);
+  font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--faint)}
+.wtt-glabel .bar{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+.wtt-glabel.wts{color:var(--p2)}
+.wtt-glabel .plus{flex:none;width:18px;height:18px;display:grid;place-items:center;color:var(--p1);
+  border:1px solid var(--line-dim);clip-path:var(--clip-sm);cursor:pointer;font-size:13px;transition:all .15s}
+.wtt-glabel .plus:hover{border-color:var(--p1);box-shadow:var(--p1-glow)}
+.wtt-glabel.wts .plus{color:var(--p2)}
+.wtt-glabel.wts .plus:hover{border-color:var(--p2);box-shadow:var(--p2-glow)}
+.wtt-chip>summary{display:flex;align-items:center;gap:8px;margin:4px 11px 2px;padding:6px 9px;
+  font-family:var(--mono);font-size:11px;color:var(--text);background:rgba(0,0,0,.25);
+  border-left:2px solid var(--p2);clip-path:var(--clip-sm);cursor:pointer;list-style:none;transition:background .15s}
+.wtt-chip>summary::-webkit-details-marker{display:none}
+.wtt-chip>summary:hover{background:var(--p2-bg)}
+.wtt-chip .car{display:inline-block;transition:transform .18s;color:var(--faint);font-size:10px;flex:none}
+.wtt-chip[open]>summary .car{transform:rotate(90deg);color:var(--p2)}
+.wtt-chip .ic{flex:none}
+.wtt-chip>summary .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wtt-chip .uuid{color:var(--faint);font-size:9px}
+.wtt-chip .cnt{margin-left:auto;font-size:9px;color:var(--faint);background:rgba(0,0,0,.4);
+  padding:1px 6px;clip-path:var(--clip-sm)}
+.wtt-line{display:flex;align-items:center;gap:8px;padding:5px 13px 5px 22px;font-family:var(--ui);
+  font-size:12px;color:var(--muted);cursor:pointer;transition:color .15s,background .15s}
+.wtt-line:hover{color:var(--text);background:var(--p1-bg)}
+.wtt-line.on{color:var(--p1);text-shadow:var(--p1-glow)}
+.wtt-line .b{color:var(--p1);font-size:8px;flex:none}
+.wtt-line .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wtt-line .x{flex:none;color:var(--faint);font-size:10px;opacity:0;transition:opacity .15s,color .15s;cursor:pointer}
+.wtt-line:hover .x{opacity:1}
+.wtt-line .x:hover{color:var(--p2)}
+.wtt-chip .wtt-line{padding-left:30px}
+.wtt-add{display:flex;align-items:center;gap:6px;padding:4px 13px 6px 22px;font-family:var(--mono);
+  font-size:10px;letter-spacing:.06em;color:var(--faint);cursor:pointer;transition:color .15s}
+.wtt-add:hover{color:var(--p1)}
+.wtt-chip .wtt-add{padding-left:30px}
+.wtt-newwt{display:flex;align-items:center;justify-content:center;gap:7px;margin:8px 11px 4px;padding:8px;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--p2);
+  border:1px dashed color-mix(in srgb,var(--p2) 34%,transparent);clip-path:var(--clip-sm);cursor:pointer;transition:all .15s}
+.wtt-newwt:hover{background:var(--p2-bg);box-shadow:var(--p2-glow)}
 .wt-dlg-hint{font-family:var(--mono);font-size:10px;color:var(--faint);margin:-4px 0 6px;display:block}
 
 /* ── CARTE DE VALIDATION WORKTREE (proposée par l'agent) ── */
