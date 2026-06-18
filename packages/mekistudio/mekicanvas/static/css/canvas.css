@@ -9,12 +9,14 @@
 }
 .mc-canvas.panning { cursor: grabbing; }
 
-/* palette : ajouter des nodes à la volée (Sprint 4) */
-.mc-palette { position: absolute; top: 12px; left: 12px; z-index: 30; cursor: pointer; }
+/* palette : ajouter des nodes / créer un worktree (Sprint 4) */
+.mc-palette { position: absolute; top: 12px; left: 12px; z-index: 30; cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
 .pal-trigger { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; border: 1px solid rgba(57, 255, 20, .5); background: rgba(8, 12, 8, .85); color: #39ff14; font-size: 20px; font-weight: 700; box-shadow: 0 0 12px rgba(57, 255, 20, .2); }
-.pal-trigger:hover { background: rgba(57, 255, 20, .12); }
+.pal-trigger:hover { background: rgba(57, 255, 20, .16); }
+.pal-wt { font-size: 18px; border-color: rgba(57, 255, 20, .8); box-shadow: 0 0 14px rgba(57, 255, 20, .3); }
 .pal-dialog { background: #08110a !important; border: 1px solid rgba(57, 255, 20, .4); color: #dfe; }
-.pal-dlg-title { color: #39ff14; font-size: 13px; }
+.pal-dlg-title { color: #39ff14; font-size: 14px; font-weight: 700; }
+.pal-dlg-hint { color: #8aa; font-size: 11px; margin: -2px 0 4px; }
 .pal-dlg-in { min-width: 320px; }
 .pal-dlg-btn { color: #39ff14 !important; }
 

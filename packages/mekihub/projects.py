@@ -11,7 +11,7 @@ _DEFAULT_REGISTRY = _ROOT / ".mekicode" / "projects.json"
 def _now() -> str: return datetime.now(timezone.utc).isoformat()
 
 def slugify(name: str) -> str:
-    s = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    s = re.sub(r"[^a-z0-9_]+", "-", name.lower()).strip("-_")   # underscore préservé (suffixe _uuid)
     return s or "projet"
 
 @dataclass

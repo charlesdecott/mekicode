@@ -199,6 +199,39 @@ class SessionHub:
         self.submit(child.id, pr["prompt_amorce"], author=sys_author)
         return child.id
 
+    async def create_worktree(self, project_id: str, name: str, base=None):
+        """Création DIRECTE d'un worktree (déclenchée par l'UTILISATEUR, sans proposition d'agent).
+        Crée `<repo>/.worktrees/<slug>_<uuid>` (isolé/unique) + une session de scope dédiée + copie .env.
+        Renvoie (child_session_id, scope). Lève si le projet est introuvable ou si git échoue."""
+        from projects import add_worktree, slugify   # mekihub (sys.path déjà posé)
+        project = self.registry.get(project_id) if self.registry else None
+        if project is None:
+            raise RuntimeError("projet introuvable")
+        scope = f"{slugify(name) or 'wt'}_{uuid.uuid4().hex[:6]}"     # unique → jamais de collision
+        await asyncio.to_thread(add_worktree, project, scope, base)
+        # modèle / système : repris d'une session existante du projet, sinon défaut du provider
+        model, system = None, None
+        refs = [m for m in self.store.list() if getattr(m, "project_id", None) == project.id]
+        if refs:
+            ref = self.store.load(refs[0].id)
+            model = ref.model
+            if ref.messages and ref.messages[0].get("role") == "system":
+                system = ref.messages[0]["content"]
+        if not model:
+            try:
+                import mekillm
+                model = mekillm.config.resolve()["model"]
+            except Exception:
+                model = "anthropic/claude-3.5-sonnet"
+        child = self.store.create(model=model, system=system, project_id=project.id, scope=scope)
+        if self.provisioner is not None:
+            try:
+                await self.provisioner.ensure_channel(child)
+                self.store.save(child)
+            except Exception:
+                pass     # Discord optionnel
+        return child.id, scope
+
     def reject_worktree(self, session_id: str, proposal_id: str) -> bool:
         room = self._room(session_id)
         if room.pending_worktrees.pop(proposal_id, None) is not None:

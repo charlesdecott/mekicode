@@ -346,12 +346,56 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
                 ui.button("Annuler", on_click=dlg.close).props("flat").classes("pal-dlg-btn")
         dlg.open()
 
+    def _open_worktree_dialog() -> None:
+        projects = registry.list() if registry else []
+        if not projects:
+            ui.notify("aucun projet enregistré", type="warning")
+            return
+        dlg = ui.dialog()
+        with dlg, ui.card().classes("pal-dialog"):
+            ui.label("🌳 Nouveau worktree isolé").classes("pal-dlg-title")
+            ui.label("crée <repo>/.worktrees/<nom>_<uuid> + une session dédiée (.env copié)").classes("pal-dlg-hint")
+            name_in = ui.input(placeholder="nom (ex. feature-login)").classes("pal-dlg-in")
+            proj_sel = None
+            if len(projects) > 1:
+                proj_sel = ui.select({p.id: p.name for p in projects}, value=projects[0].id,
+                                     label="projet").classes("pal-dlg-in")
+            busy = {"v": False}
+
+            async def _go(_=None) -> None:
+                nm = (name_in.value or "").strip()
+                if not nm or busy["v"]:
+                    return
+                busy["v"] = True
+                pid = proj_sel.value if proj_sel is not None else projects[0].id
+                dlg.close()
+                ui.notify(f"création du worktree « {nm} »…")
+                try:
+                    _cid, scope = await hub.create_worktree(pid, nm)
+                    ui.notify(f"worktree « {scope} » créé ✓", type="positive")
+                    ui.run_javascript("setTimeout(()=>location.reload(), 500)")
+                except Exception as e:  # noqa: BLE001
+                    busy["v"] = False
+                    ui.notify(f"échec création worktree : {e}", type="negative")
+
+            name_in.on("keydown.enter", _go)
+            with ui.row():
+                ui.button("Créer le worktree", on_click=_go).props("flat").classes("pal-dlg-btn")
+                ui.button("Annuler", on_click=dlg.close).props("flat").classes("pal-dlg-btn")
+        dlg.open()
+
     with canvas:
         with ui.element("div").classes("mc-palette"):
-            ui.label("＋").classes("pal-trigger")
-            with ui.menu().classes("pal-menu"):
-                ui.menu_item("⌨  Terminal", lambda: _spawn_generic("terminal", _default_ws, "⌨", "terminal", 340.0, 220.0))
-                ui.menu_item("✎  Ouvrir un fichier…", _open_path_dialog)
+            with ui.element("div").classes("pal-trigger"):        # « + » → menu (ancré sur ce div seul)
+                ui.label("＋")
+                with ui.menu().classes("pal-menu"):
+                    ui.menu_item("⌨  Terminal", lambda: _spawn_generic("terminal", _default_ws, "⌨", "terminal", 340.0, 220.0))
+                    ui.menu_item("✎  Ouvrir un fichier…", _open_path_dialog)
+                    ui.menu_item("🌳  Nouveau worktree…", _open_worktree_dialog)
+            wt_btn = ui.element("div").classes("pal-trigger pal-wt")  # bouton dédié « nouveau worktree »
+            with wt_btn:
+                ui.label("🌳")
+            wt_btn.on("click", lambda _=None: _open_worktree_dialog())
 
     ui.timer(0.25, lambda: ui.run_javascript("window.MekiCanvas && window.MekiCanvas.initWorld();"), once=True)
 
