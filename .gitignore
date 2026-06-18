@@ -34,3 +34,6 @@ trailer/out/*.mp4
 
 # Compagnon visuel brainstorming (ephemere)
 .superpowers/
+
+# worktrees gérés (générés à l'exécution)
+.worktrees/

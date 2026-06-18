@@ -60,12 +60,16 @@ Registre persisté dans **`.mekicode/projects.json`** à la racine du dépôt h�
     du dépôt courant (back-compat pour les sessions plates créées avant le multi-projet).
 - **Helpers worktree :**
   - `slugify(name) -> str` : identifiant fichier-safe depuis un nom libre.
-  - `_wt_dir(project, name, worktrees_base) -> Path` : chemin cible sous
-    `.mekicode-worktrees/<slug>/<nom>`.
-  - `add_worktree(project, name, base=None, worktrees_base=None) -> Path` : exécute
-    `git worktree add` dans `repo_path` ; crée le répertoire parent si absent ; renvoie le chemin.
+  - `_wt_dir(project, name, worktrees_base=None) -> Path` : chemin cible. **Défaut : `<repo>/.worktrees/<slug>`**
+    (à la racine DU projet) ; `worktrees_base` (override, ex. tests) → `<base>/<slug-projet>/<slug>`.
+  - `add_worktree(project, name, base=None, worktrees_base=None, copy_ignored=…) -> Path` : `git worktree add`
+    (réutilise la branche `slugify(name)` si elle existe, sinon `-b`) ; **copie les fichiers RÉELLEMENT
+    gitignorés** (`.env`… via `git check-ignore` — ni fichiers suivis ni secrets non-ignorés, jamais en
+    silence) que `git worktree add` ne checkout pas ; pour les worktrees in-repo, garantit `.worktrees/`
+    ignoré via **`.git/info/exclude`** (local, sans salir le `.gitignore` suivi). Renvoie le chemin.
   - `list_worktrees(project) -> list[dict]` : parse `git worktree list --porcelain`.
-  - `remove_worktree(project, name)` : exécute `git worktree remove --force`.
+  - `remove_worktree(project, name, delete_branch=True)` : `git worktree remove --force` + `worktree prune`
+    + suppression de la branche (cycle créer/supprimer/recréer idempotent).
 - **`workspace_for(session, registry) -> Path`** : cwd absolu d'une session — racine du projet si
   `session.scope == "main"`, sinon `_wt_dir(project, session.scope)` ; repli sur la racine mekicode
   si le registre est absent ou si le projet est introuvable.

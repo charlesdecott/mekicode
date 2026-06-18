@@ -24,7 +24,7 @@ _CHAT_CSS = Path(__file__).resolve().parent.parent / "mekichat" / "static" / "me
 
 _CHAT_W, _CHAT_H = 400.0, 440.0
 _COL_GAP, _ROW_GAP = 460.0, 480.0
-_FOLDER_GAP = 1320.0
+_FOLDER_GAP = 1850.0   # > largeur d'un cluster (~1740 : explorateur fx-880 → terminal fx+860)
 _EXPLORER_W, _EXPLORER_H = 340.0, 560.0
 _EDITOR_W, _EDITOR_H = 520.0, 380.0
 _KERNEL_ID = "kernel"
@@ -121,7 +121,7 @@ def _groups(metas, store, registry):
         else:
             label, glyph = f"{name} · ⎇ {scope}", "\U0001F33F"
         out.append({"key": f"folder:{pid}:{scope}", "label": label, "glyph": glyph,
-                    "sessions": sessions, "ws": ws})
+                    "sessions": sessions, "ws": ws, "pid": pid, "scope": scope})
     return out
 
 
@@ -138,23 +138,20 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
                        src=None, glyph="◉", text="kernel", sid=None, payload=None))
     session_ws: dict = {}      # sid -> ws Path
     explorers: dict = {}       # ws_str -> {id, x, y, count}
-    n_groups = max(1, len(groups))
-    for gi, g in enumerate(groups):
-        fx = (gi - (n_groups - 1) / 2.0) * _FOLDER_GAP
-        fy = 220.0
+
+    def _place_group(g, fx, fy, folder_src):
+        """Place un cluster d'espace de travail : folder + explorateur + git + terminal + chats."""
         fid = g["key"]
         placed.append(dict(id=fid, kind="folder", x=fx - 150.0, y=fy, w=300.0, h=66.0,
-                           src=_KERNEL_ID, glyph=g["glyph"], text=g["label"], sid=None, payload=None))
+                           src=folder_src, glyph=g["glyph"], text=g["label"], sid=None, payload=None))
         ws = g["ws"]; ws_str = str(ws)
         exp_id = f"explorer:{g['key']}"
         exp_x, exp_y = fx - _COL_GAP - _EXPLORER_W - 80.0, fy + 200.0
         placed.append(dict(id=exp_id, kind="explorer", x=exp_x, y=exp_y, w=_EXPLORER_W, h=_EXPLORER_H,
                            src=fid, glyph="\U0001F5C2", text="fichiers", sid=None, payload=ws_str))
         explorers[ws_str] = {"id": exp_id, "x": exp_x, "y": exp_y, "count": 0}
-        # node git (statut de branche, à droite du cluster)
         placed.append(dict(id=f"git:{g['key']}", kind="git", x=fx + _COL_GAP + 60.0, y=fy + 200.0,
                            w=300.0, h=72.0, src=fid, glyph="⎇", text="git", sid=None, payload=ws_str))
-        # node terminal (runner de commandes, sous le git)
         placed.append(dict(id=f"term:{g['key']}", kind="terminal", x=fx + _COL_GAP + 60.0, y=fy + 320.0,
                            w=340.0, h=220.0, src=f"git:{g['key']}", glyph="⌨", text="terminal",
                            sid=None, payload=ws_str))
@@ -165,6 +162,56 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
             placed.append(dict(id=m.id, kind="chat", x=cx, y=cy, w=_CHAT_W, h=_CHAT_H, src=fid,
                                glyph="\U0001F4AC", text=(m.title or m.id)[:22], sid=m.id, payload=None))
             session_ws[m.id] = ws
+
+    # séparer main / worktrees, regroupés par projet
+    mains = [g for g in groups if g["scope"] == "main"]
+    wts_by_pid: dict = {}
+    for g in groups:
+        if g["scope"] != "main":
+            wts_by_pid.setdefault(g["pid"], []).append(g)
+
+    # rangée du haut : folder main (1 fente) + node « worktrees » (réserve `nw` fentes pour ses worktrees,
+    # sinon 2 worktrees+ se chevaucheraient horizontalement / déborderaient sur les voisins)
+    items: list = []                 # (kind, payload, largeur_en_fentes)
+    placed_pids: list = []
+    for g in mains:
+        items.append(("main", g, 1)); placed_pids.append(g["pid"])
+        if g["pid"] in wts_by_pid:
+            items.append(("wt", g["pid"], max(1, len(wts_by_pid[g["pid"]]))))
+    for pid in wts_by_pid:                        # projets sans session main mais avec worktrees
+        if pid not in placed_pids:
+            items.append(("wt", pid, max(1, len(wts_by_pid[pid]))))
+
+    total_slots = sum(w for _, _, w in items) or 1
+    off = (total_slots - 1) / 2.0                # centre l'ensemble sur le kernel
+
+    def _cluster_bottom(g, fy=220.0):            # profondeur réelle d'un cluster (anti-chevauchement vertical)
+        nrows = (len(g["sessions"]) + 1) // 2 or 1
+        return fy + 200.0 + (nrows - 1) * _ROW_GAP + max(_CHAT_H, _EXPLORER_H)
+    wt_row_y = max([_cluster_bottom(g) for g in mains] + [420.0 + _EXPLORER_H]) + 140.0
+
+    wt_start: dict = {}                          # pid -> fente de départ de la bande worktrees
+    start = 0
+    for kind, payload, w in items:
+        cx = (start + (w - 1) / 2.0 - off) * _FOLDER_GAP    # centre de la fente (main) / bande (worktrees)
+        if kind == "main":
+            _place_group(payload, cx, 220.0, _KERNEL_ID)
+        else:
+            pid = payload
+            proj = registry.get(pid) if registry else None
+            nm = proj.name if proj else pid
+            placed.append(dict(id=f"wtgroup:{pid}", kind="wtgroup", x=cx - 150.0, y=220.0, w=300.0, h=66.0,
+                               src=_KERNEL_ID, glyph="\U0001F333", text=f"worktrees · {nm}",
+                               sid=None, payload=None))
+            wt_start[pid] = start
+        start += w
+
+    # worktrees rattachés SOUS leur node « worktrees », chacun dans SA fente (→ wtgroup → kernel)
+    for pid, wl in wts_by_pid.items():
+        s = wt_start.get(pid, 0)
+        for wi, g in enumerate(wl):
+            cx = (s + wi - off) * _FOLDER_GAP
+            _place_group(g, cx, wt_row_y, f"wtgroup:{pid}")
 
     spawned: dict = {}   # (ws_str, rel) -> editor id
     eph_timers: dict = {}  # eid -> timer TTL (pour annulation au pin)

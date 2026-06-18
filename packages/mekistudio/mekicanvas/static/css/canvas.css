@@ -186,6 +186,12 @@ svg.cables circle.comet { fill: #eaffea; filter: drop-shadow(0 0 6px #39ff14) dr
 .node-wrap[data-kind="dir"] .nbody { display: none; }
 .node-wrap[data-kind="dir"] .resize-handle { display: none; }
 
+/* node « worktrees » (regroupe les worktrees d'un projet → kernel), vert worktree */
+.node-wrap[data-kind="wtgroup"] .node-card { border-color: rgba(57, 255, 20, .5); box-shadow: 0 0 14px rgba(57, 255, 20, .15); background: #07140a; }
+.node-wrap[data-kind="wtgroup"] .nhead { color: #39ff14; border-color: rgba(57, 255, 20, .25); background: rgba(57, 255, 20, .05); }
+.node-wrap[data-kind="wtgroup"] .nbody { display: none; }
+.node-wrap[data-kind="wtgroup"] .resize-handle { display: none; }
+
 /* ===== carte de permission (s15, façon Claude Code) ===== */
 .perm-request {
   border: 1px solid rgba(247, 255, 18, .5); border-radius: 10px; background: rgba(247, 255, 18, .06);
