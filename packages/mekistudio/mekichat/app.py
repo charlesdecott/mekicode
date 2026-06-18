@@ -201,10 +201,13 @@ def index() -> None:
     state = {"busy": False}
 
     def _metas_for_scope(pid: str, scope: str):
-        """Liste les sessions d'un projet filtrées par scope (main = exact ; autre = tout sauf main)."""
-        if scope == "main":
-            return _get_store().list(project_id=pid, scope="main")
-        return [m for m in _get_store().list(project_id=pid) if m.scope != "main"]
+        """Sessions d'un projet pour un scope EXACT (main, ou un worktree précis)."""
+        return [m for m in _get_store().list(project_id=pid) if (m.scope or "main") == scope]
+
+    def _worktree_scopes(pid: str):
+        """Scopes distincts des worktrees du projet (hors main), triés — un par worktree."""
+        scopes = {m.scope for m in _get_store().list(project_id=pid) if (m.scope or "main") != "main"}
+        return sorted(scopes)
 
     def _new_session():
         """Crée une nouvelle session pour le projet/scope courant et la retourne."""
@@ -261,6 +264,38 @@ def index() -> None:
         metas = _metas_for_scope(current_project.id, scope)
         current = _get_store().load(metas[0].id) if metas else _new_session()
         _refresh()
+
+    def _open_worktree_dialog_home() -> None:
+        """Dialog « nouveau worktree » côté accueil → hub.create_worktree + bascule dans sa session."""
+        dlg = ui.dialog()
+        with dlg, ui.card().classes("wt-dialog"):
+            ui.label("🌳 Nouveau worktree isolé").classes("sec-label")
+            ui.label("crée <repo>/.worktrees/<nom>_<uuid> + une session dédiée (.env copié)").classes("wt-dlg-hint")
+            inp = ui.input(placeholder="nom (ex. feature-login)")
+            busy = {"v": False}
+
+            async def _go(_=None) -> None:
+                nonlocal current, current_scope
+                nm = (inp.value or "").strip()
+                if not nm or busy["v"]:
+                    return
+                busy["v"] = True
+                dlg.close()
+                ui.notify(f"création du worktree « {nm} »…")
+                try:
+                    cid, scope = await _get_hub().create_worktree(current_project.id, nm)
+                    current_scope = scope
+                    current = _get_store().load(cid)
+                    _refresh()
+                    ui.notify(f"worktree « {scope} » créé ✓", color="positive")
+                except Exception as e:  # noqa: BLE001
+                    ui.notify(f"échec création worktree : {e}", color="negative")
+
+            inp.on("keydown.enter", _go)
+            with ui.row():
+                ui.button("Créer le worktree", on_click=_go)
+                ui.button("Annuler", on_click=dlg.close).props("flat")
+        dlg.open()
 
     def _scroll_bottom() -> None:
         try:
@@ -524,10 +559,13 @@ def index() -> None:
                 on_pick_project=pick_project,
                 on_pick_scope=pick_scope,
                 on_add_project=_open_add_project_dialog,
+                worktree_scopes=_worktree_scopes(current_project.id),
+                on_new_worktree=_open_worktree_dialog_home,
             )
 
+            _wt_label = "main" if current_scope == "main" else f"worktree « {current_scope} »"
             with ui.element("button").classes("new-btn").on("click", lambda _: new_session()):
-                ui.label("+ nouvelle session")
+                ui.label(f"+ nouvelle session dans {_wt_label}")
                 ui.html("<kbd>⌘N</kbd>")
 
             # Sessions filtrées par projet courant + scope courant

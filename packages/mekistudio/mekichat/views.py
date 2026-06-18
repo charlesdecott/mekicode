@@ -349,43 +349,46 @@ def render_ask_request(question: str, options, on_answer):
 
 
 def render_project_selector(projects, current_project_id, current_scope,
-                             on_pick_project, on_pick_scope, on_add_project):
-    """Sélecteur Projet → scope (main / worktrees) dans la sidebar, style Phosphore.
+                             on_pick_project, on_pick_scope, on_add_project,
+                             worktree_scopes=(), on_new_worktree=None):
+    """Sélecteur Projet → worktree dans la sidebar, style Phosphore.
 
     `projects`          : list[Project]
     `current_project_id`: str — projet sélectionné
-    `current_scope`     : str — "main" ou "worktrees"
-    `on_pick_project`   : callable(pid: str)
-    `on_pick_scope`     : callable(scope: str)
+    `current_scope`     : str — "main" ou le scope d'un worktree
+    `on_pick_project`   : callable(pid)
+    `on_pick_scope`     : callable(scope) — sélectionne main / un worktree
     `on_add_project`    : callable()
+    `worktree_scopes`   : list[str] — scopes des worktrees du projet (hors main)
+    `on_new_worktree`   : callable() | None — ouvre le dialog de création de worktree
     """
     with ui.element("div").classes("proj-selector"):
-        # En-tête de section
         with ui.element("div").classes("sec-label"):
             ui.label("PROJETS")
-
-        # Liste des projets (boutons cliquables, actif mis en évidence)
         with ui.element("div").classes("proj-list"):
             for p in projects:
                 is_active = p.id == current_project_id
-                btn_classes = "proj-item active" if is_active else "proj-item"
-                with ui.element("div").classes(btn_classes).on(
+                with ui.element("div").classes("proj-item active" if is_active else "proj-item").on(
                     "click", lambda _, pid=p.id: on_pick_project(pid)
                 ):
                     ui.label(">").classes("mk")
                     ui.label(p.name).classes("proj-name")
 
-        # Onglets scope : main / worktrees
-        with ui.element("div").classes("scope-tabs"):
-            for scope_name in ("main", "worktrees"):
+        # Worktrees : main + un item par worktree + bouton « nouveau worktree »
+        with ui.element("div").classes("sec-label"):
+            ui.label("WORKTREES")
+            if on_new_worktree is not None:
+                with ui.element("button").classes("wt-new-btn").on("click", lambda _: on_new_worktree()):
+                    ui.label("+ worktree")
+        with ui.element("div").classes("wt-list"):
+            for scope_name in ("main", *worktree_scopes):
                 is_active = current_scope == scope_name
-                tab_classes = "scope-tab active" if is_active else "scope-tab"
-                with ui.element("div").classes(tab_classes).on(
+                with ui.element("div").classes("wt-tab active" if is_active else "wt-tab").on(
                     "click", lambda _, s=scope_name: on_pick_scope(s)
                 ):
-                    ui.label(scope_name)
+                    ui.label("🌿" if scope_name == "main" else "🌳").classes("wt-glyph")
+                    ui.label(scope_name).classes("wt-name")
 
-        # Bouton ajout de projet
         with ui.element("div").classes("proj-add-wrap"):
             with ui.element("button").classes("proj-add-btn").on("click", lambda _: on_add_project()):
                 ui.label("+ projet")
