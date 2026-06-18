@@ -39,7 +39,7 @@ existe déjà, validé, dans `src_scratch/`).
 | s09 | agent teams (équipes d'agents) | ✅ | ⬜ |
 | s10 | team protocols (communication d'équipe) | ✅ | ⬜ |
 | s11 | autonomous agents (boucles autonomes) | ✅ | ⬜ |
-| s12 | worktree task isolation (isolation git) | ✅ | 🟡 `projects.py` : `add_worktree`/`list_worktrees`/`remove_worktree` + `workspace_for` ; outil `spawn_worktree` propose/approve/reject via le hub (validation humaine requise) |
+| s12 | worktree task isolation (isolation git) | ✅ | ✅ **worktrees isolés** : `<repo>/.worktrees/<nom>_<uuid>` (copie `.env` via `git check-ignore`, exclusion `.git/info/exclude`, réutilise/supprime la branche) ; `hub.create_worktree` (bouton « + worktree » canvas+accueil → on atterrit dans SA session, l'agent y tourne) ; `delete_worktree`/`purge_session` ; outil agent `spawn_worktree` (propose/approve) ; Discord : 1 catégorie/worktree |
 | s13 | streaming (réponses en flux) | ✅ | ✅ (`LLM.stream` + streaming dans le front mekichat) |
 | s14 | tools extended (read/write/grep/glob/revert) | ✅ | 🟡 read/write/edit/grep/glob **confinés au workspace** (revert hors périmètre — YAGNI) |
 | s15 | permissions (gouvernance 3 tiers) | ✅ | ✅ (HookBus + couches session/projet/global, tier *ask* async, carte 5 choix) |
@@ -54,8 +54,8 @@ existe déjà, validé, dans `src_scratch/`).
 
 Légende : ✅ implémenté · 🟡 partiel · ⬜ à faire.
 
-**Avancement `packages/` vs s01–s23 : ≈ 5 / 23 ≈ 22 %** (s01 + s02 + s13 complets, s14 quasi complet —
-read/write/edit/grep/glob confinés, sans revert ; s12 partiel — worktree avec validation humaine).
+**Avancement `packages/` vs s01–s23 : ≈ 6 / 23 ≈ 26 %** (s01 + s02 + s13 + **s12** complets, s14 quasi complet —
+read/write/edit/grep/glob confinés, sans revert ; s15 ✅ permissions, s16 🟡 bus de session).
 C'est volontaire : on reconstruit proprement à partir du socle, on ne recopie pas `src_scratch/`.
 
 ## Ce qui est implémenté dans `packages/`
@@ -147,12 +147,26 @@ Intègre le canvas de **mekistudio** (projet d'étude `C:\mekistudio`) dans notr
 - **Sprint 4 — Interactivité (livré)** : outil agent **`ask_user`** (QCM/réponse libre en plein tour,
   bloque jusqu'à la réponse ; event `AskRequested` + `SessionHub.resolve_ask` + carte chat),
   **palette de nodes** (`+` → Terminal / Ouvrir un fichier par chemin).
+- **Worktrees isolés (livré, mergé 2026-06-18)** : création **`<repo>/.worktrees/<nom>_<uuid>`** (copie des
+  fichiers gitignorés `.env` via `git check-ignore`, exclusion `.git/info/exclude` sans salir le `.gitignore`
+  suivi, réutilise/supprime la branche → cycle idempotent ; `hub.create_worktree`). **Bouton « + worktree »**
+  côté **canvas** (palette 🌳) et **accueil** ; après création on **atterrit dans la session du worktree**
+  (l'agent y tourne, `pwd`=worktree). **Canvas** : node « 🌳 worktrees » → kernel, worktrees rattachés dessous.
+- **Accueil = arbre hiérarchique (Design C « rail compact »)** : catégorie `main` + catégorie `worktrees` →
+  sous-catégories repliables par worktree → sessions, `+ session` par catégorie, `+ new worktree`, ouverture/
+  suppression de session (✕) et **suppression de worktree** (🗑 + confirmation → sessions + canaux + catégorie).
+- **Discord par worktree (livré)** : **1 catégorie « 🌳 <nom> » par worktree**, **1 channel par session** ;
+  `hub.delete_worktree`/`purge_session` → suppression worktree = sessions + canaux + catégorie ; suppression
+  d'une session sur le front = suppression de son canal Discord. (`DiscordProvisioner.ensure_worktree_category`/
+  `delete_channel`/`delete_worktree_category`, `FakeDiscordClient` étendu ; `smoke_discord_worktrees`.)
 - **Reste (multi-utilisateur temps réel, le plus lourd)** : présence/curseurs sur le canvas, sync des
   positions de nodes entre clients (actuellement localStorage par navigateur), subcanvas conteneur,
   multi-canvas (onglets). Polish : dédup accueil `/`→`ChatComponent`, carte permission/ask dédupliquée
-  en Mix (2 instances), chaîne de dossiers multi-niveaux (actuellement 1 niveau).
+  en Mix (2 instances), chaîne de dossiers multi-niveaux (actuellement 1 niveau), nettoyage à chaud du
+  mapping `DiscordAdapter` après suppression (auto-réparé au redémarrage via `reconcile`).
 - Modes test front : `MEKICHAT_FAKE_READ=1` (agent lit CLAUDE.md → éditeur), `MEKICHAT_FAKE_ASK=1`
-  (agent pose une question QCM), `MEKICHAT_FAKE_TOOL=1` (bash `rm` → carte permission).
+  (agent pose une question QCM), `MEKICHAT_FAKE_TOOL=1` (bash `rm` → carte permission),
+  `MEKICHAT_FAKE_PWD=1` (agent fait `bash pwd` → vérif du cwd worktree).
 
 ### Confort projet
 - Lanceurs `start.ps1` / `start.sh` (mekicore) et `start-chat.ps1` (mekichat) à la racine.

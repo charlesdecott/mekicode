@@ -125,8 +125,26 @@ en résoudre une exécute l'action mais l'autre reste — à dédoublonner.)*
 - **`ask_user`** (outil agent, `mekihub`) : l'agent pose une **question** (QCM via `options`, ou réponse
   libre) **en plein tour** et **bloque** jusqu'à la réponse (queue cross-thread, comme le tier *ask* des
   permissions) ; event `AskRequested`, `SessionHub.resolve_ask`, carte `views.render_ask_request`.
-- **Palette** (`.mc-palette`) : `+` → **Terminal** (spawn) / **Ouvrir un fichier** (dialog chemin → éditeur),
-  comète depuis le kernel.
+- **Palette** (`.mc-palette`) : `+` → **Terminal** (spawn) / **Ouvrir un fichier** (dialog chemin → éditeur) /
+  **🌳 Nouveau worktree** ; bouton 🌳 dédié → `hub.create_worktree` puis on **atterrit dans la session du
+  worktree** (focus persisté via `app.storage.user`, mode Mix au reload).
+
+## Worktrees isolés (canvas + accueil + Discord)
+
+- **Canvas** (`canvas_page.py`) : node **« 🌳 worktrees · <projet> » → kernel**, chaque worktree (scope ≠ main)
+  rattaché dessous (`wtgroup:<pid>`), bandes de largeur proportionnelle au nb de worktrees (anti-chevauchement),
+  rangée worktrees calculée sous la profondeur des clusters main.
+- **Accueil `/` = arbre « rail compact » (Design C)** (`views.render_worktree_tree`) : catégorie **main** (ses
+  sessions + `+ session`) + catégorie **worktrees** → **sous-catégories repliables par worktree** (rail magenta,
+  nom + uuid grisé + compteur) → sessions, `+ session` par worktree, `+ new worktree`, ouverture/suppression de
+  session (✕ → `hub.purge_session`) et **suppression de worktree** (🗑 + confirmation → `hub.delete_worktree`).
+- **Backend** (`mekihub`) : `hub.create_worktree` (création directe `<repo>/.worktrees/<nom>_<uuid>` + session
+  titrée), `purge_session`, `delete_worktree` (garde-fou : jamais `main`) ; `projects.add_worktree` copie les
+  fichiers gitignorés (`.env`) que `git worktree add` ne checkout pas, exclut via `.git/info/exclude`.
+- **Discord** : `DiscordProvisioner.ensure_worktree_category` (**1 catégorie « 🌳 <nom> » par worktree**, 1 canal
+  par session) + `delete_channel`/`delete_worktree_category` ; cf. [`mekihub.md`](mekihub.md).
+- Vérif : `tests/smoke_worktree_copy.py`, `tests/smoke_discord_worktrees.py` (réseau-free) + E2E Playwright
+  (`MEKICHAT_FAKE_PWD=1` → l'agent du worktree fait `pwd` = `.worktrees/<nom>`).
 
 ## Entrées & vérification
 
