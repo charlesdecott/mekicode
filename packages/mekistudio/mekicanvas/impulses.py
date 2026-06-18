@@ -47,8 +47,7 @@ def impulse_for(event: dict) -> dict | None:
 def impulse_from_hub_event(event) -> dict | None:
     """Adapte un event mekihub déjà enrichi -> impulse_for().
 
-    `event` est attendu avec, pour ToolFinished, un attribut `args` (dict) injecté par
-    l'appelant (le canvas garde une table id->args depuis ToolStarted, cf. canvas_page).
+    Pour ToolFinished, `event.args` (dict) est injecté par l'appelant (table id->args depuis ToolStarted, cf. canvas_page).
     """
     name = type(event).__name__
     if name == "ToolFinished":

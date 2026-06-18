@@ -7,13 +7,13 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent             # packages/mekistudio/mekichat/
-STUDIO = HERE.parent                               # packages/mekistudio/
-PACKAGES = STUDIO.parent                           # packages/
-sys.path.insert(0, str(HERE))                      # sessions, views, component (locaux)
-sys.path.insert(0, str(STUDIO))                    # mekicanvas (paquet sœur, futur)
-sys.path.insert(0, str(PACKAGES))                  # mekillm, mekihub (packages/)
-sys.path.insert(0, str(PACKAGES / "mekicore"))     # base, tools, events
+HERE = Path(__file__).resolve().parent
+STUDIO = HERE.parent
+PACKAGES = STUDIO.parent
+sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(STUDIO))
+sys.path.insert(0, str(PACKAGES))
+sys.path.insert(0, str(PACKAGES / "mekicore"))
 
 from nicegui import app as nicegui_app, run, ui  # noqa: E402
 
@@ -21,7 +21,6 @@ import mekillm  # noqa: E402
 import realtime  # noqa: E402
 import sessions as sessions_mod  # noqa: E402
 import views  # noqa: E402
-from base import run_agent  # noqa: E402  (conservé : compat / rejouage direct, plus piloté ici)
 from mekihub.hub import SessionHub  # noqa: E402
 from mekihub.session import SessionStore as _HubSessionStore  # noqa: E402
 from tools import DISPATCH, TOOLS, make_dispatch  # noqa: E402
@@ -55,46 +54,32 @@ def _get_store() -> sessions_mod.SessionStore:
 
 @lru_cache(maxsize=1)
 def _get_registry() -> ProjectRegistry:
-    """Singleton paresseux du registre de projets. S'assure que le projet par défaut existe."""
+    """Singleton paresseux du registre de projets."""
     reg = ProjectRegistry()
     reg.ensure_default()
     return reg
 
 
-@lru_cache(maxsize=1)
-def _get_llm():
-    """Singleton paresseux du provider LLM. Peut lever si pas de clé (géré à l'appel) ; une
-    construction qui échoue n'est pas mise en cache (Python ≥3.9) → réessai au prochain appel."""
-    return mekillm.LLM()
+# Modes de test réseau-free (env → (outil, args, réponse finale)) : exercent le front sans clé ni
+# réseau ; FakeToolLLM déclenche un outil / le tier `ask` de s15, FakeLLM répond du texte.
+_FAKE_TOOL_MODES = {
+    "MEKICHAT_FAKE_PWD":  ("bash", {"command": "pwd"}, "Voici le répertoire courant."),
+    "MEKICHAT_FAKE_ASK":  ("ask_user", {"question": "Quelle option choisis-tu ?",
+                                        "options": ["Option A", "Option B"]}, "Bien reçu."),
+    "MEKICHAT_FAKE_READ": ("read", {"path": "CLAUDE.md"}, "J'ai lu CLAUDE.md."),
+    "MEKICHAT_FAKE_TOOL": ("bash", {"command": "rm fichier_demo.txt"}, "C'est fait."),
+}
 
 
 def _llm_factory():
-    """Fabrique le provider LLM consommé par le SessionHub. Modes de test réseau-free :
-    - MEKICHAT_FAKE_LLM  : FakeLLM déterministe (réponse texte lente, observable) ;
-    - MEKICHAT_FAKE_TOOL : FakeToolLLM appelant `bash rm …` (déclenche le tier `ask` de s15)."""
+    """Fabrique le provider LLM du SessionHub (doublure déterministe si un mode de test est armé)."""
     import os
-    tests_dir = str(HERE.parent.parent.parent / "tests")   # racine/tests (fakes)
-    if os.environ.get("MEKICHAT_FAKE_PWD"):
-        sys.path.insert(0, tests_dir)
-        from fakes import FakeToolLLM
-        return FakeToolLLM(tool_name="bash", tool_args={"command": "pwd"},
-                           final="Voici le répertoire courant.")
-    if os.environ.get("MEKICHAT_FAKE_ASK"):
-        sys.path.insert(0, tests_dir)
-        from fakes import FakeToolLLM
-        return FakeToolLLM(tool_name="ask_user",
-                           tool_args={"question": "Quelle option choisis-tu ?", "options": ["Option A", "Option B"]},
-                           final="Bien reçu.")
-    if os.environ.get("MEKICHAT_FAKE_READ"):
-        sys.path.insert(0, tests_dir)
-        from fakes import FakeToolLLM
-        return FakeToolLLM(tool_name="read", tool_args={"path": "CLAUDE.md"},
-                           final="J'ai lu CLAUDE.md.")
-    if os.environ.get("MEKICHAT_FAKE_TOOL"):
-        sys.path.insert(0, tests_dir)
-        from fakes import FakeToolLLM
-        return FakeToolLLM(tool_name="bash", tool_args={"command": "rm fichier_demo.txt"},
-                           final="C'est fait.")
+    tests_dir = str(HERE.parent.parent.parent / "tests")
+    for env, (tool, args, final) in _FAKE_TOOL_MODES.items():
+        if os.environ.get(env):
+            sys.path.insert(0, tests_dir)
+            from fakes import FakeToolLLM
+            return FakeToolLLM(tool_name=tool, tool_args=args, final=final)
     if os.environ.get("MEKICHAT_FAKE_LLM"):
         sys.path.insert(0, tests_dir)
         from fakes import FakeLLM
@@ -191,11 +176,8 @@ def index() -> None:
     thread_ref: dict[str, object] = {"inner": None}
     thinking_ref: dict[str, object] = {"el": None}
     stream_ref: dict[str, object] = {"body": None, "lbl": None, "text": ""}
-    # conteneurs live (présence + file), reconstruits à chaque _refresh / Snapshot
     bars_ref: dict[str, object] = {"presence": None, "queue": None}
-    # lignes de file indexées par item_id (pour QueueItemDeleted) ; tâche d'abonnement courante
     queue_rows: dict[str, object] = {}
-    # cartes « worktree proposé » indexées par proposal_id (supprimées à WorktreeCreated/Rejected)
     wt_cards: dict[str, object] = {}
     sub_ref: dict[str, object] = {"timer": None}
     state = {"busy": False}
@@ -210,7 +192,6 @@ def index() -> None:
         return sorted(scopes)
 
     def _new_session():
-        """Crée une nouvelle session pour le projet/scope courant et la retourne."""
         return _get_store().create(
             model=DEFAULT_MODEL,
             system=_system_for(current_project, current_scope),
@@ -242,7 +223,7 @@ def index() -> None:
             return
         await _get_hub().purge_session(session_id)   # supprime la session ET son canal Discord
         if current.id == session_id:                 # session courante supprimée → basculer
-            current = _ensure_current()              # plus récente restante, ou une nouvelle
+            current = _ensure_current()
         _refresh()
 
     async def delete_worktree_home(scope: str) -> None:
@@ -280,7 +261,6 @@ def index() -> None:
         if proj is None:
             return
         current_project = proj
-        # Charge la session la plus récente pour ce projet/scope, ou en crée une
         metas = _metas_for_scope(pid, current_scope)
         current = _get_store().load(metas[0].id) if metas else _new_session()
         _refresh()
@@ -369,7 +349,6 @@ def index() -> None:
         inner = thread_ref["inner"]
 
         if name == "Snapshot":
-            # rejoue le fil + la file + la présence depuis l'instantané partagé
             state_ = event.state
             queue_rows.clear()
             inner.clear()
@@ -400,7 +379,6 @@ def index() -> None:
             return
 
         if name == "RunStarted":
-            # un item quitte la file pour devenir le run courant → retirer sa ligne d'attente
             row = queue_rows.pop(event.item_id, None)
             if row is not None:
                 row.delete()
@@ -532,7 +510,7 @@ def index() -> None:
             return
         _get_hub().submit(current.id, text, author=author_ref["author"])
 
-    ui.html(_BG)  # fond animé plein écran (derrière l'UI)
+    ui.html(_BG)
 
     app_root = ui.element("div").classes("app")
     with app_root:
@@ -554,7 +532,6 @@ def index() -> None:
                     "margin-left:auto;color:#39ff14;border:1px solid rgba(57,255,20,.4);"
                     "border-radius:7px;font-size:11px;padding:2px 9px")
 
-            # Sélecteur Projet → scope (en tête de sidebar, avant les sessions)
             def _open_add_project_dialog():
                 dlg = ui.dialog()
                 with dlg, ui.card():
@@ -579,7 +556,6 @@ def index() -> None:
                 on_add_project=_open_add_project_dialog,
             )
 
-            # Arbre hiérarchique (Design C) : main + worktrees → sessions
             main_metas = _metas_for_scope(current_project.id, "main")
             worktrees = [(sc, _metas_for_scope(current_project.id, sc))
                          for sc in _worktree_scopes(current_project.id)]
@@ -684,7 +660,7 @@ def studio_route() -> None:
     ui.add_head_html(FONTS)
     ui.query("body").props('data-theme=phosphor')
     inject_assets()                       # JS + CSS chargés UNE fois au build
-    _ensure_current()                     # garantit ≥1 session existante
+    _ensure_current()
     author = realtime.author_for_client()
     studio = ui.element("div").classes("studio")
     build_studio(studio, _get_hub(), _get_store(), author,

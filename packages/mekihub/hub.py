@@ -7,7 +7,7 @@ import queue as _queue
 import re
 import uuid
 
-from session import Author, QueueItem, Session, SessionState, SessionStore, now_iso  # noqa: F401
+from session import Author, QueueItem, SessionState, SessionStore, now_iso  # noqa: F401
 
 # Événements de salle mekihub (Snapshot, QueueEnqueued, ...). On importe le sous-module DU PACKAGE
 # (`mekihub.events`) plutôt qu'un `import events` nu : ce dernier résout, selon l'ordre des insertions
@@ -80,6 +80,11 @@ _ASKUSER_TOOL = {"type": "function", "function": {"name": "ask_user",
     "required": ["question"]}}}
 
 
+def _system_of(sess):
+    msgs = getattr(sess, "messages", None)
+    return msgs[0]["content"] if msgs and msgs[0].get("role") == "system" else None
+
+
 def _record_proposal(proposals, args):
     pid = uuid.uuid4().hex[:8]
     proposals.append({"proposal_id": pid, "nom": args.get("nom"),
@@ -108,7 +113,7 @@ class SessionHub:
     def __init__(self, store: SessionStore, llm_factory, tools, dispatch=None, *,
                  dispatch_factory=None, registry=None, provisioner=None):
         self.store = store
-        self.llm_factory = llm_factory          # () -> objet avec .complete/.stream/.model
+        self.llm_factory = llm_factory
         self.tools = tools
         if dispatch_factory is None:
             d = dispatch or {}
@@ -178,8 +183,7 @@ class SessionHub:
             # git worktree add (bloquant) hors boucle ; peut lever (branche déjà prise, etc.)
             await asyncio.to_thread(add_worktree, project, pr["nom"], pr.get("base"),
                                     self.registry.worktrees_base)
-            system = (parent.messages[0]["content"]
-                      if parent.messages and parent.messages[0].get("role") == "system" else None)
+            system = _system_of(parent)
             child = self.store.create(model=parent.model, system=system,
                                       project_id=project.id, scope=pr["nom"])
         except Exception as exc:    # never-raise : échec de création → retire la carte + informe
@@ -201,7 +205,6 @@ class SessionHub:
 
     async def create_worktree(self, project_id: str, name: str, base=None):
         """Création DIRECTE d'un worktree (déclenchée par l'UTILISATEUR, sans proposition d'agent).
-        Crée `<repo>/.worktrees/<slug>_<uuid>` (isolé/unique) + une session de scope dédiée + copie .env.
         Renvoie (child_session_id, scope). Lève si le projet est introuvable ou si git échoue."""
         from projects import add_worktree, slugify   # mekihub (sys.path déjà posé)
         project = self.registry.get(project_id) if self.registry else None
@@ -215,8 +218,7 @@ class SessionHub:
         if refs:
             ref = self.store.load(refs[0].id)
             model = ref.model
-            if ref.messages and ref.messages[0].get("role") == "system":
-                system = ref.messages[0]["content"]
+            system = _system_of(ref)
         if not model:
             try:
                 import mekillm

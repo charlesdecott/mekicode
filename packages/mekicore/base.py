@@ -13,7 +13,6 @@ from events import AssistantDelta, AssistantDone, RunError, RunFinished, Thinkin
 
 def dispatch_tools(tool_calls, dispatch) -> list:
     """Exécute chaque ToolCall et renvoie les messages role:'tool' correspondants."""
-    # Conservé pour l'API directe / le test ; run_agent a sa propre boucle pour émettre les événements.
     results = []
     for tc in tool_calls:
         handler = dispatch.get(tc.name)

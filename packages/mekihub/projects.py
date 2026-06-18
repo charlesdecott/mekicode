@@ -95,7 +95,6 @@ def _branch_exists(repo, branch: str) -> bool:
     return _git(repo, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}").returncode == 0
 
 def _is_ignored(repo, rel: str) -> bool:
-    """True si `rel` est ignoré par git dans `repo` (gitignore OU .git/info/exclude)."""
     return _git(repo, "check-ignore", "-q", "--", rel).returncode == 0
 
 def _wt_dir(project: Project, name: str, worktrees_base=None) -> Path:

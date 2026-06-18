@@ -49,7 +49,6 @@ class LLMResponse:
 
 
 def _message_dict(msg) -> dict:
-    """Convertit le message assistant du SDK en dict simple (sérialisable)."""
     d = {"role": "assistant", "content": msg.content or ""}
     if msg.tool_calls:
         d["tool_calls"] = [
@@ -64,7 +63,6 @@ def _message_dict(msg) -> dict:
 
 
 def _usage_from(u) -> Usage:
-    """Construit un Usage depuis l'objet usage du SDK (0 partout si absent)."""
     if not u:
         return Usage()
     return Usage(
@@ -75,7 +73,6 @@ def _usage_from(u) -> Usage:
 
 
 def _normalize(resp) -> LLMResponse:
-    """Transforme une réponse SDK openai en LLMResponse normalisé."""
     choice = resp.choices[0]
     msg = choice.message
     tool_calls = []
@@ -199,7 +196,6 @@ def _is_transient(exc: Exception) -> bool:
 
 
 def _max_retries() -> int:
-    """Nombre de re-tentatives sur erreur transitoire (env MEKILLM_RETRIES, défaut 2)."""
     try:
         return max(0, int(os.environ.get("MEKILLM_RETRIES", "2")))
     except ValueError:
@@ -223,7 +219,6 @@ class LLM:
     def __init__(self, model=None, api_key=None, base_url=None):
         cfg = config.resolve(api_key, base_url, model)
         self.model = cfg["model"]
-        self.base_url = cfg["base_url"]
         self._client = OpenAI(api_key=cfg["api_key"], base_url=cfg["base_url"])
 
     def _prepare(self, messages, system, tools, max_tokens, **kwargs):

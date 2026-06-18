@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import posixpath
+import subprocess
 from pathlib import Path
 
 from nicegui import app, ui
@@ -16,7 +17,6 @@ from mekicanvas import editor as editor_mod
 from mekicanvas import explorer as explorer_mod
 from mekicanvas import terminal as terminal_mod
 from mekicanvas.impulses import impulse_from_hub_event, normalize_path
-from mekicanvas.nodes import kernel as kernel_node  # noqa: F401  (réservé)
 
 _JS = Path(__file__).resolve().parent / "static" / "js"
 _CSS = Path(__file__).resolve().parent / "static" / "css" / "canvas.css"
@@ -28,7 +28,7 @@ _FOLDER_GAP = 1850.0   # > largeur d'un cluster (~1740 : explorateur fx-880 → 
 _EXPLORER_W, _EXPLORER_H = 340.0, 560.0
 _EDITOR_W, _EDITOR_H = 520.0, 380.0
 _KERNEL_ID = "kernel"
-_EPH_TTL_S = 600  # 10 min
+_EPH_TTL_S = 600
 
 
 def inject_assets() -> None:
@@ -38,35 +38,37 @@ def inject_assets() -> None:
     ui.add_css(_CSS.read_text(encoding="utf-8"))
 
 
-def _branch_for(repo_path: str) -> str:
-    import subprocess
+def _git(repo, *args, timeout=4) -> str:
+    """Sortie stdout d'une commande git dans `repo` (chaîne vide sur erreur/timeout)."""
     try:
-        out = subprocess.run(["git", "-C", repo_path, "rev-parse", "--abbrev-ref", "HEAD"],
-                             capture_output=True, text=True, timeout=3)
-        return out.stdout.strip() or "?"
+        return subprocess.run(["git", "-C", str(repo), *args],
+                              capture_output=True, text=True, timeout=timeout).stdout
     except Exception:
-        return "?"
+        return ""
+
+
+def _branch_for(repo_path: str) -> str:
+    return _git(repo_path, "rev-parse", "--abbrev-ref", "HEAD", timeout=3).strip() or "?"
 
 
 def _git_status(repo: str) -> dict:
-    import subprocess
-
-    def g(*args):
-        try:
-            return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, timeout=4).stdout
-        except Exception:
-            return ""
-
-    branch = (g("rev-parse", "--abbrev-ref", "HEAD").strip() or "?")
-    dirty = len([ln for ln in g("status", "--porcelain").splitlines() if ln.strip()])
+    branch = _git(repo, "rev-parse", "--abbrev-ref", "HEAD").strip() or "?"
+    dirty = len([ln for ln in _git(repo, "status", "--porcelain").splitlines() if ln.strip()])
     ahead = behind = 0
-    ab = g("rev-list", "--left-right", "--count", "@{u}...HEAD").split()
+    ab = _git(repo, "rev-list", "--left-right", "--count", "@{u}...HEAD").split()
     if len(ab) == 2:
         try:
             behind, ahead = int(ab[0]), int(ab[1])
         except ValueError:
             pass
     return {"branch": branch, "ahead": ahead, "behind": behind, "dirty": dirty}
+
+
+def _redraw_comet(from_id, target_id) -> None:
+    """Redessine les câbles puis lance une comète `from_id` → `target_id` (après spawn d'un node)."""
+    ui.run_javascript("window.MekiCanvas && window.MekiCanvas.redraw();")
+    ui.run_javascript(
+        f"window.MekiCanvas && window.MekiCanvas.cometTo({json.dumps(from_id)},{json.dumps(target_id)})")
 
 
 def _render_git(container, repo) -> None:
@@ -132,15 +134,13 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
     registry = getattr(hub, "registry", None)
     groups = _groups(metas, store, registry)
 
-    # --- 1. positions (coords MONDE) + maps ---
-    placed = []   # dict par node
+    placed = []
     placed.append(dict(id=_KERNEL_ID, kind="kernel", x=0.0, y=0.0, w=None, h=None,
                        src=None, glyph="◉", text="kernel", sid=None, payload=None))
     session_ws: dict = {}      # sid -> ws Path
     explorers: dict = {}       # ws_str -> {id, x, y, count}
 
     def _place_group(g, fx, fy, folder_src):
-        """Place un cluster d'espace de travail : folder + explorateur + git + terminal + chats."""
         fid = g["key"]
         placed.append(dict(id=fid, kind="folder", x=fx - 150.0, y=fy, w=300.0, h=66.0,
                            src=folder_src, glyph=g["glyph"], text=g["label"], sid=None, payload=None))
@@ -163,7 +163,6 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
                                glyph="\U0001F4AC", text=(m.title or m.id)[:22], sid=m.id, payload=None))
             session_ws[m.id] = ws
 
-    # séparer main / worktrees, regroupés par projet
     mains = [g for g in groups if g["scope"] == "main"]
     wts_by_pid: dict = {}
     for g in groups:
@@ -190,10 +189,10 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
         return fy + 200.0 + (nrows - 1) * _ROW_GAP + max(_CHAT_H, _EXPLORER_H)
     wt_row_y = max([_cluster_bottom(g) for g in mains] + [420.0 + _EXPLORER_H]) + 140.0
 
-    wt_start: dict = {}                          # pid -> fente de départ de la bande worktrees
+    wt_start: dict = {}
     start = 0
     for kind, payload, w in items:
-        cx = (start + (w - 1) / 2.0 - off) * _FOLDER_GAP    # centre de la fente (main) / bande (worktrees)
+        cx = (start + (w - 1) / 2.0 - off) * _FOLDER_GAP
         if kind == "main":
             _place_group(payload, cx, 220.0, _KERNEL_ID)
         else:
@@ -215,10 +214,9 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
 
     spawned: dict = {}   # (ws_str, rel) -> editor id
     eph_timers: dict = {}  # eid -> timer TTL (pour annulation au pin)
-    dirs: dict = {}      # (ws_str, dir_rel) -> dir node id (groupement organique des éditeurs)
+    dirs: dict = {}      # (ws_str, dir_rel) -> dir node id
     seq = {"n": 0}
 
-    # --- 2. canvas + world ---
     with container:
         canvas = ui.element("div").classes("mc-canvas")
         with canvas:
@@ -228,7 +226,6 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
                 "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px").classes("cm-preload")
             world = ui.element("div").classes("mc-world")
 
-    # --- 3. spawn / remove (closures) ---
     def _remove_editor(key, eid) -> None:
         spawned.pop(key, None)
         ui.run_javascript(
@@ -236,8 +233,7 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
             f"if(w)w.remove(); window.MekiCanvas && window.MekiCanvas.redraw();}})()")
 
     def _ensure_dir(ws_str, rel, exp):
-        """Crée (ou réutilise) un node dossier pour le dossier parent de `rel` → les éditeurs d'un même
-        dossier s'y rattachent (groupement organique). Racine → parent = explorateur."""
+        """Node dossier pour le parent de `rel` (les éditeurs d'un même dossier s'y rattachent) ; racine → explorateur."""
         base = exp["id"] if exp else _KERNEL_ID
         dpath = posixpath.dirname(rel)
         if not dpath:
@@ -295,22 +291,18 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
                         focus_sid, hub, author, explorers, _spawn_editor, _remove_editor,
                         ephemeral=ephemeral, close_key=key, on_pin=(_pin if ephemeral else None))
 
-        def _after(_from=from_id, _eid=eid) -> None:
-            ui.run_javascript("window.MekiCanvas && window.MekiCanvas.redraw();")
-            ui.run_javascript(f"window.MekiCanvas && window.MekiCanvas.cometTo({json.dumps(_from)},{json.dumps(_eid)})")
-        ui.timer(0.06, _after, once=True)
+        ui.timer(0.06, lambda: _redraw_comet(from_id, eid), once=True)
         if ephemeral:
             def _expire(_key=key, _eid=eid) -> None:
                 if spawned.get(_key) == _eid:
                     _remove_editor(_key, _eid)
             eph_timers[eid] = ui.timer(_EPH_TTL_S, _expire, once=True)
 
-    # --- 4. rendu initial ---
     with world:
         for p in placed:
             _build_node(p, focus_sid, hub, author, explorers, _spawn_editor, _remove_editor)
 
-    # --- palette : ajouter des nodes à la volée ---
+    # palette : ajouter des nodes à la volée
     _default_ws = str(groups[0]["ws"]) if groups else str(Path.cwd())
     pal = {"n": 0}
 
@@ -323,10 +315,7 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
                              glyph=glyph, text=text, sid=None, payload=payload),
                         focus_sid, hub, author, explorers, _spawn_editor, _remove_editor)
 
-        def _after(_nid=nid) -> None:
-            ui.run_javascript("window.MekiCanvas && window.MekiCanvas.redraw();")
-            ui.run_javascript(f"window.MekiCanvas && window.MekiCanvas.cometTo('kernel',{json.dumps(_nid)})")
-        ui.timer(0.06, _after, once=True)
+        ui.timer(0.06, lambda: _redraw_comet("kernel", nid), once=True)
 
     def _open_path_dialog() -> None:
         dlg = ui.dialog()
@@ -395,14 +384,14 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
                     ui.menu_item("⌨  Terminal", lambda: _spawn_generic("terminal", _default_ws, "⌨", "terminal", 340.0, 220.0))
                     ui.menu_item("✎  Ouvrir un fichier…", _open_path_dialog)
                     ui.menu_item("🌳  Nouveau worktree…", _open_worktree_dialog)
-            wt_btn = ui.element("div").classes("pal-trigger pal-wt")  # bouton dédié « nouveau worktree »
+            wt_btn = ui.element("div").classes("pal-trigger pal-wt")
             with wt_btn:
                 ui.label("🌳")
             wt_btn.on("click", lambda _=None: _open_worktree_dialog())
 
     ui.timer(0.25, lambda: ui.run_javascript("window.MekiCanvas && window.MekiCanvas.initWorld();"), once=True)
 
-    # --- 5. abonnements par session : spawn éphémère + comète sur lecture de l'agent ---
+    # abonnements par session : spawn éphémère + comète sur lecture de l'agent
     for sid, ws in session_ws.items():
         _start_file_watch(hub, sid, ws, _spawn_editor)
 
@@ -430,7 +419,7 @@ def _build_node(p, focus_sid, hub, author, explorers, spawn_fn, remove_fn,
                 ui.label(f"{p['glyph']} {p['text']}").classes("nhead-label")
             if kind == "chat":
                 body = ui.element("div").classes("nbody nbody-chat")
-                from component import ChatComponent  # mekichat
+                from component import ChatComponent
                 ChatComponent(body, hub, sid, author)
             elif kind == "explorer":
                 body = ui.element("div").classes("nbody nbody-fs")

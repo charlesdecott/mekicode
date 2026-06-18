@@ -5,8 +5,6 @@
 - garde-fou : on ne supprime jamais 'main'.
 """
 import asyncio
-import os
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -15,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "packages"))
 sys.path.insert(0, str(ROOT / "packages" / "mekicore"))
 
+from fakes import init_git_repo                            # noqa: E402
 from mekihub.projects import ProjectRegistry               # noqa: E402
 from mekihub.session import SessionStore                   # noqa: E402
 from mekihub.adapters.discord import (DiscordProvisioner, FakeDiscordClient,  # noqa: E402
@@ -24,10 +23,7 @@ from mekihub.adapters.discord import (DiscordProvisioner, FakeDiscordClient,  # 
 def _repo(base):
     repo = Path(base) / "proj"
     repo.mkdir()
-    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
-    subprocess.run(["git", "commit", "--allow-empty", "-q", "-m", "i"], cwd=repo,
-                   env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
-                        "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}, check=True)
+    init_git_repo(repo, commit=True)
     return repo
 
 
@@ -60,7 +56,7 @@ async def _scenario():
         assert client._channels[cha1][1] == cat_a == client._channels[cha2][1]   # même catégorie
         assert client._categories[cat_a][1] == _wt_category_name("feat-a_aaa111") == "🌳 feat-a"
         assert client._channels[s_main.discord_channel_id][1] == proj.discord["cat_main"]
-        assert "cat_worktrees" not in proj.discord                       # plus de catégorie fourre-tout
+        assert "cat_worktrees" not in proj.discord
 
         # suppression du canal d'une session
         await prov.delete_channel(a1)
@@ -77,8 +73,8 @@ async def _scenario():
         assert not [m for m in store.list() if m.scope == "feat-a_aaa111"]       # sessions supprimées
         assert cha2 in client._deleted_channels                                  # canal restant supprimé
         proj = reg.get(proj.id)
-        assert "feat-a_aaa111" not in proj.discord["wt_cats"]                     # catégorie oubliée
-        assert cat_a in client._deleted_categories                               # catégorie supprimée
+        assert "feat-a_aaa111" not in proj.discord["wt_cats"]
+        assert cat_a in client._deleted_categories
 
         # garde-fou : on ne supprime jamais 'main'
         assert await hub.delete_worktree(proj.id, "main") == 0

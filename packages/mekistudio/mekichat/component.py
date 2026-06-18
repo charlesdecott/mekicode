@@ -33,7 +33,6 @@ class ChatComponent:
         except RuntimeError:
             pass
 
-    # ---------- construction UI ----------
     def _build(self, container) -> None:
         with container:
             embed = ui.element("div").classes("chat-embed")
@@ -70,7 +69,6 @@ class ChatComponent:
         if text:
             self._hub.submit(self._sid, text, author=self._author)
 
-    # ---------- abonnement ----------
     async def _subscribe_loop(self) -> None:
         self._hub.join(self._sid, self._author)
         try:
@@ -85,7 +83,6 @@ class ChatComponent:
         finally:
             self._hub.leave(self._sid, self._author)
 
-    # ---------- helpers ----------
     def _scroll_bottom(self) -> None:
         try:
             ui.run_javascript("document.querySelectorAll('.thread').forEach(t=>t.scrollTop=t.scrollHeight);")
@@ -121,7 +118,6 @@ class ChatComponent:
             for a in present:
                 ui.label(a.name).classes("pres-chip").style(f"--ac:{a.color}")
 
-    # ---------- rendu des events ----------
     def _render_hub_event(self, event) -> None:
         name = type(event).__name__
         inner = self._inner

@@ -58,7 +58,6 @@ def _log_file() -> Path | None:
 
 
 def _append_jsonl(record: CallRecord) -> None:
-    """Ajoute une ligne JSON au fichier de log (créé à la volée)."""
     path = _log_file()
     if path is None:
         return

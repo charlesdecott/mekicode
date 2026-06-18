@@ -11,10 +11,7 @@ canvas) n'utilise PAS ce bus : il dérive du flux d'événements mekihub.
 """
 from __future__ import annotations
 
-from typing import Any, Callable
-
-PreToolFn = Callable[[dict], "str | None"]
-PostToolFn = Callable[[dict], Any]
+from typing import Callable
 
 
 class HookBus:

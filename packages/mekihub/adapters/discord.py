@@ -19,19 +19,17 @@ class FakeMessage:
     author_id: str
     is_bot: bool
     content: str
-    message_id: str = ""        # id du message Discord (pour répondre dessus / reference)
+    message_id: str = ""
 
 
 class FakeDiscordClient:
     """Capture les envois/éditions au lieu d'appeler Discord."""
 
     def __init__(self):
-        self._messages: list[dict] = []   # {channel_id, text}
+        self._messages: list[dict] = []
         self._guilds: dict[str, str] = {}
         self._categories: dict[str, tuple] = {}
         self._channels: dict[str, tuple] = {}
-        self._invites: list[str] = []
-        self._deleted: list = []
         self._deleted_channels: list = []
         self._deleted_categories: list = []
         self._seq: int = 0
@@ -43,7 +41,7 @@ class FakeDiscordClient:
     async def send(self, channel_id: str, text: str, embed: dict | None = None, reply_to=None) -> int:
         self._messages.append({"channel_id": channel_id, "text": text, "embed": embed,
                                "reply_to": reply_to})
-        return len(self._messages) - 1     # "message id" = index
+        return len(self._messages) - 1
 
     async def edit(self, channel_id: str, message_id: int, text: str, embed: dict | None = None) -> None:
         self._messages[message_id]["text"] = text
@@ -51,7 +49,7 @@ class FakeDiscordClient:
             self._messages[message_id]["embed"] = embed
 
     async def delete(self, channel_id: str, message_id) -> None:
-        self._deleted.append(message_id)
+        return None
 
     def sent_texts(self) -> list[str]:
         return [m["text"] for m in self._messages]
@@ -73,11 +71,6 @@ class FakeDiscordClient:
         chid = self._nid("ch")
         self._channels[chid] = (guild_id, category_id, name)
         return chid
-
-    async def create_invite(self, channel_id: str) -> str:
-        inv = "https://discord.gg/" + self._nid("inv")
-        self._invites.append(inv)
-        return inv
 
     async def delete_channel(self, channel_id: str) -> None:
         self._channels.pop(channel_id, None)
@@ -184,7 +177,7 @@ class DiscordProvisioner:
         if ch and hasattr(self.client, "delete_channel"):
             try:
                 await self.client.delete_channel(ch)
-            except Exception as e:   # never-raise : un échec Discord ne doit pas bloquer la suppression
+            except Exception as e:   # never-raise : un échec Discord ne bloque pas la suppression
                 print(f"[discord] suppression canal {ch} échouée : {type(e).__name__}: {e}")
 
     async def delete_worktree_category(self, project, scope) -> None:
@@ -218,16 +211,6 @@ class DiscordProvisioner:
         return created
 
 
-def provisioner_from_env(registry, client):
-    """Construit un DiscordProvisioner depuis l'environnement, ou None si pas de token.
-    Import-safe : aucun appel réseau ici. `client` = client Discord réel ou factice déjà construit."""
-    if not os.environ.get("DISCORD_BOT_TOKEN"):
-        return None
-    return DiscordProvisioner(registry=registry, client=client,
-                              guild_id=os.environ.get("DISCORD_GUILD_ID") or None,
-                              admin_user_id=os.environ.get("MEKICODE_ADMIN_USER_ID") or None)
-
-
 def _color_from_id(author_id: str) -> str:
     palette = ["#39ff14", "#ff2bd6", "#19e0ff", "#f7ff12", "#b06bff", "#4d8cff"]
     return palette[sum(ord(c) for c in author_id) % len(palette)]
@@ -249,7 +232,6 @@ _TOOL_GLYPH = {"bash": "$", "read": "▤", "write": "✎", "edit": "✂", "grep"
                "spawn_worktree": "⎇"}
 _TOOL_COLOR = {"bash": 0x39FF14, "read": 0x19E0FF, "write": 0xFF2BD6, "edit": 0xB06BFF,
                "grep": 0xF7FF12, "glob": 0xFF8C2B, "spawn_worktree": 0x4D8CFF}
-# Libellé de la colonne « argument » selon l'outil.
 _TOOL_LABEL = {"bash": "commande", "read": "fichier", "write": "fichier", "edit": "fichier",
                "grep": "motif", "glob": "motif", "spawn_worktree": "worktree"}
 _DEFAULT_TOOL_COLOR = 0x8899AA
@@ -257,10 +239,7 @@ _ERROR_COLOR = 0xFF3B3B
 
 
 def _tool_embed(name: str, summary: str, status: str, output) -> dict:
-    """Spec d'embed COMPACTE (carte Discord) pour un appel d'outil. status ∈ {running, ok, err}.
-
-    Mise en colonnes via des champs `inline` : une ligne « arg | statut » côte à côte, puis la
-    sortie en pleine largeur uniquement si présente. Couleur = type d'outil (rouge si erreur)."""
+    """Spec d'embed COMPACTE (carte Discord) pour un appel d'outil. status ∈ {running, ok, err}."""
     color = _ERROR_COLOR if status == "err" else _TOOL_COLOR.get(name, _DEFAULT_TOOL_COLOR)
     statut = {"running": "● en cours…", "ok": "✓ terminé", "err": "✗ erreur"}[status]
     glyph = _TOOL_GLYPH.get(name, "🔧")
@@ -281,10 +260,10 @@ class DiscordAdapter:
     def __init__(self, hub, client, channel_session: dict, *, tool_style: str = "text"):
         self.hub = hub
         self.client = client
-        self.channel_session = channel_session     # channel_id -> session_id
+        self.channel_session = channel_session
         self.tool_style = tool_style               # "text" (blocs) | "embed" (cartes)
         self._tasks: dict[str, asyncio.Task] = {}
-        self._queues: dict = {}                    # channel_id -> {"active","pending","qmsg"}
+        self._queues: dict = {}
         self._questions: dict = {}                 # item_id -> message_id de la question (pour reply)
 
     async def handle_message(self, msg: FakeMessage) -> None:
@@ -310,7 +289,6 @@ class DiscordAdapter:
             self._questions[item_id] = msg.message_id
 
     def _qstate(self, channel_id) -> dict:
-        """État de file d'attente par canal : run actif, messages en attente, id de l'embed file."""
         return self._queues.setdefault(channel_id, {"active": False, "pending": {}, "qmsg": None})
 
     async def _emit(self, channel_id, text="", embed=None, reply_to=None):
@@ -329,8 +307,8 @@ class DiscordAdapter:
         return mid
 
     async def _sync_queue(self, channel_id):
-        """(Re)pose / met à jour / supprime l'embed file d'attente selon l'état du canal.
-        Embed jaune compact listant les messages en attente, toujours posé en dernier."""
+        """(Re)pose / met à jour / supprime l'embed file d'attente selon l'état du canal
+        (toujours posé en dernier)."""
         q = self._qstate(channel_id)
         pending = q["pending"]
         if pending:
@@ -354,9 +332,9 @@ class DiscordAdapter:
         msg_id = None
         buffer = ""
         last_edit = 0.0                # throttle des éditions de streaming (anti rate-limit Discord)
-        tool_msgs: dict = {}           # tool_call_id -> {"mid", "summary"}
+        tool_msgs: dict = {}
         current_item = None            # item_id du run en cours (→ message question pour le reply)
-        q = self._qstate(channel_id)   # état de file partagé pour ce canal
+        q = self._qstate(channel_id)
         async for event in self.hub.subscribe(session_id):
             name = type(event).__name__
             if name == "Idle":         # hors try : doit toujours boucler/sortir proprement

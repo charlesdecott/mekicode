@@ -50,23 +50,25 @@ class Session:
     scope: str = "main"
     discord_channel_id: str | None = None
 
+    def _maybe_set_title(self, content: str) -> None:
+        if self.title == _DEFAULT_TITLE:
+            first_line = (content.strip().splitlines() or [""])[0]
+            self.title = first_line[:48] or _DEFAULT_TITLE
+
     def add_user(self, content: str, *, author: Author) -> int:
         """Ajoute un message user (OpenAI pur) + son attribution. Renvoie l'index du message."""
         self.messages.append({"role": "user", "content": content})
         idx = len(self.messages) - 1
         self.authors[idx] = {"name": author.name, "color": author.color}
-        if self.title == _DEFAULT_TITLE:
-            first_line = (content.strip().splitlines() or [""])[0]
-            self.title = first_line[:48] or _DEFAULT_TITLE
+        self._maybe_set_title(content)
         return idx
 
     def add(self, role: str, content: str, **extra) -> dict:
         """Ajoute un message générique (compat historique mekichat). Renseigne le titre au 1er user."""
         msg = {"role": role, "content": content, **extra}
         self.messages.append(msg)
-        if role == "user" and self.title == _DEFAULT_TITLE:
-            first_line = (content.strip().splitlines() or [""])[0]
-            self.title = first_line[:48] or _DEFAULT_TITLE
+        if role == "user":
+            self._maybe_set_title(content)
         return msg
 
 

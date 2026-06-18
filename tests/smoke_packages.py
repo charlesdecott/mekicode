@@ -10,10 +10,10 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace as NS
 
-ROOT = Path(__file__).resolve().parent.parent      # racine du projet (tests/ → ..)
+ROOT = Path(__file__).resolve().parent.parent
 PKG = ROOT / "packages"
-sys.path.insert(0, str(PKG))                        # packages/         → import mekillm
-sys.path.insert(0, str(PKG / "mekicore"))           # packages/mekicore → import base, tools
+sys.path.insert(0, str(PKG))
+sys.path.insert(0, str(PKG / "mekicore"))
 
 import mekillm  # noqa: E402
 from mekillm import Usage  # noqa: E402
@@ -36,6 +36,19 @@ def _ws(d):
             os.environ.pop("MEKICORE_WORKSPACE", None)
         else:
             os.environ["MEKICORE_WORKSPACE"] = old
+
+
+def seq_llm(seq):
+    """LLM factice rejouant `seq` (liste de LLMResponse) un élément par appel de complete()."""
+    class _Stub:
+        def __init__(self):
+            self.i = 0
+
+        def complete(self, messages, tools=None):
+            r = seq[self.i]
+            self.i += 1
+            return r
+    return _Stub()
 
 
 def test_normalize_text():
@@ -121,17 +134,8 @@ def test_agent_loop_with_stub():
         ),
     ]
 
-    class StubLLM:
-        def __init__(self):
-            self.i = 0
-
-        def complete(self, messages, tools=None):
-            r = seq[self.i]
-            self.i += 1
-            return r
-
     messages = [{"role": "user", "content": "go"}]
-    base.agent_loop(messages, StubLLM(), tools.TOOLS, tools.DISPATCH)
+    base.agent_loop(messages, seq_llm(seq), tools.TOOLS, tools.DISPATCH)
     assert messages[-1]["content"] == "done"
     assert any(m.get("role") == "tool" for m in messages)
 
@@ -149,17 +153,8 @@ def test_run_agent_events():
         ),
     ]
 
-    class StubLLM:
-        def __init__(self):
-            self.i = 0
-
-        def complete(self, messages, tools=None):
-            r = seq[self.i]
-            self.i += 1
-            return r
-
     msgs = [{"role": "user", "content": "go"}]
-    evs = list(base.run_agent(msgs, StubLLM(), tools.TOOLS, tools.DISPATCH))
+    evs = list(base.run_agent(msgs, seq_llm(seq), tools.TOOLS, tools.DISPATCH))
     assert [type(e).__name__ for e in evs] == [
         "ThinkingStarted", "ToolStarted", "ToolFinished",
         "ThinkingStarted", "AssistantDone", "RunFinished",
@@ -191,17 +186,8 @@ def test_run_agent_unknown_tool():
                     message={"role": "assistant", "content": "ok"}),
     ]
 
-    class StubLLM:
-        def __init__(self):
-            self.i = 0
-
-        def complete(self, messages, tools=None):
-            r = seq[self.i]
-            self.i += 1
-            return r
-
     msgs = [{"role": "user", "content": "go"}]
-    evs = list(base.run_agent(msgs, StubLLM(), tools.TOOLS, tools.DISPATCH))
+    evs = list(base.run_agent(msgs, seq_llm(seq), tools.TOOLS, tools.DISPATCH))
     finished = [e for e in evs if type(e).__name__ == "ToolFinished"]
     assert finished and "Unknown tool" in finished[0].output
     assert any(m.get("role") == "tool" and "Unknown tool" in m["content"] for m in msgs)
@@ -237,13 +223,8 @@ def test_consume_stream_text():
         NS(choices=[NS(delta=NS(content="jour", tool_calls=None), finish_reason=None)], usage=None),
         NS(choices=[NS(delta=NS(content=None, tool_calls=None), finish_reason="stop")], usage=None),
     ]
-    gen = _consume_stream(iter(chunks))
-    tokens = []
-    try:
-        while True:
-            tokens.append(next(gen))
-    except StopIteration as stop:
-        resp = stop.value
+    tokens = list(_drain(_consume_stream(iter(chunks))))
+    resp = _drain.value
     assert tokens == ["Bon", "jour"]
     assert resp.text == "Bonjour"
     assert resp.finish_reason == "stop"
@@ -320,7 +301,7 @@ def test_run_agent_streaming():
 
 
 def test_llm_wrappers_stub():
-    # instance LLM sans __init__ (pas de clé requise) + client SDK stubé → vérifie complete()/stream()
+    # instance LLM sans __init__ (pas de clé requise) + client SDK stubé
     llm = mekillm.LLM.__new__(mekillm.LLM)
     llm.model = "stub-model"
     sdk_resp = NS(
@@ -345,7 +326,6 @@ def test_llm_wrappers_stub():
     sout = _drain.value
     assert toks == ["ok"] and sout.text == "ok" and sout.finish_reason == "stop"
 
-    # un CallRecord émis par complete ET par stream (le _observe_call partagé)
     assert len([r for r in seen if r.model == "stub-model"]) == 2
 
 
@@ -407,8 +387,8 @@ def test_stream_no_retry_on_permanent_error():
 def test_safe_path_confine():
     with tempfile.TemporaryDirectory() as d, _ws(d):
         root = Path(d).resolve()
-        assert tools._safe_path("a/b.txt") == root / "a" / "b.txt"   # relatif → OK
-        assert tools._safe_path(".") == root                          # la racine elle-même
+        assert tools._safe_path("a/b.txt") == root / "a" / "b.txt"
+        assert tools._safe_path(".") == root
         for bad in ["../escape.txt", "../../etc/passwd"]:
             try:
                 tools._safe_path(bad)
@@ -419,11 +399,11 @@ def test_safe_path_confine():
 
 def test_write_read_roundtrip():
     with tempfile.TemporaryDirectory() as d, _ws(d):
-        assert tools.write_file("sub/a.txt", "café ☕").startswith("écrit")   # crée le dossier parent
+        assert tools.write_file("sub/a.txt", "café ☕").startswith("écrit")
         assert (Path(d) / "sub" / "a.txt").is_file()
         assert tools.read_file("sub/a.txt") == "café ☕"
         assert tools.read_file("absent.txt").startswith("Error")
-        assert tools.write_file("../escape.txt", "x").startswith("Error")     # confiné
+        assert tools.write_file("../escape.txt", "x").startswith("Error")     # confiné (hors du workspace)
         assert tools.write_file("bad\x00name.txt", "x").startswith("Error")  # null byte → Error, pas de crash
 
 
@@ -433,7 +413,7 @@ def test_edit_unique_and_ambiguous():
         assert tools.edit_file("f.py", "b = 2", "b = 3") == "édité f.py"
         assert tools.read_file("f.py") == "a = 1\nb = 3\na = 1\n"
         assert tools.edit_file("f.py", "a = 1", "a = 9").startswith("Error")  # 2 occurrences → ambigu
-        assert tools.edit_file("f.py", "zzz", "x").startswith("Error")        # introuvable
+        assert tools.edit_file("f.py", "zzz", "x").startswith("Error")
         (Path(d) / "bin.dat").write_bytes(b"\xff\xfe\x00binary")
         assert tools.edit_file("bin.dat", "x", "y").startswith("Error")   # non-UTF-8 → Error, pas de crash
 
@@ -446,7 +426,7 @@ def test_grep_and_glob():
         g = tools.grep_files(r"def \w+", "pkg").replace("\\", "/")
         assert "a.py:2" in g and "def hello" in g
         assert tools.grep_files("zzznope", ".") == "(aucun résultat)"
-        assert tools.grep_files("(", ".").startswith("Error")          # regex invalide
+        assert tools.grep_files("(", ".").startswith("Error")
         files = tools.glob_files("pkg/*.py").replace("\\", "/")
         assert "pkg/a.py" in files and "pkg/b.py" in files and "notes.txt" not in files
         assert tools.glob_files("**/*.py").count("\n") >= 1            # récursif

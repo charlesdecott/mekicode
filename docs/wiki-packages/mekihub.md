@@ -219,13 +219,11 @@ sont idempotentes : ré-appeler ne crée pas de doublon.
   nom du canal : `main-<titre8>` ou `<worktree>-<id8>`. Retourne l'`channel_id`.
 - `reconcile(store)` : parcourt toutes les sessions du store et crée les canaux manquants — point
   d'entrée pour la synchro initiale lors du démarrage.
-- `provisioner_from_env(registry, client) -> DiscordProvisioner | None` : factory import-safe ;
-  renvoie `None` si `DISCORD_BOT_TOKEN` est absent (dépendance optionnelle).
 
 ### `FakeDiscordClient` (étendu)
 Stubs réseau-free pour les tests. En plus de `send` / `edit` / `sent_texts` :
-`create_guild(name)`, `create_category(guild_id, name)`, `create_channel(guild_id, category_id, name)`,
-`create_invite(channel_id)` ; compteurs d'appels pour valider l'idempotence dans les tests.
+`create_guild(name)`, `create_category(guild_id, name)`, `create_channel(guild_id, category_id, name)` ;
+compteurs d'appels pour valider l'idempotence dans les tests.
 
 ### `DiscordAdapter` (l.90)
 Branche un client Discord (réel ou `FakeDiscordClient`) sur le `SessionHub`.

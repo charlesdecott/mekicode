@@ -14,13 +14,13 @@ app.py      ── page NiceGUI "/" (index) ; closure _refresh() (re)construit l
    │            bootstrap sys.path → import sessions, views
    │            _get_hub() câblé sur dispatch_factory=make_dispatch + registry (ProjectRegistry)
    │            _get_store() ──▶ SessionStore (sessions filtrées par projet+scope)
-   │            rend chaque message/item via ──▶ views.render_message / render_session_item
+   │            rend chaque message via ──▶ views.render_message ; sidebar via render_worktree_tree
    │            consomme WorktreeProposed/Created/Rejected via ──▶ views.render_worktree_proposal
    ▼
 sessions.py ── shim : ré-exporte Session, SessionMeta, SessionStore depuis mekihub.session
    │
 views.py    ── render_message(msg)                   ligne de message façon Discord
-   │            render_session_item(meta, …)          item de la barre latérale
+   │            render_worktree_tree(…)               sidebar hiérarchique main + worktrees
    │            render_project_selector(…)            sélecteur Projet → scope → session
    │            render_worktree_proposal(event, hub)  carte validation worktree (Approuver/Refuser)
    │
@@ -67,7 +67,7 @@ coins biseautés (`clip-path`), glitch, scanlines, ticker HUD. Stylise les ligne
 - `render_message(msg)` : une **ligne de message** façon Discord. Les réponses **assistant** sont
   rendues en **markdown** (`ui.markdown` : titres dégressifs h1-h3, listes, code, retours-ligne) ;
   les messages **user** en texte brut (retours-ligne préservés, pas de markdown).
-- `render_session_item(meta, *, active, on_click, on_delete)` : un **item de la barre latérale**.
+- `render_worktree_tree(main_sessions, worktrees, current_sid, …)` : **sidebar hiérarchique** (Design C) — catégorie main + worktrees repliables → sessions.
 - `tool_summary(args)` : extrait le **résumé** d'un appel d'outil pour l'affichage (1er de
   `command` / `path` / `pattern`, sinon 1er argument).
 - `_render_diff(old, new)` : pour l'outil `edit`, affiche le changement en **diff** — `--- ancien`
@@ -110,7 +110,7 @@ coins biseautés (`clip-path`), glitch, scanlines, ticker HUD. Stylise les ligne
   Sur `WorktreeProposed` → affiche la carte de validation (`views.render_worktree_proposal`).
 - `state["busy"]` empêche envois/bascules concurrents ; le rendu cesse proprement si l'onglet se
   ferme en plein run (garde « client supprimé »).
-- Store et LLM en singletons **paresseux** (`_get_store` / `_get_llm`).
+- Store et registre en singletons **paresseux** (`_get_store` / `_get_registry`) ; le LLM est fabriqué par `_llm_factory` (provider réel ou doublure de test).
 - **UX** : **Entrée** envoie (Maj+Entrée = nouvelle ligne) ; le fil **scrolle auto** en bas à chaque
   message/token ; chaque session a un **×** (au survol) pour la supprimer dans la barre latérale.
 - Démarre le serveur : `ui.run(... port=8080)` → **http://localhost:8080**.

@@ -5,7 +5,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "packages"))
+sys.path.insert(0, str(ROOT / "tests"))
 
+from fakes import FakeLLM, FakeToolLLM, init_git_repo, drain_until  # noqa: E402
 from mekihub.session import Author, QueueItem, Session, SessionState, SessionStore  # noqa: E402
 from mekihub import events as hub_events  # noqa: E402
 
@@ -32,7 +34,7 @@ def test_session_authors_separate_from_messages():
     a = Author(id="c1", name="bob", color="#ff2bd6")
     idx = s.add_user("bonjour", author=a)
     assert s.messages[idx] == {"role": "user", "content": "bonjour"}   # OpenAI pur, pas d'auteur
-    assert s.authors[idx] == {"name": "bob", "color": "#ff2bd6"}       # attribution séparée
+    assert s.authors[idx] == {"name": "bob", "color": "#ff2bd6"}
 
 
 def test_pending_queue_fifo_and_delete():
@@ -46,17 +48,15 @@ def test_pending_queue_fifo_and_delete():
         q.enqueue(i1)
         q.enqueue(i2)
         assert [i.item_id for i in q.pending()] == ["q1", "q2"]
-        assert q.delete("q1") is True               # suppression d'un item en attente
+        assert q.delete("q1") is True
         assert [i.item_id for i in q.pending()] == ["q2"]
-        first = await q.pop_next()                  # pop l'item courant
+        first = await q.pop_next()
         assert first.item_id == "q2"
         assert q.delete("q2") is False              # plus en attente (déjà poppé) → refus
     asyncio.run(scenario())
 
 
 def test_hub_submit_run_and_subscribe():
-    sys.path.insert(0, str(ROOT / "tests"))
-    from fakes import FakeLLM
     from mekihub.hub import SessionHub
 
     async def scenario():
@@ -71,24 +71,18 @@ def test_hub_submit_run_and_subscribe():
         first = await sub.__anext__()                      # Snapshot d'amorçage
         assert isinstance(first, hub_events.Snapshot)
 
-        async def collect():
-            async for e in sub:
-                received.append(e)
-                if isinstance(e, hub_events.Idle):
-                    break
-        task = asyncio.create_task(collect())
+        task = asyncio.create_task(drain_until(sub, received))
         await asyncio.sleep(0.05)
         hub.submit(sess.id, "salut", author=alice)
         await asyncio.wait_for(task, timeout=5)
 
-        kinds = [type(e).__name__ for e in received]
+        kinds = received
         assert "QueueEnqueued" in kinds
         assert "RunStarted" in kinds
         assert "MessagePosted" in kinds
         assert "AgentDone" in kinds
         assert "RunFinished" in kinds
         assert kinds[-1] == "Idle"
-        # la session a bien le message user + la réponse assistant, sans champ auteur dans messages
         s2 = store.load(sess.id)
         assert {"role": "user", "content": "salut"} in s2.messages
         assert any(m.get("role") == "assistant" for m in s2.messages)
@@ -98,8 +92,6 @@ def test_hub_submit_run_and_subscribe():
 
 
 def test_two_subscribers_and_queue_delete():
-    sys.path.insert(0, str(ROOT / "tests"))
-    from fakes import FakeLLM
     from mekihub.hub import SessionHub
 
     async def scenario():
@@ -115,14 +107,8 @@ def test_two_subscribers_and_queue_delete():
         sub_b = hub.subscribe(sess.id); await sub_b.__anext__()
         got_a, got_b = [], []
 
-        async def drain(sub, acc):
-            async for e in sub:
-                acc.append(type(e).__name__)
-                if acc.count("Idle") >= 1:
-                    break
-
-        ta = asyncio.create_task(drain(sub_a, got_a))
-        tb = asyncio.create_task(drain(sub_b, got_b))
+        ta = asyncio.create_task(drain_until(sub_a, got_a))
+        tb = asyncio.create_task(drain_until(sub_b, got_b))
         await asyncio.sleep(0.02)
         hub.submit(sess.id, "premier", author=alice)       # démarre le run (lent)
         await asyncio.sleep(0.02)
@@ -131,7 +117,7 @@ def test_two_subscribers_and_queue_delete():
         assert hub.delete_pending(sess.id, qid2) is True    # supprime l'item EN ATTENTE
         await asyncio.wait_for(asyncio.gather(ta, tb), timeout=5)
 
-        # les DEUX abonnés ont reçu le broadcast (QueueEnqueued + QueueItemDeleted + AgentDone)
+        # les DEUX abonnés reçoivent le broadcast
         for got in (got_a, got_b):
             assert "QueueEnqueued" in got
             assert "QueueItemDeleted" in got
@@ -141,8 +127,6 @@ def test_two_subscribers_and_queue_delete():
 
 
 def test_discord_adapter_with_fake_client():
-    sys.path.insert(0, str(ROOT / "tests"))
-    from fakes import FakeLLM
     from mekihub.hub import SessionHub
     from mekihub.adapters.discord import DiscordAdapter, FakeDiscordClient, FakeMessage
 
@@ -157,7 +141,6 @@ def test_discord_adapter_with_fake_client():
                                                  author_id="42", is_bot=False, content="coucou"))
         await asyncio.sleep(0.3)
         await adapter.flush()                      # laisse la tâche d'abonnement rendre
-        # le client factice a posté/édité au moins un message contenant la réponse de l'agent
         assert any("salut discord" in m for m in client.sent_texts())
         store.delete(sess.id)
     asyncio.run(scenario())
@@ -176,7 +159,7 @@ def test_project_registry_crud():
     from pathlib import Path
     from mekihub.projects import ProjectRegistry
     with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
-        subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+        init_git_repo(repo)
         reg = ProjectRegistry(path=str(Path(base) / "projects.json"))
         p = reg.register(repo, name="Mekipedia")
         assert p.slug == "mekipedia" and p.default_branch in ("main", "master")
@@ -203,10 +186,7 @@ def test_workspace_for_main_and_worktree():
     from mekihub.projects import ProjectRegistry, workspace_for, add_worktree
     from mekihub.session import Session
     with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
-        subprocess.run(["git","init","-q"], cwd=repo, check=True)
-        subprocess.run(["git","commit","--allow-empty","-q","-m","init"], cwd=repo,
-                       env={**os.environ,"GIT_AUTHOR_NAME":"t","GIT_AUTHOR_EMAIL":"t@t",
-                            "GIT_COMMITTER_NAME":"t","GIT_COMMITTER_EMAIL":"t@t"}, check=True)
+        init_git_repo(repo, commit=True)
         reg = ProjectRegistry(path=str(Path(base)/"p.json"), worktrees_base=str(Path(base)/"wt"))
         p = reg.register(repo, name="proj")
         s_main = Session(id="s1", title="t", model="m", created_at="t", project_id=p.id, scope="main")
@@ -255,14 +235,13 @@ def test_author_has_source_default_none():
 def test_hub_uses_per_session_workspace():
     import tempfile, subprocess
     from pathlib import Path
-    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeLLM
     sys.path.insert(0, str(ROOT / "packages" / "mekicore")); import tools
     from mekihub.hub import SessionHub
     from mekihub.session import Author, SessionStore
     from mekihub.projects import ProjectRegistry
     async def scenario():
         with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
-            subprocess.run(["git","init","-q"], cwd=repo, check=True)
+            init_git_repo(repo)
             (Path(repo)/"marqueur.txt").write_text("ok", encoding="utf-8")
             reg = ProjectRegistry(path=str(Path(base)/"p.json"))
             p = reg.register(repo, name="proj")
@@ -274,10 +253,7 @@ def test_hub_uses_per_session_workspace():
             orig = tools.make_dispatch
             hub.dispatch_factory = lambda w, _o=orig, _c=captured: (_c.append(w), _o(w))[1]
             sub = hub.subscribe(sess.id); await sub.__anext__()
-            async def collect():
-                async for e in sub:
-                    if type(e).__name__ == "Idle": break
-            t = asyncio.create_task(collect())
+            t = asyncio.create_task(drain_until(sub))
             hub.submit(sess.id, "salut", author=Author(id="c",name="a",color="#fff"))
             await asyncio.wait_for(t, timeout=5)
             assert captured and captured[0] == Path(repo).resolve()
@@ -287,14 +263,13 @@ def test_hub_uses_per_session_workspace():
 def test_spawn_worktree_proposes_without_creating():
     import tempfile, subprocess
     from pathlib import Path
-    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeToolLLM
     sys.path.insert(0, str(ROOT / "packages" / "mekicore")); import tools
     from mekihub.hub import SessionHub
     from mekihub.projects import ProjectRegistry, _wt_dir
     from mekihub.session import Author, SessionStore
     async def scenario():
         with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
-            subprocess.run(["git","init","-q"], cwd=repo, check=True)
+            init_git_repo(repo)
             reg = ProjectRegistry(path=str(Path(base)/"p.json"), worktrees_base=str(Path(base)/"wt"))
             p = reg.register(repo, name="proj")
             store = SessionStore(directory=str(Path(base)/"sess"))
@@ -306,11 +281,7 @@ def test_spawn_worktree_proposes_without_creating():
                              dispatch_factory=tools.make_dispatch, registry=reg)
             got = []
             sub = hub.subscribe(sess.id); await sub.__anext__()
-            async def collect():
-                async for e in sub:
-                    got.append(type(e).__name__)
-                    if got.count("Idle") >= 1: break
-            t = asyncio.create_task(collect())
+            t = asyncio.create_task(drain_until(sub, got))
             hub.submit(sess.id, "fais la feature X", author=Author(id="c",name="a",color="#fff"))
             await asyncio.wait_for(t, timeout=5)
             assert "WorktreeProposed" in got, got
@@ -322,17 +293,13 @@ def test_spawn_worktree_proposes_without_creating():
 def test_approve_worktree_creates_child_session():
     import tempfile, subprocess
     from pathlib import Path
-    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeToolLLM
     sys.path.insert(0, str(ROOT / "packages" / "mekicore")); import tools
     from mekihub.hub import SessionHub
     from mekihub.projects import ProjectRegistry, _wt_dir
     from mekihub.session import Author, SessionStore
     async def scenario():
         with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
-            subprocess.run(["git","init","-q"], cwd=repo, check=True)
-            subprocess.run(["git","commit","--allow-empty","-q","-m","init"], cwd=repo,
-                           env={**os.environ,"GIT_AUTHOR_NAME":"t","GIT_AUTHOR_EMAIL":"t@t",
-                                "GIT_COMMITTER_NAME":"t","GIT_COMMITTER_EMAIL":"t@t"}, check=True)
+            init_git_repo(repo, commit=True)
             reg = ProjectRegistry(path=str(Path(base)/"p.json"), worktrees_base=str(Path(base)/"wt"))
             p = reg.register(repo, name="proj")
             store = SessionStore(directory=str(Path(base)/"sess"))
@@ -342,10 +309,7 @@ def test_approve_worktree_creates_child_session():
             hub = SessionHub(store=store, llm_factory=lambda: llm, tools=tools.TOOLS,
                              dispatch_factory=tools.make_dispatch, registry=reg)
             sub = hub.subscribe(sess.id); await sub.__anext__()
-            async def collect():
-                async for e in sub:
-                    if type(e).__name__ == "Idle": break
-            t = asyncio.create_task(collect())
+            t = asyncio.create_task(drain_until(sub))
             hub.submit(sess.id, "fais la feature X", author=Author(id="c",name="a",color="#fff"))
             await asyncio.wait_for(t, timeout=5)
             pid = next(iter(hub._rooms[sess.id].pending_worktrees))
@@ -369,14 +333,13 @@ def test_approve_worktree_creates_child_session():
 def test_reject_worktree_creates_nothing():
     import tempfile, subprocess
     from pathlib import Path
-    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeToolLLM
     sys.path.insert(0, str(ROOT / "packages" / "mekicore")); import tools
     from mekihub.hub import SessionHub
     from mekihub.projects import ProjectRegistry, _wt_dir
     from mekihub.session import Author, SessionStore
     async def scenario():
         with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
-            subprocess.run(["git","init","-q"], cwd=repo, check=True)
+            init_git_repo(repo)
             reg = ProjectRegistry(path=str(Path(base)/"p.json"), worktrees_base=str(Path(base)/"wt"))
             p = reg.register(repo, name="proj")
             store = SessionStore(directory=str(Path(base)/"sess"))
@@ -386,10 +349,7 @@ def test_reject_worktree_creates_nothing():
             hub = SessionHub(store=store, llm_factory=lambda: llm, tools=tools.TOOLS,
                              dispatch_factory=tools.make_dispatch, registry=reg)
             sub = hub.subscribe(sess.id); await sub.__anext__()
-            async def collect():
-                async for e in sub:
-                    if type(e).__name__ == "Idle": break
-            t = asyncio.create_task(collect())
+            t = asyncio.create_task(drain_until(sub))
             hub.submit(sess.id, "go", author=Author(id="c",name="a",color="#fff"))
             await asyncio.wait_for(t, timeout=5)
             pid = next(iter(hub._rooms[sess.id].pending_worktrees))
@@ -407,7 +367,7 @@ def test_reconcile_creates_missing_channels():
     from mekihub.session import SessionStore
     async def scenario():
         with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
-            subprocess.run(["git","init","-q"], cwd=repo, check=True)
+            init_git_repo(repo)
             reg = ProjectRegistry(path=str(Path(base)/"p.json"))
             p = reg.register(repo, name="proj")
             store = SessionStore(directory=str(Path(base)/"sess"))
@@ -418,13 +378,12 @@ def test_reconcile_creates_missing_channels():
             mapping = {}
             n = await prov.reconcile(store, mapping=mapping)
             assert n == 2 and client.channel_count() >= 2
-            assert len(mapping) == 2                     # mapping canal→session rempli en un seul scan
+            assert len(mapping) == 2
             assert await prov.reconcile(store) == 0     # idempotent : tout est déjà posé
     asyncio.run(scenario())
 
 
 def test_discord_antiecho_on_messageposted():
-    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeLLM
     from mekihub.hub import SessionHub
     from mekihub.session import SessionStore
     from mekihub.adapters.discord import DiscordAdapter, FakeDiscordClient, FakeMessage
@@ -440,7 +399,7 @@ def test_discord_antiecho_on_messageposted():
         texts = client.sent_texts()
         # anti-écho : le message né dans chan1 n'est PAS reposté dans chan1
         assert all("depuis discord" not in t for t in texts), texts
-        assert any("ok" in t for t in texts)     # la réponse de l'agent est postée
+        assert any("ok" in t for t in texts)
         store.delete(sess.id)
     asyncio.run(scenario())
 
@@ -453,17 +412,17 @@ def test_provisioner_creates_categories_and_channels_idempotent():
     from mekihub.session import Session
     async def scenario():
         with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
-            subprocess.run(["git","init","-q"], cwd=repo, check=True)
+            init_git_repo(repo)
             reg = ProjectRegistry(path=str(Path(base)/"p.json"))
             p = reg.register(repo, name="Mekipedia")
             client = FakeDiscordClient()
             prov = DiscordProvisioner(registry=reg, client=client, guild_id="g1")
             await prov.ensure_project(p)
             p2 = reg.get(p.id)
-            assert p2.discord["cat_main"] and "cat_worktrees" not in p2.discord  # par worktree désormais
+            assert p2.discord["cat_main"] and "cat_worktrees" not in p2.discord
             cats_before = client.category_count()
-            await prov.ensure_project(p)                     # idempotent
-            assert client.category_count() == cats_before    # pas de doublon
+            await prov.ensure_project(p)                     # idempotent : pas de doublon
+            assert client.category_count() == cats_before
             s = Session(id="s1", title="rev auth", model="m", created_at="t",
                         project_id=p.id, scope="main")
             ch = await prov.ensure_channel(s)
@@ -488,7 +447,7 @@ def test_workspace_for_falls_back_when_worktree_missing():
     from mekihub.projects import ProjectRegistry, workspace_for
     from mekihub.session import Session
     with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
-        subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+        init_git_repo(repo)
         reg = ProjectRegistry(path=str(Path(base) / "p.json"), worktrees_base=str(Path(base) / "wt"))
         p = reg.register(repo, name="proj")
         s = Session(id="s1", title="t", model="m", created_at="t",
@@ -498,7 +457,6 @@ def test_workspace_for_falls_back_when_worktree_missing():
 
 def test_discord_renders_tool_calls():
     """Les appels d'outils (ToolStarted/ToolFinished) apparaissent dans le canal Discord."""
-    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeToolLLM
     from mekihub.hub import SessionHub
     from mekihub.session import SessionStore
     from mekihub.adapters.discord import DiscordAdapter, FakeDiscordClient, FakeMessage
@@ -517,7 +475,7 @@ def test_discord_renders_tool_calls():
         texts = client.sent_texts()
         assert any("echo" in t for t in texts), texts                 # en-tête de l'outil
         assert any("resultat-echo-XYZ" in t for t in texts), texts    # sortie de l'outil
-        assert any("termine" in t for t in texts), texts              # réponse finale
+        assert any("termine" in t for t in texts), texts
         store.delete(sess.id)
     asyncio.run(scenario())
 
@@ -533,7 +491,6 @@ def test_tool_embed_color_per_tool():
 
 def test_discord_renders_tool_calls_as_embed():
     """En mode tool_style='embed', l'appel d'outil apparaît comme une carte (embed) avec sa sortie."""
-    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeToolLLM
     from mekihub.hub import SessionHub
     from mekihub.session import SessionStore
     from mekihub.adapters.discord import DiscordAdapter, FakeDiscordClient, FakeMessage
@@ -561,7 +518,6 @@ def test_discord_renders_tool_calls_as_embed():
 
 def test_discord_agent_reply_references_question():
     """La réponse de l'agent référence (reply) le message Discord de la question."""
-    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeLLM
     from mekihub.hub import SessionHub
     from mekihub.session import SessionStore
     from mekihub.adapters.discord import DiscordAdapter, FakeDiscordClient, FakeMessage
@@ -584,7 +540,6 @@ def test_discord_agent_reply_references_question():
 
 def test_discord_queue_shows_pending():
     """Un 2e message envoyé pendant un run en cours apparaît dans l'embed « file d'attente »."""
-    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeLLM
     from mekihub.hub import SessionHub
     from mekihub.session import SessionStore
     from mekihub.adapters.discord import DiscordAdapter, FakeDiscordClient, FakeMessage
@@ -614,17 +569,13 @@ def test_approve_worktree_failure_is_graceful():
     retire la proposition, publie WorktreeRejected + RunError, et renvoie None (never-raise)."""
     import tempfile, subprocess
     from pathlib import Path
-    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeToolLLM
     sys.path.insert(0, str(ROOT / "packages" / "mekicore")); import tools
     from mekihub.hub import SessionHub
     from mekihub.projects import ProjectRegistry, add_worktree
     from mekihub.session import Author, SessionStore
     async def scenario():
         with tempfile.TemporaryDirectory() as base, tempfile.TemporaryDirectory() as repo:
-            subprocess.run(["git","init","-q"], cwd=repo, check=True)
-            subprocess.run(["git","commit","--allow-empty","-q","-m","init"], cwd=repo,
-                           env={**os.environ,"GIT_AUTHOR_NAME":"t","GIT_AUTHOR_EMAIL":"t@t",
-                                "GIT_COMMITTER_NAME":"t","GIT_COMMITTER_EMAIL":"t@t"}, check=True)
+            init_git_repo(repo, commit=True)
             reg = ProjectRegistry(path=str(Path(base)/"p.json"), worktrees_base=str(Path(base)/"wt"))
             p = reg.register(repo, name="proj")
             add_worktree(p, "dup", None, str(Path(base)/"wt"))     # la branche "dup" existe déjà
@@ -635,21 +586,14 @@ def test_approve_worktree_failure_is_graceful():
             hub = SessionHub(store=store, llm_factory=lambda: llm, tools=tools.TOOLS,
                              dispatch_factory=tools.make_dispatch, registry=reg)
             sub = hub.subscribe(sess.id); await sub.__anext__()
-            async def collect():
-                async for e in sub:
-                    if type(e).__name__ == "Idle": break
-            t = asyncio.create_task(collect())
+            t = asyncio.create_task(drain_until(sub))
             hub.submit(sess.id, "go", author=Author(id="c",name="a",color="#fff"))
             await asyncio.wait_for(t, timeout=5)
             pid = next(iter(hub._rooms[sess.id].pending_worktrees))
             # un abonné frais pour capter WorktreeRejected/RunError publiés pendant l'approbation
             got = []
             sub2 = hub.subscribe(sess.id); await sub2.__anext__()
-            async def collect2():
-                async for e in sub2:
-                    got.append(type(e).__name__)
-                    if "RunError" in got: break
-            t2 = asyncio.create_task(collect2())
+            t2 = asyncio.create_task(drain_until(sub2, got, stop="RunError"))
             await asyncio.sleep(0.02)
             res = await hub.approve_worktree(sess.id, pid)        # git échoue → gracieux
             await asyncio.wait_for(t2, timeout=5)
@@ -661,7 +605,6 @@ def test_approve_worktree_failure_is_graceful():
 
 def test_permission_ask_allow_once():
     """s15 : un outil `rm` (tier ask) met le run en pause -> PermissionRequested ; 'once' l'autorise."""
-    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeToolLLM
     from mekihub.hub import SessionHub
     from mekihub.session import Author, SessionStore
 
@@ -698,7 +641,6 @@ def test_permission_ask_allow_once():
 
 def test_permission_ask_timeout_denies():
     """s15 : si personne ne tranche, le tier ask retombe sur deny au bout du timeout."""
-    sys.path.insert(0, str(ROOT / "tests")); from fakes import FakeToolLLM
     from mekihub.hub import SessionHub
     from mekihub.session import Author, SessionStore
 

@@ -20,7 +20,6 @@ def _workspace() -> Path:
 
 
 def _resolve_ws(ws: Path | None) -> Path:
-    """Retourne ws s'il est fourni, sinon lit _workspace() (env ou cwd)."""
     return ws if ws is not None else _workspace()
 
 
@@ -161,7 +160,7 @@ def glob_files(pattern: str, ws: Path | None = None) -> str:
 
 
 def make_dispatch(workspace) -> dict:
-    """Construit un DISPATCH dont les handlers fichiers sont confinés à `workspace` (Path absolu)."""
+    """DISPATCH dont les handlers fichiers sont confinés à `workspace` (Path absolu)."""
     ws = Path(workspace).resolve()
     return {
         "bash":  lambda a: run_bash(a["command"], cwd=ws),

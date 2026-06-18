@@ -1,7 +1,28 @@
-"""fakes.py — doublures de test réseau-free pour mekihub (pas de SDK, pas de clé)."""
+"""fakes.py — doublures et utilitaires de test réseau-free pour mekihub (pas de SDK, pas de clé)."""
 from __future__ import annotations
 
+import os
+import subprocess
 from dataclasses import dataclass, field
+
+
+def init_git_repo(repo, commit=False) -> None:
+    """Initialise un dépôt git de test dans `repo` (+ commit vide optionnel, identité déterministe)."""
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    if commit:
+        subprocess.run(["git", "commit", "--allow-empty", "-q", "-m", "i"], cwd=repo,
+                       env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+                            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}, check=True)
+
+
+async def drain_until(sub, names=None, *, stop="Idle") -> None:
+    """Consomme l'async-iterator `sub` jusqu'à un événement de type `stop` (inclus).
+    Si `names` (list) est fourni, y empile le nom de type de chaque événement reçu."""
+    async for e in sub:
+        if names is not None:
+            names.append(type(e).__name__)
+        if type(e).__name__ == stop:
+            break
 
 
 @dataclass
@@ -20,11 +41,7 @@ class _ToolCall:
 
 
 class FakeLLM:
-    """Renvoie une réponse texte fixe sans outil. `model` exposé comme la vraie LLM.
-
-    `reply` : texte renvoyé. `delay` : secondes de pause (synchrone) pour simuler un run lent
-    et tester l'empilement de la file.
-    """
+    """Renvoie une réponse texte fixe sans outil. `delay` : pause synchrone pour simuler un run lent."""
 
     def __init__(self, reply: str = "réponse de test", delay: float = 0.0, model: str = "fake/model"):
         self.reply = reply

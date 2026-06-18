@@ -34,7 +34,7 @@ def test_title_set_from_first_user_message():
         s.add("user", "Liste les fichiers .py\net compte les lignes")
         assert s.title == "Liste les fichiers .py"      # 1re ligne, tronquée
         s.add("user", "deuxième")
-        assert s.title == "Liste les fichiers .py"      # ne change plus ensuite
+        assert s.title == "Liste les fichiers .py"      # le titre ne change plus
 
 
 def test_round_trip_messages():
@@ -93,12 +93,12 @@ def test_delete():
         a = store.create(model="m")
         b = store.create(model="m")
         store.delete(a.id)
-        assert [m.id for m in store.list()] == [b.id]   # a supprimée, b reste
+        assert [m.id for m in store.list()] == [b.id]
         store.delete("inexistante")                     # pas d'erreur si absente
 
 
 def test_sessions_reexport_from_mekihub():
-    """Vérifie que sessions.py est un ré-export de mekihub.session (même classe, pas une copie)."""
+    """sessions.py est un ré-export de mekihub.session (même classe, pas une copie)."""
     import sessions as chat_sessions
     from mekihub import session as hub_session
     assert chat_sessions.SessionStore is hub_session.SessionStore   # même classe (ré-export)

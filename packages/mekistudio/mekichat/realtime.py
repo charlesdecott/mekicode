@@ -30,12 +30,9 @@ def author_for_client():
 
     À APPELER DANS LE CONTEXTE DE PAGE (corps de @ui.page) : c'est là que le cookie
     de session est lié à la requête, donc que `app.storage.user`/`app.storage.browser`
-    désignent de façon fiable le bon navigateur. Appelée depuis une tâche de fond, la
-    résolution resterait correcte en NiceGUI 3.x (le contexte de requête est propagé),
-    mais on centralise la résolution dans la page pour rendre le contrat explicite.
-
-    L'identité est dérivée de l'id de navigateur (graine déterministe et stable) ;
-    elle est mémorisée dans `app.storage.user` (persisté côté serveur par cookie).
+    désignent de façon fiable le bon navigateur. On centralise la résolution dans la page
+    pour rendre le contrat explicite. L'identité est dérivée de l'id de navigateur (graine
+    déterministe et stable) et mémorisée dans `app.storage.user`.
     """
     from mekihub.session import Author
     store = app.storage.user

@@ -16,7 +16,6 @@ _TOOL_GLYPH = {"bash": "❯_", "read": "▤", "write": "✎", "edit": "±", "gre
 
 
 def _md(text: str) -> None:
-    """Rendu markdown d'une réponse (titres, listes, code, retours-ligne)."""
     ui.markdown(text, extras=_MD_EXTRAS)
 
 
@@ -46,25 +45,12 @@ def render_message(msg: dict) -> None:
     content = msg.get("content", "")
     with col:
         if role == "assistant":
-            # réponses de l'agent : rendu markdown (titres, listes, code, retours-ligne)
             with ui.element("div").classes("body"):
                 _md(content)
         else:
-            # messages utilisateur : texte brut, retours-ligne préservés (pas de markdown
-            # pour ne pas mâcher les commandes/globs avec * ou _)
+            # texte brut : pas de markdown pour ne pas mâcher les commandes/globs avec * ou _
             with ui.element("div").classes("body plain"):
                 ui.label(content)
-
-
-def render_session_item(meta, *, active: bool, on_click, on_delete) -> None:
-    """Affiche un item de la barre latérale (titre + id + nb msg + bouton supprimer)."""
-    classes = "session active" if active else "session"
-    with ui.element("div").classes(classes).on("click", on_click):
-        with ui.element("div").classes("s-title"):
-            ui.label(">_").classes("mk")
-            ui.label(meta.title).classes("s-name")
-            ui.label("✕").classes("s-del").on("click.stop", on_delete)  # .stop : ne pas ouvrir la session
-        ui.label(f"{meta.id} · {meta.n_messages} msg").classes("s-meta")
 
 
 def tool_summary(args) -> str:
@@ -74,7 +60,6 @@ def tool_summary(args) -> str:
     for k in ("command", "path", "pattern"):
         if k in args:
             return str(args[k])
-    # aucun argument connu → 1er argument (cas inattendu ; .cmd tronque si trop long)
     return str(next(iter(args.values()), ""))
 
 
@@ -93,13 +78,11 @@ def _render_diff(old: str, new: str) -> None:
 
 
 def _line_count(text: str) -> int:
-    """Nombre de lignes du texte (sans la newline finale)."""
     t = (text or "").rstrip("\n")
     return len(t.splitlines()) if t else 0
 
 
 def _edit_metric(old: str, new: str) -> str:
-    """Métrique d'un `edit` : lignes ajoutées / retirées."""
     return f"+{_line_count(new)} -{_line_count(old)}"
 
 
@@ -123,9 +106,8 @@ def tool_metric(name: str, output: str) -> str:
 
 def render_tool(name: str, summary: str = "", output: str = "", status: str = "RUN",
                 *, old: str | None = None, new: str | None = None):
-    """Bloc d'outil **replié par défaut** (clic sur l'en-tête → ouvre/ferme). En-tête : glyphe + NOM
-    (couleur par outil) + résumé + métrique compacte + statut + chevron. Pour `edit`, le corps est le
-    diff `---`/`+++`. Renvoie (label_statut, label_sortie, label_métrique) pour remplissage différé."""
+    """Bloc d'outil replié par défaut (clic sur l'en-tête → ouvre/ferme). Pour `edit`, le corps
+    est le diff. Renvoie (label_statut, label_sortie, label_métrique) pour remplissage différé."""
     glyph = _TOOL_GLYPH.get(name, "▣")
     base = f"tool t-{name}" if name in _TOOL_GLYPH else "tool"
     tool = ui.element("div").classes(f"{base} collapsed")
@@ -171,8 +153,7 @@ def fill_tool(handle, output: str, ok: bool = True, name: str = "") -> None:
 
 
 def render_thinking():
-    """Indicateur animé « PROCESSING… » affiché pendant un appel LLM.
-    Renvoie l'élément ligne (l'appelant le supprime via .delete() quand le tour répond)."""
+    """Indicateur animé « PROCESSING… » affiché pendant un appel LLM (supprimé via .delete())."""
     row = ui.element("div").classes("msg bot")
     with row:
         with ui.element("div").classes("avatar bot"):
@@ -186,9 +167,8 @@ def render_thread(messages: list, authors: dict | None = None) -> None:
     """Rejoue tout un historique : texte (user/assistant) + blocs d'outils appariés
     (assistant.tool_calls ↔ messages role:'tool'). Chemin de rechargement de session.
 
-    `authors` (optionnel) = {index_message: {"name","color"}} : si fourni, les messages
-    user sont rendus AVEC leur attribution (auteur multi-utilisateur), comme le rendu
-    live. Sans lui, repli sur le rendu générique (compat)."""
+    `authors` (optionnel) = {index_message: {"name","color"}} : attribution multi-utilisateur
+    des messages user (comme le rendu live) ; sans lui, repli sur le rendu générique."""
     authors = authors or {}
     outputs = {m.get("tool_call_id"): m.get("content", "")
                for m in messages if m.get("role") == "tool"}
@@ -229,7 +209,7 @@ def render_stream_bubble():
     with col:
         body = ui.element("div").classes("body streaming")
         with body:
-            md = ui.markdown("", extras=_MD_EXTRAS)   # preview markdown live (pas seulement à la fin)
+            md = ui.markdown("", extras=_MD_EXTRAS)
     return body, md
 
 
@@ -241,19 +221,9 @@ def finalize_stream(body, text: str) -> None:
         _md(text)
 
 
-def render_presence(present):
-    """Affiche les pastilles de présence (un chip par participant, couleur de l'auteur).
-    `present` : list[Author]. Renvoie le conteneur (l'appelant le remplace à chaque maj)."""
-    box = ui.element("div").classes("presence")
-    with box:
-        for a in present:
-            ui.label(a.name).classes("pres-chip").style(f"--ac:{a.color}")
-    return box
-
-
 def render_queue_item(item_id, name, color, text, on_delete):
     """Affiche une ligne de file d'attente (auteur + texte + bouton ✕). Renvoie la ligne.
-    `on_delete(item_id)` est appelé au clic sur ✕ (suppression d'un item en attente)."""
+    `on_delete(item_id)` est appelé au clic sur ✕."""
     row = ui.element("div").classes("qitem").style(f"--ac:{color}")
     with row:
         ui.label(name).classes("q-author").style(f"--ac:{color}")
@@ -264,8 +234,7 @@ def render_queue_item(item_id, name, color, text, on_delete):
 
 
 def render_user_message(text, name, color):
-    """Affiche un message utilisateur attribué (avatar + en-tête avec nom/couleur d'auteur).
-    Variante de render_message : l'auteur n'est pas figé (multi-utilisateur)."""
+    """Affiche un message utilisateur attribué (variante de render_message, auteur non figé)."""
     _, col = _msg_shell("user")
     with col:
         with ui.element("div").classes("body plain attrib"):
@@ -275,13 +244,7 @@ def render_user_message(text, name, color):
 
 def render_worktree_proposal(name: str, prompt: str, on_approve, on_reject):
     """Carte « worktree proposé » (style Phosphore) avec boutons Approuver / Refuser.
-
-    `name`       : nom du worktree (affiché dans le titre)
-    `prompt`     : texte d'amorçage (affiché en sous-texte)
-    `on_approve` : callback sans argument (appelé au clic sur Approuver)
-    `on_reject`  : callback sans argument (appelé au clic sur Refuser)
-    Renvoie l'élément racine de la carte (peut être supprimé via .delete()).
-    """
+    Renvoie l'élément racine de la carte (supprimable via .delete())."""
     card = ui.element("div").classes("wt-proposal")
     with card:
         with ui.element("div").classes("wt-proposal-head"):
@@ -301,11 +264,9 @@ _PERM_LABELS = {
 
 
 def render_permission_request(tool: str, target: str, reason: str, options, on_choice):
-    """Carte de demande de permission (s15, style Phosphore), façon Claude Code.
-
-    `on_choice(choice)` est appelé au clic (choice ∈ options) ; la carte se supprime ensuite.
-    Renvoie l'élément racine (supprimable via .delete()).
-    """
+    """Carte de demande de permission (s15, style Phosphore).
+    `on_choice(choice)` est appelé au clic (choice ∈ options), puis la carte se supprime.
+    Renvoie l'élément racine (supprimable via .delete())."""
     card = ui.element("div").classes("perm-request")
     with card:
         with ui.element("div").classes("perm-head"):
@@ -370,13 +331,11 @@ def render_project_selector(projects, current_project_id,
 
 def _wt_scope_parts(scope: str):
     """Sépare un scope worktree 'nom_uuid' → ('nom', '_uuid') pour l'affichage ; sinon (scope, '')."""
-    import re
     m = re.match(r"^(.*)_([0-9a-f]{6,})$", scope or "")
     return (m.group(1), "_" + m.group(2)) if m else (scope, "")
 
 
 def _wt_session_line(meta, current_sid, on_open_session, on_delete):
-    """Ligne de session compacte (Design C) : puce + titre + ✕ au survol."""
     is_on = meta.id == current_sid
     with ui.element("div").classes("wtt-line on" if is_on else "wtt-line").on(
         "click", lambda _, sid=meta.id: on_open_session(sid)
@@ -394,16 +353,10 @@ def render_worktree_tree(main_sessions, worktrees, current_sid,
                          on_open_session, on_new_session, on_new_worktree, on_delete=None,
                          on_delete_worktree=None):
     """Sidebar hiérarchique « rail compact » (Design C) : catégorie main + catégorie worktrees
-    (sous-catégories repliables par worktree), sessions imbriquées, + session sous chaque groupe,
-    + new worktree.
+    (sous-catégories repliables par worktree), sessions imbriquées, + session, + new worktree.
 
-    `main_sessions` : list[SessionMeta] (scope main)
-    `worktrees`     : list[(scope, [SessionMeta])]
-    `current_sid`   : str — session active (surlignée)
-    `on_open_session(sid)` ; `on_new_session(scope)` ; `on_new_worktree()` ; `on_delete(sid)|None`
-    """
+    `main_sessions` : list[SessionMeta] (scope main) ; `worktrees` : list[(scope, [SessionMeta])]."""
     with ui.element("div").classes("wt-tree"):
-        # ── catégorie MAIN ──
         with ui.element("div").classes("wtt-grp"):
             with ui.element("div").classes("wtt-glabel"):
                 ui.label("🌿 MAIN")
@@ -415,7 +368,6 @@ def render_worktree_tree(main_sessions, worktrees, current_sid,
             with ui.element("div").classes("wtt-add").on("click", lambda _: on_new_session("main")):
                 ui.label("＋ session")
 
-        # ── catégorie WORKTREES ──
         with ui.element("div").classes("wtt-grp"):
             with ui.element("div").classes("wtt-glabel wts"):
                 ui.label("🌳 WORKTREES")

@@ -37,7 +37,6 @@ def test_list_dir_sorted_and_excludes():
         assert [e["name"] for e in entries] == ["asub", "zsub", "a.py", "b.txt"]
         assert all(e["kind"] in ("dir", "file") for e in entries)
         assert entries[0]["path"] == "asub" and entries[2]["path"] == "a.py"
-        # sous-dossier
         (root / "asub" / "deep.md").write_text("y", encoding="utf-8")
         sub = fs.list_dir(root, "asub")
         assert [e["path"] for e in sub] == ["asub/deep.md"]
@@ -48,14 +47,12 @@ def test_read_text_roundtrip_limit_binary():
         root = Path(d)
         (root / "f.txt").write_text("héllo\nmonde", encoding="utf-8", newline="")
         assert fs.read_text(root, "f.txt") == "héllo\nmonde"
-        # binaire refusé
         (root / "bin.dat").write_bytes(b"\x00\x01\x02\xff")
         try:
             fs.read_text(root, "bin.dat")
             assert False, "doit refuser le binaire"
         except ValueError:
             pass
-        # trop volumineux refusé
         (root / "big.txt").write_text("a" * (fs.MAX_BYTES + 10), encoding="utf-8")
         try:
             fs.read_text(root, "big.txt")
@@ -71,10 +68,8 @@ def test_write_text_atomic_roundtrip():
         assert (root / "sub" / "new.txt").read_text(encoding="utf-8") == "contenu\nécrit"
         # pas de fichier .tmp résiduel
         assert not list((root / "sub").glob("*.tmp"))
-        # écrase
         fs.write_text(root, "sub/new.txt", "v2")
         assert fs.read_text(root, "sub/new.txt") == "v2"
-        # échappement rejeté
         try:
             fs.write_text(root, "../evil.txt", "x")
             assert False, "doit rejeter l'échappement"

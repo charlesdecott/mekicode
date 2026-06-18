@@ -45,8 +45,7 @@ def build_studio(container, hub, store, author, *, make_session) -> None:
         _render()
 
     def _focus(sid: str) -> None:
-        """Focus d'un chat : highlight de sa node (déjà posé côté JS) + en mode Mix il passe à
-        gauche. On mémorise l'id pour qu'au passage en Mix ce soit le chat de gauche."""
+        """Focus d'un chat : highlight de sa node (côté JS) + en mode Mix il passe à gauche."""
         if not sid:
             return
         state["sid"] = sid
@@ -91,7 +90,7 @@ def build_studio(container, hub, store, author, *, make_session) -> None:
             if state["mode"] == "canvas":
                 right = ui.element("div").classes("stage-canvas")
                 render_canvas(right, hub, store, author, focus_sid=state["sid"], inject=False)
-            else:  # mix
+            else:
                 left = ui.element("div").classes("stage-chat")
                 refs["left"] = left
                 ChatComponent(left, hub, sess.id, author)
