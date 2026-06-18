@@ -224,6 +224,8 @@ class SessionHub:
             except Exception:
                 model = "anthropic/claude-3.5-sonnet"
         child = self.store.create(model=model, system=system, project_id=project.id, scope=scope)
+        child.title = (name.strip()[:48] or scope)     # node identifiable sur le canvas (≠ « nouvelle session »)
+        self.store.save(child)
         if self.provisioner is not None:
             try:
                 await self.provisioner.ensure_channel(child)

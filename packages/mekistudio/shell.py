@@ -24,7 +24,15 @@ def build_studio(container, hub, store, author, *, make_session) -> None:
     mode0 = app.storage.user.get("studio_mode", "mix")
     if mode0 not in ("canvas", "mix"):   # 'chat' = page d'accueil (route /), jamais persisté ici
         mode0 = "mix"
-    state = {"mode": mode0, "sid": metas[0].id}
+    # session à focus après création d'un worktree (one-shot) → on atterrit dans SA session
+    focus_sid = app.storage.user.get("studio_focus_sid")
+    if focus_sid is not None:
+        try:
+            del app.storage.user["studio_focus_sid"]
+        except Exception:
+            pass
+    init_sid = focus_sid if (focus_sid and any(m.id == focus_sid for m in metas)) else metas[0].id
+    state = {"mode": mode0, "sid": init_sid}
     refs = {"left": None}
 
     with container:

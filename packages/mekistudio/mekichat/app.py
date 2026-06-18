@@ -74,6 +74,11 @@ def _llm_factory():
     - MEKICHAT_FAKE_TOOL : FakeToolLLM appelant `bash rm …` (déclenche le tier `ask` de s15)."""
     import os
     tests_dir = str(HERE.parent.parent.parent / "tests")   # racine/tests (fakes)
+    if os.environ.get("MEKICHAT_FAKE_PWD"):
+        sys.path.insert(0, tests_dir)
+        from fakes import FakeToolLLM
+        return FakeToolLLM(tool_name="bash", tool_args={"command": "pwd"},
+                           final="Voici le répertoire courant.")
     if os.environ.get("MEKICHAT_FAKE_ASK"):
         sys.path.insert(0, tests_dir)
         from fakes import FakeToolLLM

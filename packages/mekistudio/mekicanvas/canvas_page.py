@@ -10,7 +10,7 @@ import json
 import posixpath
 from pathlib import Path
 
-from nicegui import ui
+from nicegui import app, ui
 
 from mekicanvas import editor as editor_mod
 from mekicanvas import explorer as explorer_mod
@@ -371,8 +371,11 @@ def render_canvas(container, hub, store, author, *, focus_sid=None, inject: bool
                 dlg.close()
                 ui.notify(f"création du worktree « {nm} »…")
                 try:
-                    _cid, scope = await hub.create_worktree(pid, nm)
-                    ui.notify(f"worktree « {scope} » créé ✓", type="positive")
+                    cid, scope = await hub.create_worktree(pid, nm)
+                    # atterrir DANS la session du worktree (Mix, chat à gauche = le worktree) après reload
+                    app.storage.user["studio_focus_sid"] = cid
+                    app.storage.user["studio_mode"] = "mix"
+                    ui.notify(f"worktree « {scope} » créé ✓ — ouverture du chat…", type="positive")
                     ui.run_javascript("setTimeout(()=>location.reload(), 500)")
                 except Exception as e:  # noqa: BLE001
                     busy["v"] = False
