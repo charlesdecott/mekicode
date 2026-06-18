@@ -32,6 +32,8 @@ class FakeDiscordClient:
         self._channels: dict[str, tuple] = {}
         self._invites: list[str] = []
         self._deleted: list = []
+        self._deleted_channels: list = []
+        self._deleted_categories: list = []
         self._seq: int = 0
 
     def _nid(self, prefix: str) -> str:
@@ -77,6 +79,14 @@ class FakeDiscordClient:
         self._invites.append(inv)
         return inv
 
+    async def delete_channel(self, channel_id: str) -> None:
+        self._channels.pop(channel_id, None)
+        self._deleted_channels.append(channel_id)
+
+    async def delete_category(self, category_id: str) -> None:
+        self._categories.pop(category_id, None)
+        self._deleted_categories.append(category_id)
+
     def category_count(self) -> int:
         return len(self._categories)
 
@@ -93,12 +103,27 @@ except ImportError:
     from mekihub.projects import slugify
 
 
+import re as _re
+
+
+def _wt_name(scope: str) -> str:
+    """Nom lisible d'un worktree à partir du scope `nom_uuid` (retire le suffixe uuid)."""
+    return _re.sub(r"_[0-9a-f]{6,}$", "", scope or "") or scope
+
+
+def _wt_category_name(scope: str) -> str:
+    """Nom de la catégorie Discord d'un worktree : « 🌳 <nom> »."""
+    return f"🌳 {_wt_name(scope)}"[:100]
+
+
 def _channel_name(session) -> str:
-    """Nom Discord d'un canal à partir de la session (scope + titre/id)."""
+    """Nom Discord d'un canal pour une session. main → `main-<titre>` ; worktree → `<titre>`
+    (la catégorie porte déjà le nom du worktree)."""
+    title = session.title if (session.title and session.title != "(nouvelle session)") else ""
+    base = slugify(title) or session.id[:8]
     if session.scope == "main":
-        base = slugify(session.title or session.id) or session.id[:8]
         return f"main-{base[:80]}"
-    return f"{slugify(session.scope)}-{session.id[:8]}"
+    return base[:90]
 
 
 class DiscordProvisioner:
@@ -119,26 +144,62 @@ class DiscordProvisioner:
         return None
 
     async def ensure_project(self, project):
+        """Garantit la catégorie 'main' + le guild. Les catégories worktree sont créées à la demande
+        (une par worktree) par `ensure_worktree_category`. Renvoie l'id de la catégorie main."""
         gid = await self.ensure_server()
         d = dict(project.discord or {})
         if not d.get("cat_main"):
             d["cat_main"] = await self.client.create_category(gid, f"{project.slug}-main")
-        if not d.get("cat_worktrees"):
-            d["cat_worktrees"] = await self.client.create_category(gid, f"{project.slug}-worktrees")
         d["guild_id"] = gid
         project.discord = d
         self.registry.update(project)
-        return d["cat_main"], d["cat_worktrees"]
+        return d["cat_main"]
+
+    async def ensure_worktree_category(self, project, scope):
+        """Catégorie Discord DÉDIÉE à un worktree (« 🌳 <nom> »), créée à la demande, idempotente."""
+        gid = await self.ensure_server()
+        d = dict(project.discord or {})
+        wt_cats = dict(d.get("wt_cats") or {})
+        if not wt_cats.get(scope):
+            wt_cats[scope] = await self.client.create_category(gid, _wt_category_name(scope))
+            d["wt_cats"] = wt_cats
+            d["guild_id"] = gid
+            project.discord = d
+            self.registry.update(project)
+        return wt_cats[scope]
 
     async def ensure_channel(self, session):
         if getattr(session, "discord_channel_id", None):
             return session.discord_channel_id
         project = self.registry.get(session.project_id)
-        cat_main, cat_wt = await self.ensure_project(project)
-        cat = cat_main if session.scope == "main" else cat_wt
+        cat_main = await self.ensure_project(project)
+        cat = cat_main if session.scope == "main" else await self.ensure_worktree_category(project, session.scope)
         ch = await self.client.create_channel(project.discord["guild_id"], cat, _channel_name(session))
         session.discord_channel_id = ch
         return ch
+
+    async def delete_channel(self, session) -> None:
+        """Supprime le canal Discord d'une session (no-op si aucun / client sans support)."""
+        ch = getattr(session, "discord_channel_id", None)
+        if ch and hasattr(self.client, "delete_channel"):
+            try:
+                await self.client.delete_channel(ch)
+            except Exception as e:   # never-raise : un échec Discord ne doit pas bloquer la suppression
+                print(f"[discord] suppression canal {ch} échouée : {type(e).__name__}: {e}")
+
+    async def delete_worktree_category(self, project, scope) -> None:
+        """Supprime la catégorie Discord d'un worktree + l'oublie du registre (no-op si aucune)."""
+        d = dict(project.discord or {})
+        wt_cats = dict(d.get("wt_cats") or {})
+        cat = wt_cats.pop(scope, None)
+        if cat and hasattr(self.client, "delete_category"):
+            try:
+                await self.client.delete_category(cat)
+            except Exception as e:
+                print(f"[discord] suppression catégorie {cat} échouée : {type(e).__name__}: {e}")
+        d["wt_cats"] = wt_cats
+        project.discord = d
+        self.registry.update(project)
 
     async def reconcile(self, store, mapping=None):
         """Parcourt projets+sessions ; crée les canaux manquants (idempotent). Renvoie le nb de
@@ -481,15 +542,28 @@ class RealDiscordClient:
         msg = await ch.fetch_message(int(message_id))
         await msg.delete()
 
+    async def delete_channel(self, channel_id) -> None:
+        ch = await self._channel(channel_id)
+        await ch.delete(reason="mekicode : session supprimée")
+
+    async def delete_category(self, category_id) -> None:
+        cat = await self._channel(category_id)   # une catégorie est un canal Discord
+        for child in list(getattr(cat, "channels", []) or []):   # canaux orphelins éventuels
+            try:
+                await child.delete(reason="mekicode : worktree supprimé")
+            except Exception:
+                pass
+        await cat.delete(reason="mekicode : worktree supprimé")
+
 
 async def run_discord(hub, registry, store, *, token, guild_id=None, admin_user_id=None,
                       holder=None) -> None:
     """Démarre le bot Discord réel et le branche sur le hub (provisioning + miroir bidirectionnel).
 
     Bloque sur `client.start(token)` (à lancer dans une tâche asyncio). À `on_ready` : reconcilie
-    les canaux (catégories <projet>-main/-worktrees + un canal par session), construit le mapping
-    canal→session et démarre un rendu persistant par canal. `holder` (dict optionnel) reçoit
-    `adapter`/`provisioner` pour le câblage à chaud des nouvelles sessions.
+    les canaux (catégorie <projet>-main pour main, UNE catégorie « 🌳 <nom> » par worktree, un canal
+    par session), construit le mapping canal→session et démarre un rendu persistant par canal.
+    `holder` (dict optionnel) reçoit `adapter`/`provisioner` pour le câblage à chaud des nouvelles sessions.
     """
     import discord
     intents = discord.Intents.default()

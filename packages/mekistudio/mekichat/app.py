@@ -236,14 +236,41 @@ def index() -> None:
         _mirror_session_to_discord(current)
         _refresh()
 
-    def delete_session(session_id: str) -> None:
+    async def delete_session(session_id: str) -> None:
         nonlocal current
         if state["busy"]:
             return
-        _get_store().delete(session_id)
-        if current.id == session_id:               # session courante supprimée → basculer
-            current = _ensure_current()             # plus récente restante, ou une nouvelle
+        await _get_hub().purge_session(session_id)   # supprime la session ET son canal Discord
+        if current.id == session_id:                 # session courante supprimée → basculer
+            current = _ensure_current()              # plus récente restante, ou une nouvelle
         _refresh()
+
+    async def delete_worktree_home(scope: str) -> None:
+        """Supprime un worktree : ses sessions, ses canaux Discord, le worktree git et sa catégorie."""
+        nonlocal current, current_scope
+        if state["busy"] or scope == "main":
+            return
+        n = await _get_hub().delete_worktree(current_project.id, scope)
+        if current.scope == scope:                   # on était dans ce worktree → revenir à main
+            current_scope = "main"
+            current = _ensure_current()
+        _refresh()
+        ui.notify(f"worktree « {scope} » supprimé ({n} session·s, canaux Discord inclus)", color="warning")
+
+    def _confirm_delete_worktree(scope: str) -> None:
+        n = len(_metas_for_scope(current_project.id, scope))
+        dlg = ui.dialog()
+        with dlg, ui.card().classes("wt-dialog"):
+            ui.label("⚠ Supprimer le worktree ?").classes("sec-label")
+            ui.label(f"« {scope} » et ses {n} session·s seront supprimés (worktree git, branche, "
+                     "canaux Discord). Action irréversible.").classes("wt-dlg-hint")
+            with ui.row():
+                async def _go():
+                    dlg.close()
+                    await delete_worktree_home(scope)
+                ui.button("Supprimer", on_click=_go).props("color=negative")
+                ui.button("Annuler", on_click=dlg.close).props("flat")
+        dlg.open()
 
     def pick_project(pid: str) -> None:
         nonlocal current, current_project, current_scope
@@ -564,6 +591,7 @@ def index() -> None:
                 on_new_session=new_session_in,
                 on_new_worktree=_open_worktree_dialog_home,
                 on_delete=delete_session,
+                on_delete_worktree=_confirm_delete_worktree,
             )
 
             with ui.element("div").classes("sidebar-foot"):

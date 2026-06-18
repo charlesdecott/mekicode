@@ -285,6 +285,9 @@
 .wtt-chip .uuid{color:var(--faint);font-size:9px}
 .wtt-chip .cnt{margin-left:auto;font-size:9px;color:var(--faint);background:rgba(0,0,0,.4);
   padding:1px 6px;clip-path:var(--clip-sm)}
+.wtt-chip .wtx{flex:none;font-size:10px;opacity:0;cursor:pointer;transition:opacity .15s,filter .15s}
+.wtt-chip>summary:hover .wtx{opacity:.65}
+.wtt-chip .wtx:hover{opacity:1;filter:drop-shadow(0 0 4px var(--p2))}
 .wtt-line{display:flex;align-items:center;gap:8px;padding:5px 13px 5px 22px;font-family:var(--ui);
   font-size:12px;color:var(--muted);cursor:pointer;transition:color .15s,background .15s}
 .wtt-line:hover{color:var(--text);background:var(--p1-bg)}

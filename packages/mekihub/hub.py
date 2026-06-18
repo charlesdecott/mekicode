@@ -234,6 +234,42 @@ class SessionHub:
                 pass     # Discord optionnel
         return child.id, scope
 
+    async def purge_session(self, session_id: str) -> None:
+        """Supprime une session ET son canal Discord (si un provisioner est actif)."""
+        sess = None
+        try:
+            sess = self.store.load(session_id)
+        except Exception:
+            pass
+        if sess is not None and self.provisioner is not None and getattr(sess, "discord_channel_id", None):
+            try:
+                await self.provisioner.delete_channel(sess)
+            except Exception:
+                pass     # never-raise : Discord optionnel
+        self.store.delete(session_id)
+
+    async def delete_worktree(self, project_id: str, scope: str) -> int:
+        """Supprime un worktree : toutes ses sessions (+ canaux Discord), le worktree git, et sa
+        catégorie Discord. Renvoie le nombre de sessions supprimées. No-op gracieux si introuvable."""
+        if scope == "main":
+            return 0     # garde-fou : on ne supprime jamais le 'main'
+        project = self.registry.get(project_id) if self.registry else None
+        metas = [m for m in self.store.list(project_id=project_id) if (m.scope or "main") == scope]
+        for m in metas:
+            await self.purge_session(m.id)
+        if project is not None:
+            try:
+                from projects import remove_worktree
+                await asyncio.to_thread(remove_worktree, project, scope)
+            except Exception:
+                pass
+            if self.provisioner is not None:
+                try:
+                    await self.provisioner.delete_worktree_category(project, scope)
+                except Exception:
+                    pass
+        return len(metas)
+
     def reject_worktree(self, session_id: str, proposal_id: str) -> bool:
         room = self._room(session_id)
         if room.pending_worktrees.pop(proposal_id, None) is not None:

@@ -391,7 +391,8 @@ def _wt_session_line(meta, current_sid, on_open_session, on_delete):
 
 
 def render_worktree_tree(main_sessions, worktrees, current_sid,
-                         on_open_session, on_new_session, on_new_worktree, on_delete=None):
+                         on_open_session, on_new_session, on_new_worktree, on_delete=None,
+                         on_delete_worktree=None):
     """Sidebar hiérarchique « rail compact » (Design C) : catégorie main + catégorie worktrees
     (sous-catégories repliables par worktree), sessions imbriquées, + session sous chaque groupe,
     + new worktree.
@@ -431,6 +432,11 @@ def render_worktree_tree(main_sessions, worktrees, current_sid,
                         if uid:
                             ui.label(uid).classes("uuid")
                         ui.label(str(len(sessions))).classes("cnt")
+                        if on_delete_worktree is not None:
+                            with ui.element("span").classes("wtx").on(
+                                "click.stop", lambda _, s=scope: on_delete_worktree(s)
+                            ):
+                                ui.label("🗑")
                     for m in sessions:
                         _wt_session_line(m, current_sid, on_open_session, on_delete)
                     with ui.element("div").classes("wtt-add").on(

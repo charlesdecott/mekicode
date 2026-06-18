@@ -37,9 +37,11 @@ events.py    ── événements émis par SessionHub, consommés par les adapta
    │             WorktreeProposed / WorktreeRejected / WorktreeCreated
    ▼
 adapters/
-  discord.py ── DiscordProvisioner : ensure_server/project/channel/reconcile (idempotent)
+  discord.py ── DiscordProvisioner : ensure_server/project/channel/reconcile (idempotent) +
+                 **une catégorie « 🌳 <nom> » par worktree** (ensure_worktree_category) +
+                 delete_channel / delete_worktree_category (suppression)
                  DiscordAdapter : mapping canal → session ; handle_message (source="discord:<canal>") ;
-                 _render_loop avec anti-écho ; FakeDiscordClient étendu (guild/catégorie/canal)
+                 _render_loop avec anti-écho ; FakeDiscordClient étendu (guild/catégorie/canal + delete)
 ```
 
 ## `projects.py` — registre multi-projet et worktrees
@@ -178,6 +180,11 @@ SessionHub(store, llm_factory, tools, dispatch=None, *,
   du prompt initial, lance son worker, appelle `provisioner.ensure_channel` si fourni, publie
   `WorktreeCreated`. La session **main** reste vivante et continue de traiter sa file.
 - `reject_worktree(session_id, proposal_id)` (sync) : publie `WorktreeRejected`, aucun worktree créé.
+- `create_worktree(project_id, nom, base=None)` (async) : création **directe** (déclenchée par l'utilisateur,
+  sans proposition d'agent) — `<repo>/.worktrees/<nom>_<uuid>` + session dédiée (titre = nom). Renvoie `(sid, scope)`.
+- `purge_session(session_id)` (async) : supprime la session **et son canal Discord** (si provisioner actif).
+- `delete_worktree(project_id, scope)` (async) : supprime **toutes** les sessions du worktree (+ leurs canaux),
+  le worktree git (branche incluse) et la **catégorie Discord** ; renvoie le nb de sessions. Garde-fou : jamais `main`.
 
 **Worker asyncio (`_run_worker`, l.141) :**
 Une tâche asyncio par session, démarrée à la demande (`_ensure_worker`). Résout `workspace_for(sess, registry)`,

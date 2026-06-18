@@ -460,7 +460,7 @@ def test_provisioner_creates_categories_and_channels_idempotent():
             prov = DiscordProvisioner(registry=reg, client=client, guild_id="g1")
             await prov.ensure_project(p)
             p2 = reg.get(p.id)
-            assert p2.discord["cat_main"] and p2.discord["cat_worktrees"]
+            assert p2.discord["cat_main"] and "cat_worktrees" not in p2.discord  # par worktree désormais
             cats_before = client.category_count()
             await prov.ensure_project(p)                     # idempotent
             assert client.category_count() == cats_before    # pas de doublon
@@ -474,7 +474,9 @@ def test_provisioner_creates_categories_and_channels_idempotent():
             sw = Session(id="s2", title="t", model="m", created_at="t",
                          project_id=p.id, scope="featx")
             chw = await prov.ensure_channel(sw)
-            assert client.channel_name(chw).startswith("featx-")
+            wt_cat = reg.get(p.id).discord["wt_cats"]["featx"]   # catégorie DÉDIÉE au worktree
+            assert client._channels[chw][1] == wt_cat
+            assert client._categories[wt_cat][1] == "🌳 featx"
     asyncio.run(scenario())
 
 
